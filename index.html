@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>StockFlow — Gestão de Estoque</title>
+<link rel="icon" type="image/png" href="stockflow.ico">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -333,6 +334,8 @@ tr:hover td{background:rgba(255,255,255,.02);}
 /* PURCHASE TABLE */
 .purchase-urgent{background:rgba(255,59,92,.04);}
 .purchase-soon{background:rgba(255,149,0,.04);}
+/* Responsive layout helper */
+.form-table-layout{display:grid;gap:24px;align-items:start;}
 
 /* RESPONSIVE */
 @media(max-width:768px){
@@ -341,25 +344,113 @@ tr:hover td{background:rgba(255,255,255,.02);}
   #sidebar.open{transform:translateX(0);}
   #sidebar-overlay.open{display:block;}
   #topbar{display:flex;}
-  #main{padding-top:0;}
-  .page{padding:12px;}
+  #main{padding-top:0;overflow-x:hidden;}
+  .page{padding:12px;overflow-x:hidden;}
   .grid-2,.grid-3,.grid-4{grid-template-columns:1fr;}
-  table{display:none;}
+  /* Tabelas: scroll horizontal em vez de display:none */
+  .table-scroll-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%;}
+  table{display:table;min-width:500px;font-size:12px;}
+  th,td{padding:8px 10px;white-space:nowrap;}
   .mobile-cards{display:block;}
   .desktop-only{display:none;}
   .section-title{font-size:18px;}
   .req-layout{grid-template-columns:1fr !important;}
-  .card{padding:14px;}
+  .card{padding:14px;overflow-x:hidden;}
   .stat-card{padding:14px 16px;}
-  .modal-box{padding:20px;margin:8px;}
+  .modal-box{padding:20px;margin:8px;width:calc(100vw - 16px);max-width:none;}
   select,input,textarea{font-size:16px !important;} /* prevent zoom on iOS */
   .btn{padding:11px 16px;font-size:13px;}
   #notif-panel{width:calc(100vw - 24px);right:12px;top:56px;}
   .section-sub{margin-bottom:14px;}
   #toast{bottom:16px;right:12px;left:12px;max-width:none;}
+  /* Filtros do dashboard: empilhar em coluna */
+  #page-dash .card > div:first-child{flex-wrap:wrap;gap:8px;}
+  #page-dash .card > div:first-child input,
+  #page-dash .card > div:first-child select{width:100%!important;}
+  /* Grids fixos em px viram 1fr */
+  .form-table-layout,
+  [style*="grid-template-columns:380px"],
+  [style*="grid-template-columns:420px"],
+  [style*="grid-template-columns:460px"],
+  [style*="grid-template-columns:1fr 1fr"]{
+    grid-template-columns:1fr!important;
+  }
 }
 @media(min-width:769px){
   .mobile-cards{display:none;}
+  .table-scroll-wrap{overflow-x:auto;}
+}
+
+/* ── MOBILE DATA CARDS ── */
+.data-cards { display: none; }
+.data-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+.data-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  gap: 8px;
+}
+.data-card-title { font-weight: 700; font-size: 14px; line-height: 1.3; }
+.data-card-body { font-size: 12px; color: var(--muted); line-height: 1.9; }
+.data-card-body strong { color: var(--text); }
+.data-card-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.data-card-actions .btn { flex: 1; min-width: 60px; text-align: center; }
+
+/* ── SEARCHABLE SELECT ── */
+.sf-wrap { position: relative; width: 100%; }
+.sf-input {
+  width: 100%;
+  padding: 10px 36px 10px 14px !important;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: 'DM Sans', sans-serif;
+  outline: none;
+  cursor: text;
+  transition: border-color .2s;
+  box-sizing: border-box;
+}
+.sf-input:focus { border-color: var(--accent); }
+.sf-arrow {
+  position: absolute; right: 10px; top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none; color: var(--muted); font-size: 10px;
+}
+.sf-dropdown {
+  display: none; position: absolute;
+  top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--surface2); border: 1px solid var(--accent);
+  border-radius: 10px; max-height: 220px;
+  overflow-y: auto; z-index: 500;
+  box-shadow: 0 8px 24px rgba(0,0,0,.6);
+}
+.sf-dropdown.open { display: block; }
+.sf-opt {
+  padding: 10px 14px; cursor: pointer; font-size: 13px;
+  border-bottom: 1px solid var(--border); transition: background .12s;
+  color: var(--text);
+}
+.sf-opt:last-child { border-bottom: none; }
+.sf-opt:hover { background: rgba(0,229,160,.1); color: var(--accent); }
+.sf-opt.sf-empty { color: var(--muted); cursor: default; font-style: italic; }
+.sf-opt.sf-empty:hover { background: none; color: var(--muted); }
+
+@media(max-width:768px){
+  .sf-input { font-size: 16px !important; }
+}
+
+@media(min-width:769px){
+  .table-scroll-wrap { display: block; }
+  .data-cards { display: none; }
 }
 </style>
 </head>
@@ -489,10 +580,10 @@ tr:hover td{background:rgba(255,255,255,.02);}
           <button class="btn btn-secondary" onclick="limparFiltrosDash()" style="padding:7px 10px;font-size:12px;">✕</button>
         </div>
         <div id="dash-filtro-contador" style="font-size:12px;color:var(--muted);margin-bottom:8px;display:none;"></div>
-        <table>
+        <div class="table-scroll-wrap"><table>
           <thead><tr><th>Material</th><th>Qtd Total</th><th>Estoques</th><th>Mín</th><th>Máx</th><th>Dias Chegada</th><th>Status</th></tr></thead>
           <tbody id="dash-tbody"></tbody>
-        </table>
+        </table></div>
         <div id="dash-sem-resultado" style="display:none;text-align:center;color:var(--muted);padding:24px;">Nenhum material encontrado.</div>
       </div>
     </div>
@@ -501,7 +592,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
     <div id="page-cadastrar-estoque" class="page">
       <div class="section-title">Cadastrar Estoque</div>
       <div class="section-sub">Crie e gerencie locais de armazenamento</div>
-      <div style="display:grid;grid-template-columns:380px 1fr;gap:24px;align-items:start;">
+      <div class="form-table-layout" style="display:grid;grid-template-columns:380px 1fr;gap:24px;align-items:start;">
         <div class="card">
           <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:18px;">Novo Estoque</div>
           <div class="form-group"><label>Nome *</label><input id="es-nome" type="text" placeholder="Ex: Almoxarifado Central"></div>
@@ -514,7 +605,8 @@ tr:hover td{background:rgba(255,255,255,.02);}
         </div>
         <div class="card">
           <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:14px;">Estoques Cadastrados</div>
-          <table><thead><tr><th>Nome</th><th>Local</th><th>Principal</th><th></th></tr></thead><tbody id="estoques-tbody"></tbody></table>
+          <div class="table-scroll-wrap"><table><thead><tr><th>Nome</th><th>Local</th><th>Principal</th><th></th></tr></thead><tbody id="estoques-tbody"></tbody></table></div>
+          <div class="data-cards" id="estoques-cards"></div>
           <div id="estoques-empty" style="text-align:center;color:var(--muted);padding:28px;display:none;">Nenhum estoque cadastrado.</div>
         </div>
       </div>
@@ -524,7 +616,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
     <div id="page-cadastrar-material" class="page">
       <div class="section-title">Cadastrar Material</div>
       <div class="section-sub">Registre os materiais e defina limites de estoque</div>
-      <div style="display:grid;grid-template-columns:420px 1fr;gap:24px;align-items:start;">
+      <div class="form-table-layout" style="display:grid;grid-template-columns:420px 1fr;gap:24px;align-items:start;">
         <div class="card">
           <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:18px;">Novo Material</div>
           <div class="form-group"><label>Nome *</label><input id="mat-nome" type="text" placeholder="Ex: Luva Cirúrgica"></div>
@@ -543,7 +635,8 @@ tr:hover td{background:rgba(255,255,255,.02);}
         </div>
         <div class="card">
           <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:14px;">Materiais Cadastrados</div>
-          <table><thead><tr><th>Nome</th><th>Cat.</th><th>Unid.</th><th>Mín</th><th>Máx</th><th>Dias</th><th></th></tr></thead><tbody id="materiais-tbody"></tbody></table>
+          <div class="table-scroll-wrap"><table><thead><tr><th>Nome</th><th>Cat.</th><th>Unid.</th><th>Mín</th><th>Máx</th><th>Dias</th><th></th></tr></thead><tbody id="materiais-tbody"></tbody></table></div>
+          <div class="data-cards" id="materiais-cards"></div>
           <div id="materiais-empty" style="text-align:center;color:var(--muted);padding:28px;display:none;">Nenhum material cadastrado.</div>
         </div>
       </div>
@@ -556,7 +649,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
       <div class="req-layout" style="display:grid;grid-template-columns:460px 1fr;gap:24px;align-items:start;">
         <div class="card">
           <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:18px;">Nova Entrada</div>
-          <div class="form-group"><label>Material *</label><select id="ent-material"><option value="">Selecione...</option></select></div>
+          <div class="form-group"><label>Material *</label><div id="sf-ent-material-wrap" class="sf-wrap"></div><select id="ent-material" style="display:none;"><option value="">Selecione...</option></select></div>
           <div class="form-group"><label>Estoque Destino *</label><select id="ent-estoque"><option value="">Selecione...</option></select></div>
           <div class="form-group" id="ent-lote-group"><label>Lote *</label><input id="ent-lote" type="text" placeholder="Código do lote"></div>
           <div class="form-group">
@@ -571,7 +664,8 @@ tr:hover td{background:rgba(255,255,255,.02);}
         </div>
         <div class="card">
           <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:14px;">Últimas Entradas</div>
-          <table><thead><tr><th>Material</th><th>Estoque</th><th>Lote</th><th>Qtd</th><th>Validade</th><th>Data</th><th></th></tr></thead><tbody id="entradas-tbody"></tbody></table>
+          <div class="table-scroll-wrap"><table><thead><tr><th>Material</th><th>Estoque</th><th>Lote</th><th>Qtd</th><th>Validade</th><th>Data</th><th></th></tr></thead><tbody id="entradas-tbody"></tbody></table></div>
+          <div class="data-cards" id="entradas-cards"></div>
           <div id="entradas-empty" style="text-align:center;color:var(--muted);padding:28px;display:none;">Nenhuma entrada registrada.</div>
         </div>
       </div>
@@ -585,7 +679,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
         <div class="card">
           <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:18px;">Nova Saída</div>
           <div class="form-group"><label>Estoque Origem *</label><select id="sai-estoque" onchange="carregarItensSaida()"><option value="">Selecione...</option></select></div>
-          <div class="form-group"><label>Item (Material/Lote) *</label><select id="sai-item"><option value="">Selecione o estoque primeiro...</option></select></div>
+          <div class="form-group"><label>Item (Material/Lote) *</label><div id="sf-sai-item-wrap" class="sf-wrap"></div><select id="sai-item" style="display:none;"><option value="">Selecione o estoque primeiro...</option></select></div>
           <div class="form-group"><label>Quantidade *</label><input id="sai-qtd" type="number" placeholder="0" min="1"></div>
           <div class="form-group"><label>Motivo</label><input id="sai-motivo" type="text" placeholder="Ex: Consumo, Vencimento..."></div>
           <div class="form-group"><label>Responsável</label><input id="sai-resp" type="text" placeholder="Nome do responsável"></div>
@@ -593,7 +687,8 @@ tr:hover td{background:rgba(255,255,255,.02);}
         </div>
         <div class="card">
           <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:14px;">Últimas Saídas</div>
-          <table><thead><tr><th>Material</th><th>Estoque</th><th>Lote</th><th>Qtd</th><th>Motivo</th><th>Data</th></tr></thead><tbody id="saidas-tbody"></tbody></table>
+          <div class="table-scroll-wrap"><table><thead><tr><th>Material</th><th>Estoque</th><th>Lote</th><th>Qtd</th><th>Motivo</th><th>Data</th></tr></thead><tbody id="saidas-tbody"></tbody></table></div>
+          <div class="data-cards" id="saidas-cards"></div>
           <div id="saidas-empty" style="text-align:center;color:var(--muted);padding:28px;display:none;">Nenhuma saída registrada.</div>
         </div>
       </div>
@@ -636,7 +731,8 @@ tr:hover td{background:rgba(255,255,255,.02);}
       <div id="analise-summary" style="display:none;margin-bottom:18px;"><div class="grid-4" id="analise-stats"></div></div>
       <div class="card" id="analise-card" style="display:none;">
         <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:14px;" id="analise-title">Itens do Estoque</div>
-        <table><thead><tr><th>Material</th><th>Lote</th><th>Quantidade</th><th>Validade</th><th>Mín</th><th>Máx</th><th>Status</th><th></th></tr></thead><tbody id="analise-tbody"></tbody></table>
+        <div class="table-scroll-wrap"><table><thead><tr><th>Material</th><th>Lote</th><th>Quantidade</th><th>Validade</th><th>Mín</th><th>Máx</th><th>Status</th><th></th></tr></thead><tbody id="analise-tbody"></tbody></table></div>
+          <div class="data-cards" id="analise-cards"></div>
         <div id="analise-nenhum-filtro" style="display:none;text-align:center;color:var(--muted);padding:28px;">Nenhum item encontrado.</div>
       </div>
       <div id="analise-empty" class="card" style="text-align:center;color:var(--muted);padding:40px;display:none;">Nenhum item neste estoque.</div>
@@ -663,10 +759,11 @@ tr:hover td{background:rgba(255,255,255,.02);}
         </div>
       </div>
       <div class="card">
-        <table>
+        <div class="table-scroll-wrap"><table>
           <thead><tr><th>Material</th><th>Qtd Total</th><th>Estoque Mín.</th><th>Lead Time</th><th>Consumo Médio/dia</th><th>Dias de Estoque</th><th>Pedir Até</th><th>Situação</th></tr></thead>
           <tbody id="compras-tbody"></tbody>
-        </table>
+        </table></div>
+          <div class="data-cards" id="compras-cards"></div>
         <div id="compras-empty" style="text-align:center;color:var(--muted);padding:32px;display:none;">Nenhum material com informações suficientes para calcular.</div>
       </div>
       <div style="margin-top:14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;font-size:12px;color:var(--muted);line-height:1.8;">
@@ -684,7 +781,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
           <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;">
             <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px;">Origem</div>
             <div class="form-group"><label>Estoque *</label><select id="trf-est-origem" onchange="carregarItensTransf()"><option value="">Selecione...</option></select></div>
-            <div class="form-group"><label>Item *</label><select id="trf-item" onchange="preencherInfoTransf()"><option value="">Selecione o estoque primeiro...</option></select></div>
+            <div class="form-group"><label>Item *</label><div id="sf-trf-item-wrap" class="sf-wrap"></div><select id="trf-item" onchange="preencherInfoTransf()" style="display:none;"><option value="">Selecione o estoque primeiro...</option></select></div>
             <div id="trf-info-item" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:12px;margin-bottom:4px;"></div>
             <div class="form-group" style="margin-bottom:0;"><label>Quantidade *</label><input id="trf-qtd" type="number" min="1" placeholder="0"></div>
           </div>
@@ -705,7 +802,8 @@ tr:hover td{background:rgba(255,255,255,.02);}
         </div>
         <div class="card">
           <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:14px;">Histórico</div>
-          <table><thead><tr><th>Material / Lote</th><th>Origem</th><th>Destino</th><th>Qtd</th><th>Resp.</th><th>Data</th></tr></thead><tbody id="transf-tbody"></tbody></table>
+          <div class="table-scroll-wrap"><table><thead><tr><th>Material / Lote</th><th>Origem</th><th>Destino</th><th>Qtd</th><th>Resp.</th><th>Data</th></tr></thead><tbody id="transf-tbody"></tbody></table></div>
+          <div class="data-cards" id="transf-cards"></div>
           <div id="transf-empty" style="text-align:center;color:var(--muted);padding:32px;display:none;">Nenhuma transferência.</div>
         </div>
       </div>
@@ -719,8 +817,8 @@ tr:hover td{background:rgba(255,255,255,.02);}
         <div class="card">
           <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:18px;">Solicitar Material</div>
           <div class="form-group"><label>Estoque *</label><select id="req-estoque" onchange="carregarMateraisReq()"><option value="">Selecione...</option></select></div>
-          <div class="form-group"><label>Material *</label><select id="req-material" onchange="carregarLotesReq()"><option value="">Selecione o estoque primeiro...</option></select></div>
-          <div class="form-group"><label>Lote *</label><select id="req-lote"><option value="">Selecione o material primeiro...</option></select></div>
+          <div class="form-group"><label>Material *</label><div id="sf-req-material-wrap" class="sf-wrap"></div><select id="req-material" onchange="carregarLotesReq()" style="display:none;"><option value="">Selecione o estoque primeiro...</option></select></div>
+          <div class="form-group"><label>Lote *</label><div id="sf-req-lote-wrap" class="sf-wrap"></div><select id="req-lote" style="display:none;"><option value="">Selecione o material primeiro...</option></select></div>
           <div id="req-info-lote" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:12px;color:var(--muted);margin-bottom:12px;"></div>
           <div class="form-group">
             <label>Setor Solicitante *</label>
@@ -737,7 +835,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
           <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:15px;margin-bottom:14px;">Minhas Requisições</div>
           <!-- TABLE (desktop) -->
           <div class="card desktop-only">
-            <table><thead><tr><th>Material</th><th>Lote</th><th>Setor</th><th>Qtd</th><th>Status</th><th>Obs</th><th>Data</th></tr></thead><tbody id="minhas-req-tbody"></tbody></table>
+            <div class="table-scroll-wrap"><table><thead><tr><th>Material</th><th>Lote</th><th>Setor</th><th>Qtd</th><th>Status</th><th>Obs</th><th>Data</th></tr></thead><tbody id="minhas-req-tbody"></tbody></table></div>
             <div id="minhas-req-empty" style="text-align:center;color:var(--muted);padding:28px;display:none;">Nenhuma requisição feita.</div>
           </div>
           <!-- CARDS (mobile) -->
@@ -768,10 +866,10 @@ tr:hover td{background:rgba(255,255,255,.02);}
       </div>
       <!-- TABLE (desktop) -->
       <div class="card desktop-only">
-        <table>
+        <div class="table-scroll-wrap"><table>
           <thead><tr><th>Material</th><th>Lote</th><th>Setor</th><th>Solicitante</th><th>Qtd</th><th>Justif.</th><th>Data</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody id="atendimento-tbody"></tbody>
-        </table>
+        </table></div>
         <div id="atendimento-empty" style="text-align:center;color:var(--muted);padding:32px;display:none;">Nenhuma requisição encontrada.</div>
       </div>
       <!-- CARDS (mobile) -->
@@ -782,7 +880,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
     <div id="page-usuarios" class="page">
       <div class="section-title">Gerenciar Usuários</div>
       <div class="section-sub">Cadastre e gerencie os usuários do sistema</div>
-      <div style="display:grid;grid-template-columns:420px 1fr;gap:24px;align-items:start;">
+      <div class="form-table-layout" style="display:grid;grid-template-columns:420px 1fr;gap:24px;align-items:start;">
         <div class="card">
           <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:18px;">Novo Usuário</div>
           <div class="form-group"><label>Nome Completo *</label><input id="nu-nome" type="text" placeholder="Ex: João Silva"></div>
@@ -800,10 +898,11 @@ tr:hover td{background:rgba(255,255,255,.02);}
         </div>
         <div class="card">
           <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:14px;">Usuários Cadastrados</div>
-          <table>
+          <div class="table-scroll-wrap"><table>
             <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Cadastrado</th><th></th></tr></thead>
             <tbody id="usuarios-tbody"></tbody>
-          </table>
+          </table></div>
+          <div class="data-cards" id="usuarios-cards"></div>
           <div id="usuarios-empty" style="text-align:center;color:var(--muted);padding:28px;display:none;">Nenhum usuário cadastrado.</div>
           <div id="usuarios-loading" style="text-align:center;color:var(--muted);padding:28px;">Carregando...</div>
         </div>
@@ -840,7 +939,8 @@ tr:hover td{background:rgba(255,255,255,.02);}
             <button class="btn btn-danger" onclick="limparSnapshots()" style="font-size:12px;padding:7px 14px;">Limpar Todos</button>
           </div>
         </div>
-        <table><thead><tr><th>Nome / Data</th><th>Estoques</th><th>Materiais</th><th>Itens</th><th>Tamanho</th><th>Ações</th></tr></thead><tbody id="snapshots-tbody"></tbody></table>
+        <div class="table-scroll-wrap"><table><thead><tr><th>Nome / Data</th><th>Estoques</th><th>Materiais</th><th>Itens</th><th>Tamanho</th><th>Ações</th></tr></thead><tbody id="snapshots-tbody"></tbody></table></div>
+          <div class="data-cards" id="snapshots-cards"></div>
         <div id="snapshots-empty" style="text-align:center;color:var(--muted);padding:28px;display:none;">Nenhum snapshot.</div>
       </div>
     </div>
@@ -922,7 +1022,74 @@ tr:hover td{background:rgba(255,255,255,.02);}
           <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:15px;">Pré-visualização</div>
           <span id="rel-preview-count" style="font-size:12px;color:var(--muted);"></span>
         </div>
-        <div style="overflow-x:auto;"><table id="rel-preview-table"><thead></thead><tbody></tbody></table></div>
+        <div style="overflow-x:auto;"><div class="table-scroll-wrap"><table id="rel-preview-table"><thead></thead><tbody></tbody></table></div></div>
+      </div>
+    </div>
+
+    <!-- PAGE: AUDITORIA -->
+    <div id="page-auditoria" class="page">
+      <div class="section-title">Auditoria & Logs</div>
+      <div class="section-sub">Registro automático de todas as ações do sistema</div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+          <div style="flex:2;min-width:160px;">
+            <label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:block;">Buscar</label>
+            <input id="aud-busca" type="text" placeholder="Usuário, ação, detalhe..." oninput="renderAuditoria()">
+          </div>
+          <div style="min-width:150px;">
+            <label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:block;">Tipo</label>
+            <select id="aud-tipo" onchange="renderAuditoria()">
+              <option value="">Todos os tipos</option>
+              <option value="login">🔑 Login</option>
+              <option value="logout">🚪 Logout</option>
+              <option value="entrada">📥 Entrada</option>
+              <option value="saida">📤 Saída</option>
+              <option value="transferencia">🔄 Transferência</option>
+              <option value="requisicao">📋 Requisição</option>
+              <option value="atendimento">✅ Atendimento</option>
+              <option value="material">📦 Material</option>
+              <option value="estoque">🏭 Estoque</option>
+              <option value="usuario">👤 Usuário</option>
+              <option value="backup">💾 Backup</option>
+              <option value="sistema">⚙️ Sistema</option>
+            </select>
+          </div>
+          <div style="min-width:140px;">
+            <label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:block;">De</label>
+            <input id="aud-de" type="date" onchange="renderAuditoria()">
+          </div>
+          <div style="min-width:140px;">
+            <label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:block;">Até</label>
+            <input id="aud-ate" type="date" onchange="renderAuditoria()">
+          </div>
+          <div style="display:flex;gap:8px;align-self:flex-end;">
+            <button class="btn btn-secondary" onclick="limparFiltrosAud()">✕ Limpar</button>
+            <button class="btn btn-danger" onclick="exportarAuditoriaPDF()" style="background:var(--danger);color:#fff;">📄 PDF</button>
+          </div>
+        </div>
+        <div id="aud-contador" style="font-size:12px;color:var(--muted);margin-top:10px;display:none;"></div>
+      </div>
+
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="table-scroll-wrap">
+          <table>
+            <thead><tr>
+              <th style="min-width:140px">Data / Hora</th>
+              <th>Usuário</th>
+              <th>Tipo</th>
+              <th>Ação</th>
+              <th style="min-width:200px">Detalhe</th>
+            </tr></thead>
+            <tbody id="aud-tbody"></tbody>
+          </table>
+        </div>
+        <div class="data-cards" id="aud-cards"></div>
+        <div id="aud-empty" style="display:none;text-align:center;color:var(--muted);padding:40px 20px;">
+          <div style="font-size:32px;margin-bottom:8px;">📋</div>
+          Nenhum log encontrado.
+        </div>
+        <div id="aud-paginacao" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-top:1px solid var(--border);font-size:13px;"></div>
       </div>
     </div>
   </div><!-- /main -->
@@ -1128,6 +1295,7 @@ window._onAuthReady = async (user) => {
   currentUser = user;
   await loadDB();
   iniciarApp();
+  logAudit('login', `Login: ${user.nome}`, `E-mail: ${user.email} | Perfil: ${user.role}`);
 };
 window._onAuthLogout = () => {
   // Cancela listener de notificações
@@ -1157,6 +1325,7 @@ async function fazerLogin() {
 }
 
 async function fazerLogout() {
+  logAudit('logout', `Logout: ${currentUser?currentUser.nome:'?'}`, `E-mail: ${currentUser?currentUser.email:'?'}`);
   await window._firebase.signOut(window._firebase.auth);
 }
 
@@ -1202,6 +1371,7 @@ async function cadastrarUsuario() {
     // Limpa form
     ['nu-nome','nu-email','nu-senha'].forEach(id => document.getElementById(id).value='');
     document.getElementById('nu-role').value = 'user';
+    logAudit('usuario', `Usuário cadastrado: ${nome}`, `E-mail: ${email} | Perfil: ${role}`);
     toast('Usuário cadastrado com sucesso!');
     renderUsuarios();
   } catch(e) {
@@ -1291,6 +1461,8 @@ const NAV_ADM = [
   { id:'usuarios', icon:'users', label:'Gerenciar Usuários' },
   { id:'backup', icon:'cloud', label:'Backup & Restauração' },
   { id:'relatorios', icon:'document', label:'Relatórios' },
+  { type:'sep' },
+  { id:'auditoria', icon:'audit', label:'Auditoria & Logs' },
 ];
 const NAV_USER = [
   { id:'requisicoes', icon:'clipboard', label:'Requisições' },
@@ -1310,6 +1482,7 @@ const ICONS = {
   users:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>',
   clipboard:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>',
   document:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>',
+  audit:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>',
 };
 
 function buildNav() {
@@ -1339,7 +1512,7 @@ function navigateTo(page) {
   if (page === 'dash') renderDash();
   if (page === 'compras') renderCompras();
   if (page === 'entrada') { populateSel('ent-material', db.materiais); populateSel('ent-estoque', db.estoques); renderEntradas(); }
-  if (page === 'saida') { populateSel('sai-estoque', db.estoques); renderSaidas(); }
+  if (page === 'saida') { populateSel('sai-estoque', db.estoques); renderSaidas(); setTimeout(()=>{const r=document.getElementById('sai-resp');if(r&&!r.value&&currentUser)r.value=currentUser.nome;},50); }
   if (page === 'analise') { populateSel('analise-estoque', db.estoques); }
   if (page === 'transferencia') { iniciarTransferencia(); renderTransferencias(); }
   if (page === 'backup') { atualizarPreviewBackup(); renderSnapshots(); }
@@ -1349,6 +1522,7 @@ function navigateTo(page) {
   if (page === 'cadastrar-material') renderMateriais();
   if (page === 'cadastrar-estoque') renderEstoques();
   if (page === 'relatorios') iniciarRelatorios();
+  if (page === 'auditoria') renderAuditoria();
 }
 
 // ===========================
@@ -1447,6 +1621,8 @@ function renderEstoques() {
 }
 async function delEstoque(id) {
   if (!confirm('Remover estoque?')) return;
+  const _delEst=db.estoques.find(e=>e.id===id);
+  logAudit('estoque', `Estoque removido: ${_delEst?_delEst.nome:'?'}`, `ID: ${id}`);
   const itensDel = db.itens.filter(i => i.estoqueId===id).map(i=>i.id);
   db.estoques = db.estoques.filter(e => e.id!==id);
   db.itens = db.itens.filter(i => i.estoqueId!==id);
@@ -1505,6 +1681,8 @@ function renderMateriais() {
 async function delMaterial(id) {
   if (!confirm('Remover?')) return;
   const itensDel = db.itens.filter(i => i.materialId===id).map(i=>i.id);
+  const _delMat=db.materiais.find(m=>m.id===id);
+  logAudit('material', `Material removido: ${_delMat?_delMat.nome:'?'}`, `ID: ${id}`);
   db.materiais = db.materiais.filter(m => m.id!==id);
   db.itens = db.itens.filter(i => i.materialId!==id);
   renderMateriais();
@@ -1551,6 +1729,7 @@ async function salvarEdicaoMaterial() {
   m.unidade=document.getElementById('edit-mat-unidade').value.trim();
   m.min=min!==''?+min:null; m.max=max!==''?+max:null;
   m.diasChegada=dias!==''?+dias:null;
+  logAudit('material', `Material editado: ${m.nome}`, `Cat: ${m.cat||'—'} | Min: ${m.min??'—'} | Max: ${m.max??'—'}`);
   fecharModal('modal-material'); renderMateriais();
   try { await saveItem('materiais', m); toast('Material atualizado!'); }
   catch(e) { toast('Erro ao atualizar.','error'); }
@@ -1589,6 +1768,7 @@ async function registrarEntrada() {
   ['ent-qtd','ent-val','ent-lote','ent-obs'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('ent-semlote').checked=false; toggleLote(); renderEntradas();
   toast(mesclou?`Lote "${loteVal}" somado! Total: ${item.qtd}`:`Entrada de ${qtd} ${mat.nome} registrada!`);
+  logAudit('entrada', mesclou?`Lote "${loteVal}" somado (+${qtd})`:`Entrada de ${qtd}x ${mat.nome}`, `Lote: ${loteVal} | Estoque: ${est.nome} | Qtd: +${qtd}`);
   try {
     await saveItem('itens', item);
     await saveItem('entradas', entrada);
@@ -1642,7 +1822,9 @@ async function registrarSaida() {
   const saida={id:uid(),materialNome:mat?mat.nome:'?',estoqueNome:est?est.nome:'?',lote:item.lote,qtd,motivo,resp,data:new Date().toISOString()};
   db.saidas.unshift(saida);
   ['sai-qtd','sai-motivo','sai-resp'].forEach(i=>document.getElementById(i).value='');
+  if(currentUser){const sr=document.getElementById('sai-resp');if(sr)sr.value=currentUser.nome;}
   carregarItensSaida(); renderSaidas();
+  logAudit('saida', `Saída de ${qtd}x ${mat?mat.nome:'?'}`, `Lote: ${item.lote} | Estoque: ${est?est.nome:'?'} | Qtd: -${qtd}${motivo?' | Motivo: '+motivo:''}${resp?' | Resp: '+resp:''}`);
   toast(`Saída de ${qtd} registrada!`);
   try {
     await saveItem('itens', item);
@@ -1999,7 +2181,7 @@ async function salvarEdicaoItem(){
 // ===========================
 // TRANSFERÊNCIA
 // ===========================
-function iniciarTransferencia(){populateSel('trf-est-origem',db.estoques);populateSel('trf-est-destino',db.estoques);document.getElementById('trf-item').innerHTML='<option value="">Selecione o estoque primeiro...</option>';document.getElementById('trf-info-item').style.display='none';['trf-qtd','trf-motivo','trf-resp','trf-novo-lote'].forEach(i=>document.getElementById(i).value='');document.getElementById('trf-lote-manter').checked=true;document.getElementById('trf-novo-lote-group').style.display='none';}
+function iniciarTransferencia(){populateSel('trf-est-origem',db.estoques);populateSel('trf-est-destino',db.estoques);document.getElementById('trf-item').innerHTML='<option value="">Selecione o estoque primeiro...</option>';document.getElementById('trf-info-item').style.display='none';['trf-qtd','trf-motivo','trf-resp','trf-novo-lote'].forEach(i=>document.getElementById(i).value='');if(currentUser){const tr=document.getElementById('trf-resp');if(tr)tr.value=currentUser.nome;}document.getElementById('trf-lote-manter').checked=true;document.getElementById('trf-novo-lote-group').style.display='none';}
 function carregarItensTransf(){const estId=document.getElementById('trf-est-origem').value;const sel=document.getElementById('trf-item');sel.innerHTML='<option value="">Selecione o item...</option>';if(!estId)return;const itens=db.itens.filter(i=>i.estoqueId===estId&&i.qtd>0);if(!itens.length){sel.innerHTML='<option value="">Nenhum item disponível</option>';return;}itens.forEach(i=>{const mat=db.materiais.find(m=>m.id===i.materialId);sel.innerHTML+=`<option value="${i.id}">${mat?mat.nome:'?'} — ${i.lote} (${i.qtd})</option>`;});}
 function preencherInfoTransf(){const itemId=document.getElementById('trf-item').value;const info=document.getElementById('trf-info-item');if(!itemId){info.style.display='none';return;}const item=db.itens.find(i=>i.id===itemId);if(!item){info.style.display='none';return;}const mat=db.materiais.find(m=>m.id===item.materialId);const st=getStatus(item.qtd,mat?mat.min:null,mat?mat.max:null);info.style.display='block';info.innerHTML=`<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;"><div><span style="color:var(--muted)">Disponível:</span> <strong>${item.qtd}</strong></div><div><span style="color:var(--muted)">Lote:</span> <strong>${item.lote}</strong></div>${item.validade?`<div><span style="color:var(--muted)">Validade:</span> <strong>${fmt(item.validade)}</strong></div>`:''}<span class="badge ${st.cls}">${st.label}</span></div>`;}
 function toggleTrfLote(){const modo=document.querySelector('input[name="trf-lote-modo"]:checked').value;document.getElementById('trf-novo-lote-group').style.display=modo==='novo'?'block':'none';}
@@ -2035,6 +2217,7 @@ async function registrarTransferencia(){
   renderTransferencias(); carregarItensTransf();
   document.getElementById('trf-info-item').style.display='none';
   document.getElementById('trf-qtd').value='';
+  logAudit('transferencia', `Transferência de ${qtd}x ${mat?mat.nome:'?'}`, `De: ${estOrig?estOrig.nome:'?'} → Para: ${estDest?estDest.nome:'?'} | Lote: ${itemOrig.lote}${resp?' | Resp: '+resp:''}`);
   toast(`${qtd} ${mat?mat.nome:''} transferidos para ${estDest?estDest.nome:'?'}!`);
   try {
     await saveItem('itens', itemOrig);
@@ -2141,6 +2324,7 @@ async function registrarRequisicao(){
   // Notificação para o admin
   adicionarNotif('adm',`📋 Nova requisição de ${currentUser.nome}: ${qtd}x ${mat?mat.nome:''} para ${setor}`,'pendente',req.id);
   try {
+    logAudit('requisicao', `Requisição enviada: ${req.qtd}x ${req.materialNome}`, `Estoque: ${req.estoqueNome} | Setor: ${req.setor}`);
     await saveItem('requisicoes', req);
     toast('Requisição enviada!');
   } catch(e) {
@@ -2324,6 +2508,7 @@ async function confirmarAcaoReq(){
     adicionarNotif(req.solicitanteId,`❌ Sua requisição de ${req.qtd}x ${req.materialNome} foi NEGADA. Motivo: ${motivo}`,'negada',reqId);
     toast('Requisição negada.');
   }
+  logAudit('atendimento', `Requisição ${acao==='atender'?'ATENDIDA':acao==='aguardo'?'EM AGUARDO':'NEGADA'}: ${req.materialNome}`, `Qtd: ${acao==='atender'?(document.getElementById('modal-atender-qtd')?.value||req.qtd):req.qtd} | Solicitante: ${req.solicitanteNome}${motivo?' | Motivo: '+motivo:''}`);
   fecharModal('modal-atender'); renderAtendimento();
   try {
     await saveItem('requisicoes', req);
@@ -2594,7 +2779,8 @@ function exportarBackup(){
   criarSnapshot(false); toast('Backup exportado!');
 }
 function exportarSnapshot(id){const s=loadSnapshots().find(x=>x.id===id);if(!s)return;const blob=new Blob([JSON.stringify({_meta:{versao:'2.0',app:'StockFlow',exportado:s.data},dados:s.dados},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`stockflow_snap_${s.data.slice(0,10)}.json`;a.click();URL.revokeObjectURL(url);}
-async function restaurarSnapshot(id){const s=loadSnapshots().find(x=>x.id===id);if(!s)return;if(!confirm(`Restaurar "${s.nome}"? Os dados atuais serão substituídos.`))return;db=JSON.parse(JSON.stringify(s.dados));if(!db.transferencias)db.transferencias=[];if(!db.requisicoes)db.requisicoes=[];if(!db.notificacoes)db.notificacoes=[];renderDash();toast('Restaurando...');try{await saveDB();toast('Restaurado!');}catch(e){toast('Erro ao restaurar.','error');}}
+async function restaurarSnapshot(id){const s=loadSnapshots().find(x=>x.id===id);if(!s)return;if(!confirm(`Restaurar "${s.nome}"? Os dados atuais serão substituídos.`))return;
+  logAudit('backup', `Snapshot restaurado: ${s.nome}`, `Data: ${fmtDT(s.data)}`);db=JSON.parse(JSON.stringify(s.dados));if(!db.transferencias)db.transferencias=[];if(!db.requisicoes)db.requisicoes=[];if(!db.notificacoes)db.notificacoes=[];renderDash();toast('Restaurando...');try{await saveDB();toast('Restaurado!');}catch(e){toast('Erro ao restaurar.','error');}}
 function deletarSnapshot(id){if(!confirm('Remover snapshot?'))return;saveSnapshots(loadSnapshots().filter(s=>s.id!==id));renderSnapshots();toast('Removido.');}
 function limparSnapshots(){if(!confirm('Remover TODOS os snapshots?'))return;localStorage.removeItem(SNAP_KEY);renderSnapshots();toast('Limpos.');}
 function dragOver(e){e.preventDefault();document.getElementById('import-dropzone').style.borderColor='var(--accent)';}
@@ -2906,10 +3092,683 @@ async function gerarRelatorioPDF() {
 }
 
 // INIT — Firebase cuida da sessão via onAuthStateChanged
-// ===========================
-// Mostrar tela de login enquanto aguarda o Firebase
 document.getElementById('app').classList.remove('logged');
 document.getElementById('auth-screen').style.display = 'flex';
+
+// ══════════════════════════════════════════════════════
+//  SEARCHABLE SELECT  — StockFlow
+//  Renderiza um input+dropdown em cima de um <select> hidden.
+//  O <select> original continua sendo a fonte de verdade
+//  para todo o código existente (.value, onchange, etc.)
+// ══════════════════════════════════════════════════════
+(function () {
+
+  // Cada campo: { selectId, wrapperId, placeholder }
+  const SF_FIELDS = [
+    { sel: 'ent-material',  wrap: 'sf-ent-material-wrap',  ph: 'Digite para buscar material...' },
+    { sel: 'sai-item',      wrap: 'sf-sai-item-wrap',      ph: 'Digite para buscar item...'     },
+    { sel: 'req-material',  wrap: 'sf-req-material-wrap',  ph: 'Digite para buscar material...' },
+    { sel: 'req-lote',      wrap: 'sf-req-lote-wrap',      ph: 'Digite para buscar lote...'     },
+    { sel: 'trf-item',      wrap: 'sf-trf-item-wrap',      ph: 'Digite para buscar item...'     },
+  ];
+
+  // Cria o widget de busca para um campo
+  function buildWidget(cfg) {
+    const wrapEl = document.getElementById(cfg.wrap);
+    if (!wrapEl) return;
+
+    wrapEl.innerHTML = `
+      <div class="sf-wrap" id="sfw-${cfg.sel}">
+        <input type="text" class="sf-input" id="sfi-${cfg.sel}"
+          placeholder="${cfg.ph}" autocomplete="off"
+          spellcheck="false">
+        <span class="sf-arrow">▼</span>
+        <div class="sf-dropdown" id="sfd-${cfg.sel}"></div>
+      </div>`;
+
+    const input = document.getElementById('sfi-' + cfg.sel);
+    const drop  = document.getElementById('sfd-' + cfg.sel);
+    const sel   = document.getElementById(cfg.sel);
+
+    // Atualiza dropdown com base no texto digitado
+    function renderDrop() {
+      const q = input.value.trim().toLowerCase();
+      const opts = Array.from(sel.options);
+      const filtered = q
+        ? opts.filter(o => o.text.toLowerCase().includes(q) && o.value !== '')
+        : opts.filter(o => o.value !== '');
+
+      if (!filtered.length) {
+        drop.innerHTML = '<div class="sf-opt sf-empty">Nenhum resultado encontrado</div>';
+      } else {
+        drop.innerHTML = filtered.map(o =>
+          `<div class="sf-opt" data-val="${o.value}">${o.text}</div>`
+        ).join('');
+        drop.querySelectorAll('.sf-opt').forEach(el => {
+          el.addEventListener('mousedown', e => {
+            e.preventDefault();
+            selectOption(o => o.value === el.dataset.val);
+          });
+        });
+      }
+    }
+
+    // Seleciona uma opção no select hidden e atualiza o input
+    function selectOption(predicate) {
+      const opt = Array.from(sel.options).find(predicate);
+      if (!opt) return;
+      sel.value = opt.value;
+      input.value = opt.value ? opt.text : '';
+      drop.classList.remove('open');
+      // Dispara onchange no select para que o código existente reaja
+      sel.dispatchEvent(new Event('change'));
+    }
+
+    // Sincroniza o input com o valor atual do select
+    function syncFromSelect() {
+      const cur = sel.options[sel.selectedIndex];
+      input.value = (cur && cur.value) ? cur.text : '';
+    }
+
+    // Eventos do input
+    input.addEventListener('input', () => {
+      renderDrop();
+      drop.classList.add('open');
+    });
+    input.addEventListener('focus', () => {
+      renderDrop();
+      drop.classList.add('open');
+    });
+    input.addEventListener('blur', () => {
+      setTimeout(() => {
+        drop.classList.remove('open');
+        syncFromSelect(); // restaura label se nada foi selecionado
+      }, 180);
+    });
+
+    // Quando o select muda por código externo, sincroniza o input
+    sel.addEventListener('change', syncFromSelect);
+
+    // Observa quando options mudam (MutationObserver)
+    const mo = new MutationObserver(() => {
+      syncFromSelect();
+    });
+    mo.observe(sel, { childList: true, subtree: true });
+
+    return { input, drop, sel, syncFromSelect, renderDrop };
+  }
+
+  // Inicia todos os widgets assim que o DOM estiver pronto
+  function initAll() {
+    SF_FIELDS.forEach(cfg => buildWidget(cfg));
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAll);
+  } else {
+    initAll();
+  }
+
+  // Fecha dropdowns ao clicar fora
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.sf-wrap')) {
+      document.querySelectorAll('.sf-dropdown.open')
+        .forEach(d => d.classList.remove('open'));
+    }
+  });
+
+})();
+
+
+// ══════════════════════════════════════════════════════
+//  MOBILE DATA CARDS — render cards alongside tables
+// ══════════════════════════════════════════════════════
+
+// Utilitário: patch não-destrutivo de funções existentes
+function _after(name, fn) {
+  const orig = window[name];
+  window[name] = function (...a) {
+    const r = typeof orig === 'function' ? orig.apply(this, a) : undefined;
+    fn(...a);
+    return r;
+  };
+}
+function _afterAsync(name, fn) {
+  const orig = window[name];
+  window[name] = async function (...a) {
+    const r = typeof orig === 'function' ? await orig.apply(this, a) : undefined;
+    await fn(...a);
+    return r;
+  };
+}
+
+function _cards(id) {
+  return document.getElementById(id);
+}
+
+// ── ESTOQUES ──
+function _estoqueCards() {
+  const el = _cards('estoques-cards'); if (!el) return;
+  el.innerHTML = db.estoques.map(e => `
+    <div class="data-card">
+      <div class="data-card-header">
+        <div class="data-card-title">${e.nome}${e.principal ? ' <span class="badge badge-ok" style="font-size:10px;">Principal</span>' : ''}</div>
+      </div>
+      <div class="data-card-body">
+        ${e.desc ? e.desc + '<br>' : ''}
+        ${e.local ? '📍 ' + e.local : '<span style="opacity:.5">Sem localização</span>'}
+      </div>
+      <div class="data-card-actions">
+        <button class="btn btn-secondary" onclick="togglePrincipal('${e.id}')">⭐ Principal</button>
+        <button class="btn btn-danger" onclick="delEstoque('${e.id}')">✕ Remover</button>
+      </div>
+    </div>`).join('');
+}
+_after('renderEstoques', _estoqueCards);
+
+// ── MATERIAIS ──
+function _materialCards() {
+  const el = _cards('materiais-cards'); if (!el) return;
+  el.innerHTML = db.materiais.map(m => `
+    <div class="data-card">
+      <div class="data-card-header">
+        <div class="data-card-title">${m.nome}</div>
+        ${m.cat ? `<span class="badge badge-noref" style="font-size:10px;">${m.cat}</span>` : ''}
+      </div>
+      <div class="data-card-body">
+        Unidade: <strong>${m.unidade || '—'}</strong> &nbsp;·&nbsp;
+        Mín: <strong>${m.min !== null ? m.min : '—'}</strong> &nbsp;·&nbsp;
+        Máx: <strong>${m.max !== null ? m.max : '—'}</strong>
+        ${m.diasChegada != null ? `<br>Lead time: <strong>${m.diasChegada}d</strong>` : ''}
+      </div>
+      <div class="data-card-actions">
+        <button class="btn btn-secondary" style="flex:2" onclick="abrirEditarMaterial('${m.id}')">✏️ Editar</button>
+        <button class="btn btn-secondary" onclick="copiarMaterial('${m.id}')">⎘</button>
+        <button class="btn btn-danger" onclick="delMaterial('${m.id}')">✕</button>
+      </div>
+    </div>`).join('');
+}
+_after('renderMateriais', _materialCards);
+
+// ── ENTRADAS ──
+function _entradaCards() {
+  const el = _cards('entradas-cards'); if (!el) return;
+  el.innerHTML = db.entradas.slice(0, 20).map(e => `
+    <div class="data-card">
+      <div class="data-card-header">
+        <div class="data-card-title">${e.materialNome}</div>
+        <strong style="color:var(--accent);font-size:16px;">+${e.qtd}</strong>
+      </div>
+      <div class="data-card-body">
+        📦 ${e.estoqueNome}<br>
+        Lote: <span style="color:var(--accent);font-weight:600;">${e.lote}</span>
+        ${e.validade ? ` &nbsp;·&nbsp; Val: <strong>${fmt(e.validade)}</strong>` : ''}
+        <br><span style="font-size:11px;color:var(--muted)">${fmt(e.data)}</span>
+      </div>
+      <div class="data-card-actions">
+        <button class="btn btn-secondary" style="flex:1" onclick="abrirEditarEntrada('${e.id}')">✏️ Editar</button>
+      </div>
+    </div>`).join('');
+}
+_after('renderEntradas', _entradaCards);
+
+// ── SAÍDAS ──
+function _saidaCards() {
+  const el = _cards('saidas-cards'); if (!el) return;
+  el.innerHTML = db.saidas.slice(0, 20).map(s => `
+    <div class="data-card">
+      <div class="data-card-header">
+        <div class="data-card-title">${s.materialNome}</div>
+        <strong style="color:var(--danger);font-size:16px;">-${s.qtd}</strong>
+      </div>
+      <div class="data-card-body">
+        📦 ${s.estoqueNome}<br>
+        Lote: <span style="color:var(--danger);font-weight:600;">${s.lote}</span>
+        ${s.motivo ? ` &nbsp;·&nbsp; ${s.motivo}` : ''}
+        <br><span style="font-size:11px;color:var(--muted)">${fmt(s.data)}</span>
+      </div>
+    </div>`).join('');
+}
+_after('renderSaidas', _saidaCards);
+
+// ── ANÁLISE (filtrada) ──
+function _analiseCards() {
+  const el = _cards('analise-cards'); if (!el) return;
+  if (!window.analiseItensCache) { el.innerHTML = ''; return; }
+  const busca = (document.getElementById('filtro-nome')?.value || '').toLowerCase();
+  const cat   = document.getElementById('filtro-cat')?.value || '';
+  const status= document.getElementById('filtro-status')?.value || '';
+  const hoje  = new Date(); hoje.setHours(0,0,0,0);
+  const res   = analiseItensCache.filter(r => {
+    if (busca && !r.nome.toLowerCase().includes(busca) && !r.item.lote.toLowerCase().includes(busca)) return false;
+    if (cat && r.cat !== cat) return false;
+    if (status && r.st.cls !== status) return false;
+    return true;
+  });
+  el.innerHTML = res.map(({ item, mat, nome, min, max, st, vencido, dias }) => {
+    let vStr = item.validade ? fmt(item.validade) : '—', vStyle = '';
+    if (vencido) { vStyle = 'color:var(--danger);font-weight:600'; vStr += ' ⚠️ VENCIDO'; }
+    else if (dias != null && dias <= 30) { vStyle = 'color:var(--warn);font-weight:600'; vStr += ` (${dias}d)`; }
+    return `<div class="data-card">
+      <div class="data-card-header">
+        <div>
+          <div class="data-card-title">${nome}</div>
+          ${mat?.cat ? `<span style="font-size:11px;color:var(--muted)">${mat.cat}</span>` : ''}
+        </div>
+        <span class="badge ${st.cls}">${st.label}</span>
+      </div>
+      <div class="data-card-body">
+        Lote: <strong>${item.lote}</strong><br>
+        Qtd: <strong style="font-size:15px">${item.qtd}</strong>${mat?.unidade ? ' ' + mat.unidade : ''}<br>
+        ${min != null || max != null ? `Mín: <strong>${min ?? '—'}</strong> · Máx: <strong>${max ?? '—'}</strong><br>` : ''}
+        <span style="${vStyle}">Validade: ${vStr}</span>
+      </div>
+      <div class="data-card-actions">
+        <button class="btn btn-secondary" style="flex:1" onclick="abrirEditarItem('${item.id}')">✏️ Editar</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+_after('aplicarFiltros', _analiseCards);
+
+// ── COMPRAS ──
+function _comprasCards() {
+  const el = _cards('compras-cards'); if (!el) return;
+  // Lê as linhas já renderizadas na tabela e cria cards equivalentes
+  const rows = document.querySelectorAll('#compras-tbody tr');
+  el.innerHTML = '';
+  rows.forEach(row => {
+    const tds = row.querySelectorAll('td');
+    if (!tds.length) return;
+    const nome    = tds[0].innerHTML;
+    const qtd     = tds[1].innerHTML;
+    const min     = tds[2].textContent;
+    const lead    = tds[3].textContent;
+    const consumo = tds[4].innerHTML;
+    const dias    = tds[5].innerHTML;
+    const pedir   = tds[6].innerHTML;
+    const badge   = tds[7].innerHTML;
+    el.innerHTML += `<div class="data-card">
+      <div class="data-card-header">
+        <div class="data-card-title">${nome}</div>
+        ${badge}
+      </div>
+      <div class="data-card-body">
+        Qtd: <strong>${qtd}</strong> &nbsp;·&nbsp; Mín: <strong>${min}</strong><br>
+        Lead time: <strong>${lead}</strong> &nbsp;·&nbsp; Consumo: ${consumo}<br>
+        Dias restantes: <strong>${dias}</strong><br>
+        Pedir até: <strong>${pedir}</strong>
+      </div>
+    </div>`;
+  });
+}
+_after('renderCompras', _comprasCards);
+
+// ── TRANSFERÊNCIAS ──
+function _transfCards() {
+  const el = _cards('transf-cards'); if (!el) return;
+  if (!db.transferencias?.length) { el.innerHTML = ''; return; }
+  el.innerHTML = db.transferencias.slice(0, 30).map(t => {
+    const mesmoLote = t.loteOrigem === t.loteDestino;
+    return `<div class="data-card">
+      <div class="data-card-header">
+        <div>
+          <div class="data-card-title">${t.materialNome}</div>
+          <span style="font-size:11px;color:var(--muted)">${mesmoLote ? t.loteOrigem : t.loteOrigem + ' → ' + t.loteDestino}</span>
+        </div>
+        <strong style="color:var(--accent);font-size:15px">⇄ ${t.qtd}</strong>
+      </div>
+      <div class="data-card-body">
+        De: <strong>${t.estOrigNome}</strong> → <strong style="color:var(--accent)">${t.estDestNome}</strong><br>
+        ${t.resp ? `Resp: ${t.resp} &nbsp;·&nbsp; ` : ''}<span style="font-size:11px">${fmt(t.data)}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+_after('renderTransferencias', _transfCards);
+
+// ── SNAPSHOTS ──
+function _snapshotCards() {
+  const el = _cards('snapshots-cards'); if (!el) return;
+  const snaps = loadSnapshots();
+  el.innerHTML = snaps.map(s => {
+    const d  = s.dados;
+    const kb = (new Blob([JSON.stringify(d)]).size / 1024).toFixed(1);
+    return `<div class="data-card">
+      <div class="data-card-header">
+        <div>
+          <div class="data-card-title" style="font-size:13px">${s.nome}</div>
+          <span style="font-size:11px;color:var(--muted)">${fmtDT(s.data)}</span>
+          <span class="badge ${s.manual ? 'badge-ok' : 'badge-noref'}" style="font-size:9px;margin-left:4px">${s.manual ? 'Manual' : 'Auto'}</span>
+        </div>
+      </div>
+      <div class="data-card-body">
+        Estoques: <strong>${(d.estoques||[]).length}</strong> &nbsp;·&nbsp;
+        Materiais: <strong>${(d.materiais||[]).length}</strong> &nbsp;·&nbsp;
+        Itens: <strong>${(d.itens||[]).length}</strong> &nbsp;·&nbsp;
+        <strong>${kb} KB</strong>
+      </div>
+      <div class="data-card-actions">
+        <button class="btn btn-secondary" onclick="exportarSnapshot('${s.id}')">⬇ Baixar</button>
+        <button class="btn btn-primary"   onclick="restaurarSnapshot('${s.id}')">↺ Restaurar</button>
+        <button class="btn btn-danger"    onclick="deletarSnapshot('${s.id}')">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+_after('renderSnapshots', _snapshotCards);
+
+// ── USUÁRIOS (async) ──
+function _usuarioCards() {
+  const el = _cards('usuarios-cards'); if (!el) return;
+  const tb = document.getElementById('usuarios-tbody');
+  if (!tb) return;
+  el.innerHTML = '';
+  tb.querySelectorAll('tr').forEach(row => {
+    const tds = row.querySelectorAll('td');
+    if (!tds.length) return;
+    const nome    = tds[0]?.querySelector('strong')?.textContent || '—';
+    const email   = tds[1]?.textContent || '—';
+    const badgeEl = tds[2]?.querySelector('.badge');
+    const data    = tds[3]?.textContent || '—';
+    const acaoHtml= tds[4]?.innerHTML || '';
+    el.innerHTML += `<div class="data-card">
+      <div class="data-card-header">
+        <div>
+          <div class="data-card-title">${nome}</div>
+          <span style="font-size:11px;color:var(--muted)">${email}</span>
+        </div>
+        ${badgeEl ? badgeEl.outerHTML : ''}
+      </div>
+      <div class="data-card-body">Cadastrado: ${data}</div>
+      ${acaoHtml ? `<div class="data-card-actions">${acaoHtml}</div>` : ''}
+    </div>`;
+  });
+}
+_afterAsync('renderUsuarios', async () => _usuarioCards());
+
+// ══════════════════════════════════════════════════════
+//  AUDITORIA — Motor de logs automáticos
+// ══════════════════════════════════════════════════════
+
+// Configuração de cores/labels por tipo
+const AUDIT_META = {
+  login:        { cor:'var(--accent)',  bg:'rgba(0,229,160,.12)',   emoji:'🔑', label:'Login'         },
+  logout:       { cor:'var(--muted)',   bg:'rgba(107,114,128,.12)', emoji:'🚪', label:'Logout'        },
+  entrada:      { cor:'#5599ff',        bg:'rgba(0,102,255,.12)',   emoji:'📥', label:'Entrada'       },
+  saida:        { cor:'var(--danger)',  bg:'rgba(255,59,92,.12)',   emoji:'📤', label:'Saída'         },
+  transferencia:{ cor:'var(--warn)',    bg:'rgba(255,149,0,.12)',   emoji:'🔄', label:'Transferência' },
+  requisicao:   { cor:'var(--accent)',  bg:'rgba(0,229,160,.12)',   emoji:'📋', label:'Requisição'    },
+  atendimento:  { cor:'#5599ff',        bg:'rgba(0,102,255,.12)',   emoji:'✅', label:'Atendimento'   },
+  material:     { cor:'var(--warn)',    bg:'rgba(255,149,0,.12)',   emoji:'📦', label:'Material'      },
+  estoque:      { cor:'var(--text)',    bg:'rgba(232,234,240,.08)', emoji:'🏭', label:'Estoque'       },
+  usuario:      { cor:'var(--accent)',  bg:'rgba(0,229,160,.12)',   emoji:'👤', label:'Usuário'       },
+  backup:       { cor:'var(--muted)',   bg:'rgba(107,114,128,.12)', emoji:'💾', label:'Backup'        },
+  sistema:      { cor:'var(--muted)',   bg:'rgba(107,114,128,.12)', emoji:'⚙️', label:'Sistema'      },
+};
+
+// Armazena logs em memória (localStorage para persistência local)
+const AUDIT_KEY = 'sf_audit_logs';
+const AUDIT_MAX = 2000; // máximo de logs em memória
+
+function _getAuditLogs() {
+  try { return JSON.parse(localStorage.getItem(AUDIT_KEY) || '[]'); }
+  catch(e) { return []; }
+}
+function _saveAuditLogs(logs) {
+  try { localStorage.setItem(AUDIT_KEY, JSON.stringify(logs.slice(0, AUDIT_MAX))); }
+  catch(e) { /* ignora se localStorage cheio */ }
+}
+
+/**
+ * Registra um evento de auditoria
+ * @param {string} tipo - login|logout|entrada|saida|transferencia|requisicao|atendimento|material|estoque|usuario|backup|sistema
+ * @param {string} acao - Descrição curta da ação
+ * @param {string} detalhe - Detalhes adicionais
+ */
+function logAudit(tipo, acao, detalhe='') {
+  const log = {
+    id:      Date.now() + '_' + Math.random().toString(36).slice(2,7),
+    ts:      new Date().toISOString(),
+    tipo,
+    acao,
+    detalhe,
+    usuario: currentUser ? currentUser.nome  : 'Sistema',
+    email:   currentUser ? currentUser.email : '—',
+    role:    currentUser ? currentUser.role  : '—',
+  };
+  const logs = _getAuditLogs();
+  logs.unshift(log);
+  _saveAuditLogs(logs);
+
+  // Se a página de auditoria estiver aberta, re-renderiza
+  const pg = document.getElementById('page-auditoria');
+  if (pg && pg.classList.contains('active')) renderAuditoria();
+}
+
+// Estado de paginação
+let _audPage = 0;
+const _audPerPage = 50;
+
+function _audFilteredLogs() {
+  const busca  = (document.getElementById('aud-busca')?.value || '').toLowerCase().trim();
+  const tipo   = document.getElementById('aud-tipo')?.value   || '';
+  const de     = document.getElementById('aud-de')?.value     || '';
+  const ate    = document.getElementById('aud-ate')?.value    || '';
+
+  return _getAuditLogs().filter(l => {
+    if (tipo && l.tipo !== tipo) return false;
+    if (de) {
+      const lDate = l.ts.slice(0,10);
+      if (lDate < de) return false;
+    }
+    if (ate) {
+      const lDate = l.ts.slice(0,10);
+      if (lDate > ate) return false;
+    }
+    if (busca) {
+      const haystack = `${l.usuario} ${l.email} ${l.acao} ${l.detalhe} ${l.tipo}`.toLowerCase();
+      if (!haystack.includes(busca)) return false;
+    }
+    return true;
+  });
+}
+
+function renderAuditoria() {
+  const all    = _audFilteredLogs();
+  const total  = all.length;
+  const start  = _audPage * _audPerPage;
+  const page   = all.slice(start, start + _audPerPage);
+
+  // Contador
+  const ctr = document.getElementById('aud-contador');
+  const totalAll = _getAuditLogs().length;
+  if (total < totalAll) {
+    ctr.style.display = 'block';
+    ctr.innerHTML = `Mostrando <strong style="color:var(--text)">${total}</strong> de <strong>${totalAll}</strong> registros`;
+  } else {
+    ctr.style.display = 'block';
+    ctr.innerHTML = `<strong>${totalAll}</strong> registros no total`;
+  }
+
+  // Empty state
+  const empty = document.getElementById('aud-empty');
+  empty.style.display = page.length ? 'none' : 'block';
+
+  // Tabela
+  const tb = document.getElementById('aud-tbody');
+  if (tb) {
+    tb.innerHTML = page.map(l => {
+      const m = AUDIT_META[l.tipo] || AUDIT_META.sistema;
+      return `<tr>
+        <td style="font-size:12px;color:var(--muted);white-space:nowrap">${fmtDT(l.ts)}</td>
+        <td>
+          <strong style="font-size:13px">${escHtml(l.usuario)}</strong>
+          <br><span style="font-size:11px;color:var(--muted)">${escHtml(l.email)}</span>
+        </td>
+        <td><span style="padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;background:${m.bg};color:${m.cor};white-space:nowrap">${m.emoji} ${m.label}</span></td>
+        <td style="font-size:13px"><strong>${escHtml(l.acao)}</strong></td>
+        <td style="font-size:12px;color:var(--muted)">${escHtml(l.detalhe)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Mobile cards
+  const cards = document.getElementById('aud-cards');
+  if (cards) {
+    cards.innerHTML = page.map(l => {
+      const m = AUDIT_META[l.tipo] || AUDIT_META.sistema;
+      return `<div class="data-card">
+        <div class="data-card-header">
+          <div>
+            <div class="data-card-title">${escHtml(l.acao)}</div>
+            <span style="font-size:11px;color:var(--muted)">${escHtml(l.usuario)} · ${fmtDT(l.ts)}</span>
+          </div>
+          <span style="padding:3px 8px;border-radius:99px;font-size:10px;font-weight:700;background:${m.bg};color:${m.cor};white-space:nowrap">${m.emoji} ${m.label}</span>
+        </div>
+        ${l.detalhe ? `<div class="data-card-body">${escHtml(l.detalhe)}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  // Paginação
+  const totalPages = Math.ceil(total / _audPerPage);
+  const pag = document.getElementById('aud-paginacao');
+  if (pag) {
+    if (totalPages <= 1) { pag.style.display = 'none'; }
+    else {
+      pag.style.display = 'flex';
+      pag.innerHTML = `
+        <button class="btn btn-secondary" style="padding:6px 14px;font-size:12px" onclick="_audChangePage(${_audPage-1})" ${_audPage===0?'disabled':''}>← Anterior</button>
+        <span style="color:var(--muted);font-size:13px">Página <strong style="color:var(--text)">${_audPage+1}</strong> de ${totalPages}</span>
+        <button class="btn btn-secondary" style="padding:6px 14px;font-size:12px" onclick="_audChangePage(${_audPage+1})" ${_audPage>=totalPages-1?'disabled':''}>Próxima →</button>`;
+    }
+  }
+}
+
+function _audChangePage(p) {
+  const all = _audFilteredLogs();
+  const totalPages = Math.ceil(all.length / _audPerPage);
+  _audPage = Math.max(0, Math.min(p, totalPages - 1));
+  renderAuditoria();
+  document.getElementById('page-auditoria')?.scrollIntoView({behavior:'smooth'});
+}
+
+function limparFiltrosAud() {
+  ['aud-busca','aud-tipo','aud-de','aud-ate'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  _audPage = 0;
+  renderAuditoria();
+}
+
+function escHtml(s) {
+  if (!s) return '—';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── EXPORT PDF ────────────────────────────────────────────────
+function exportarAuditoriaPDF() {
+  const logs = _audFilteredLogs();
+  if (!logs.length) { toast('Nenhum log para exportar.', 'error'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+  const verde = [0, 229, 160];
+  const branco = [232, 234, 240];
+  const cinza  = [107, 114, 128];
+  const fundo  = [10, 12, 15];
+
+  // Cabeçalho
+  doc.setFillColor(...fundo);
+  doc.rect(0, 0, 297, 30, 'F');
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(18);
+  doc.setTextColor(...verde);
+  doc.text('Stock', 14, 18);
+  doc.setTextColor(...branco);
+  doc.text('Flow', 14 + doc.getTextWidth('Stock'), 18);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(10);
+  doc.setTextColor(...cinza);
+  doc.text('Relatório de Auditoria', 50, 18);
+  doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 200, 18);
+  doc.text(`Total de registros: ${logs.length}`, 200, 24);
+
+  // Filtros ativos
+  let filtrosAtivos = [];
+  const busca = document.getElementById('aud-busca')?.value;
+  const tipo  = document.getElementById('aud-tipo')?.value;
+  const de    = document.getElementById('aud-de')?.value;
+  const ate   = document.getElementById('aud-ate')?.value;
+  if (busca) filtrosAtivos.push(`Busca: "${busca}"`);
+  if (tipo)  filtrosAtivos.push(`Tipo: ${tipo}`);
+  if (de)    filtrosAtivos.push(`De: ${de}`);
+  if (ate)   filtrosAtivos.push(`Até: ${ate}`);
+  if (filtrosAtivos.length) {
+    doc.setFontSize(8);
+    doc.setTextColor(...cinza);
+    doc.text('Filtros: ' + filtrosAtivos.join(' | '), 14, 26);
+  }
+
+  // Tabela
+  doc.autoTable({
+    startY: 34,
+    head: [['Data/Hora', 'Usuário', 'E-mail', 'Tipo', 'Ação', 'Detalhe']],
+    body: logs.map(l => [
+      fmtDT(l.ts),
+      l.usuario || '—',
+      l.email   || '—',
+      (AUDIT_META[l.tipo]?.label || l.tipo),
+      l.acao    || '—',
+      l.detalhe || '—',
+    ]),
+    styles: {
+      fontSize: 7,
+      cellPadding: 3,
+      textColor: [200, 202, 208],
+      lineColor: [37, 40, 48],
+      lineWidth: 0.1,
+      fillColor: [17, 19, 24],
+    },
+    headStyles: {
+      fillColor: [26, 29, 36],
+      textColor: [107, 114, 128],
+      fontStyle: 'bold',
+      fontSize: 7,
+    },
+    alternateRowStyles: { fillColor: [22, 25, 32] },
+    columnStyles: {
+      0: { cellWidth: 32 },
+      1: { cellWidth: 28 },
+      2: { cellWidth: 42 },
+      3: { cellWidth: 24 },
+      4: { cellWidth: 60 },
+      5: { cellWidth: 'auto' },
+    },
+    margin: { left: 14, right: 14 },
+    didDrawPage: (d) => {
+      doc.setFontSize(7);
+      doc.setTextColor(...cinza);
+      const pg = doc.internal.getNumberOfPages();
+      doc.text(`Página ${d.pageNumber} · StockFlow Auditoria`, 14, doc.internal.pageSize.height - 5);
+    }
+  });
+
+  const nome = `auditoria_${new Date().toISOString().slice(0,10)}.pdf`;
+  doc.save(nome);
+  toast(`PDF exportado: ${nome}`);
+}
+
+// Log inicial de sistema quando app é carregado
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    if (currentUser) logAudit('sistema', 'Sessão ativa', `Usuário: ${currentUser.nome}`);
+  }, 3000);
+});
+
 </script>
 </body>
 </html>
