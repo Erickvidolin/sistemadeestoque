@@ -1300,6 +1300,12 @@ window._onAuthReady = async (user) => {
 window._onAuthLogout = () => {
   // Cancela listener de notificações
   if (window._notifUnsubscribe) { window._notifUnsubscribe(); window._notifUnsubscribe = null; }
+  // Cancela listener de requisições
+  if (window._reqUnsubscribe) {
+    if (typeof window._reqUnsubscribe === 'function') window._reqUnsubscribe();
+    else clearInterval(window._reqUnsubscribe);
+    window._reqUnsubscribe = null;
+  }
   currentUser = null;
   document.getElementById('app').classList.remove('logged');
   document.getElementById('auth-screen').style.display = 'flex';
@@ -1430,6 +1436,7 @@ function iniciarApp() {
   document.getElementById('role-chip').textContent = currentUser.role === 'adm' ? 'Administrador' : 'Usuário';
   buildNav();
   iniciarListenerNotifs(); // inicia listener em tempo real de notificações
+  iniciarListenerRequisicoes(); // inicia listener em tempo real de requisições
   updateStorageInfo();
   // Navigate to first page
   if (currentUser.role === 'adm') {
@@ -2595,6 +2602,100 @@ function iniciarListenerNotifs() {
     console.warn('[Notifs] onSnapshot indisponível, usando polling:', e.message);
     recarregarNotifs();
     window._notifUnsubscribe = setInterval(() => recarregarNotifs(), 20000);
+  }
+}
+
+// ===========================
+// LISTENER EM TEMPO REAL — REQUISIÇÕES
+// ===========================
+function iniciarListenerRequisicoes() {
+  if (!currentUser) return;
+
+  // Cancela listener anterior se existir
+  if (window._reqUnsubscribe) {
+    if (typeof window._reqUnsubscribe === 'function') window._reqUnsubscribe();
+    else clearInterval(window._reqUnsubscribe);
+    window._reqUnsubscribe = null;
+  }
+
+  try {
+    const { firestore, collection, onSnapshot } = window._firebase;
+
+    const colRef = collection(firestore, 'stockflow', 'requisicoes', 'items');
+
+    const unsub = onSnapshot(colRef,
+      (snap) => {
+        db.requisicoes = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => new Date(b.data) - new Date(a.data));
+
+        // Atualiza a view ativa que depende de requisicoes
+        const pageReq = document.getElementById('page-requisicoes');
+        const pageAtend = document.getElementById('page-atendimento');
+        const pageDash = document.getElementById('page-dash');
+
+        if (pageReq && pageReq.classList.contains('active')) renderMinhasReq();
+        if (pageAtend && pageAtend.classList.contains('active')) renderAtendimento();
+        if (pageDash && pageDash.classList.contains('active')) renderDash();
+
+        // Atualiza badge de pendentes no nav se for admin
+        if (currentUser && currentUser.role === 'adm') {
+          const pendentes = db.requisicoes.filter(r => r.status === 'pendente').length;
+          const navAtend = document.getElementById('nav-atendimento');
+          if (navAtend) {
+            let badge = navAtend.querySelector('.nav-req-badge');
+            if (pendentes > 0) {
+              if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'nav-req-badge';
+                badge.style.cssText = 'margin-left:auto;background:var(--danger);color:#fff;border-radius:99px;font-size:10px;font-weight:700;padding:1px 7px;font-family:Syne,sans-serif;';
+                navAtend.appendChild(badge);
+              }
+              badge.textContent = pendentes;
+            } else if (badge) {
+              badge.remove();
+            }
+          }
+        }
+      },
+      (err) => {
+        console.warn('[Req] onSnapshot erro, usando polling:', err.message);
+        // Fallback: polling a cada 15 segundos
+        const poll = async () => {
+          try {
+            const { firestore, collection, getDocs } = window._firebase;
+            const snap = await getDocs(collection(firestore, 'stockflow', 'requisicoes', 'items'));
+            db.requisicoes = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+              .sort((a, b) => new Date(b.data) - new Date(a.data));
+            const pageReq = document.getElementById('page-requisicoes');
+            const pageAtend = document.getElementById('page-atendimento');
+            if (pageReq && pageReq.classList.contains('active')) renderMinhasReq();
+            if (pageAtend && pageAtend.classList.contains('active')) renderAtendimento();
+          } catch(e) { console.warn('[Req] polling erro:', e); }
+        };
+        poll();
+        window._reqUnsubscribe = setInterval(poll, 15000);
+      }
+    );
+
+    window._reqUnsubscribe = unsub;
+
+  } catch(e) {
+    console.warn('[Req] onSnapshot indisponível, usando polling:', e.message);
+    const poll = async () => {
+      try {
+        const snap = await window._firebase.getDocs(
+          window._firebase.collection(window._firebase.firestore, 'stockflow', 'requisicoes', 'items')
+        );
+        db.requisicoes = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => new Date(b.data) - new Date(a.data));
+        const pageReq = document.getElementById('page-requisicoes');
+        const pageAtend = document.getElementById('page-atendimento');
+        if (pageReq && pageReq.classList.contains('active')) renderMinhasReq();
+        if (pageAtend && pageAtend.classList.contains('active')) renderAtendimento();
+      } catch(e2) { console.warn('[Req] polling erro:', e2); }
+    };
+    poll();
+    window._reqUnsubscribe = setInterval(poll, 15000);
   }
 }
 
