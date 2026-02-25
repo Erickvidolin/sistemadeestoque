@@ -46,7 +46,7 @@ const DEFAULT_ADMIN = {
 // COLEÇÕES DO SISTEMA — criadas automaticamente no primeiro boot
 // ============================================================
 const COLECOES = ['estoques','materiais','itens','entradas','saidas',
-                  'transferencias','requisicoes','notificacoes'];
+                  'transferencias','requisicoes','notificacoes','auditoria'];
 
 const firebaseApp = initializeApp(firebaseConfig);
 const auth        = getAuth(firebaseApp);
@@ -452,6 +452,11 @@ tr:hover td{background:rgba(255,255,255,.02);}
   .table-scroll-wrap { display: block; }
   .data-cards { display: none; }
 }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .4; transform: scale(.7); }
+}
 </style>
 </head>
 <body>
@@ -529,6 +534,12 @@ tr:hover td{background:rgba(255,255,255,.02);}
     <div style="padding:12px 16px;border-top:1px solid var(--border);">
       <div style="color:var(--muted);font-size:11px;margin-bottom:6px;">☁️ Firebase Sync</div>
       <div style="color:var(--muted);font-size:11px;margin-bottom:8px;" id="storage-info">—</div>
+      <!-- Indicador de sincronização Firebase -->
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:6px 8px;background:rgba(0,229,160,.06);border-radius:6px;border:1px solid rgba(0,229,160,.15);">
+        <span id="sync-indicator" style="width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;opacity:0;transition:opacity .3s;"></span>
+        <span style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.3px;">FIREBASE • TEMPO REAL</span>
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0;animation:pulse-dot 2s ease-in-out infinite;margin-left:auto;"></span>
+      </div>
       <button onclick="fazerLogout()" style="width:100%;background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:7px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;" onmouseover="this.style.color='var(--danger)';this.style.borderColor='var(--danger)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">
         Sair
       </button>
@@ -1029,7 +1040,13 @@ tr:hover td{background:rgba(255,255,255,.02);}
     <!-- PAGE: AUDITORIA -->
     <div id="page-auditoria" class="page">
       <div class="section-title">Auditoria & Logs</div>
-      <div class="section-sub">Registro automático de todas as ações do sistema</div>
+      <div class="section-sub" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        Registro automático de todas as ações do sistema
+        <span id="aud-status-badge" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;background:rgba(0,229,160,.12);color:var(--accent);">
+          <span style="width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block;animation:pulse-dot 1.5s ease-in-out infinite;"></span>
+          TEMPO REAL
+        </span>
+      </div>
 
       <div class="card" style="margin-bottom:16px;">
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
@@ -1201,17 +1218,130 @@ function fsColl(...args) { return window._firebase.collection(window._firebase.f
 // Estrutura em memória — espelhada do Firestore
 let db = { estoques:[], materiais:[], itens:[], entradas:[], saidas:[], transferencias:[], requisicoes:[], notificacoes:[] };
 
-async function loadDB() {
-  // Notificações são carregadas separadamente via listener em tempo real
-  const fields = ['estoques','materiais','itens','entradas','saidas','transferencias','requisicoes'];
-  for (const f of fields) {
+// ─────────────────────────────────────────────────────────────────
+//  LISTENERS EM TEMPO REAL — onSnapshot para todas as coleções
+// ─────────────────────────────────────────────────────────────────
+
+// Mapa de unsubscribe functions para cada coleção
+const _dbListeners = {};
+
+/**
+ * Coleções que têm listener ativo em tempo real.
+ * Cada vez que o Firebase detecta uma mudança, o db[] é atualizado
+ * automaticamente e a página atual é re-renderizada.
+ */
+const DB_COLECOES = ['estoques','materiais','itens','entradas','saidas','transferencias','requisicoes'];
+
+// Mapa de qual função renderizar para cada coleção alterada
+function _getRenderFnPorColecao(colecao) {
+  const page = document.querySelector('.page.active');
+  const pageId = page ? page.id.replace('page-','') : '';
+  const renders = {
+    estoques:      () => { if(pageId==='cadastrar-estoque') renderEstoques(); renderDash(); _atualizarSelectsGlobais(); },
+    materiais:     () => { if(pageId==='cadastrar-material') renderMateriais(); renderDash(); _atualizarSelectsGlobais(); },
+    itens:         () => { renderDash(); if(pageId==='entrada') renderEntradas(); if(pageId==='saida') renderSaidas(); if(pageId==='analise') { populateSel('analise-estoque', db.estoques); carregarAnalise(); } if(pageId==='transferencia') renderTransferencias(); if(pageId==='compras') renderCompras(); },
+    entradas:      () => { if(pageId==='entrada') renderEntradas(); renderDash(); },
+    saidas:        () => { if(pageId==='saida') renderSaidas(); renderDash(); },
+    transferencias:() => { if(pageId==='transferencia') renderTransferencias(); },
+    requisicoes:   () => { if(pageId==='requisicoes') renderMinhasReq(); if(pageId==='atendimento') renderAtendimento(); renderDash(); },
+  };
+  return renders[colecao] || (() => {});
+}
+
+function _atualizarSelectsGlobais() {
+  const pageId = (document.querySelector('.page.active')?.id||'').replace('page-','');
+  if (pageId==='entrada')      { populateSel('ent-material', db.materiais); populateSel('ent-estoque', db.estoques); }
+  if (pageId==='saida')        { populateSel('sai-estoque', db.estoques); }
+  if (pageId==='transferencia'){ iniciarTransferencia(); }
+  if (pageId==='requisicoes')  { popularSelectEstoqueReq(); }
+}
+
+/**
+ * Inicia todos os listeners em tempo real do banco de dados.
+ * Chamado uma vez após o login.
+ */
+function iniciarListenersDB() {
+  const { firestore, collection, onSnapshot } = window._firebase;
+  if (!firestore || !onSnapshot) {
+    console.warn('[DB] onSnapshot indisponível — carregando dados uma única vez.');
+    return _loadDBUmaVez();
+  }
+
+  let _colsCarregadas = 0;
+  const _totalCols = DB_COLECOES.length;
+
+  DB_COLECOES.forEach(colecao => {
+    // Cancela listener anterior se existir
+    if (_dbListeners[colecao]) { _dbListeners[colecao](); delete _dbListeners[colecao]; }
+
+    const colRef = collection(firestore, 'stockflow', colecao, 'items');
+    _dbListeners[colecao] = onSnapshot(colRef, (snapshot) => {
+      // Atualiza a coleção em memória com os dados do Firebase
+      db[colecao] = snapshot.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(d => !d._placeholder);
+
+      _colsCarregadas++;
+
+      // Só renderiza após todas as coleções terem sido carregadas pela primeira vez
+      if (_colsCarregadas >= _totalCols) {
+        updateStorageInfo();
+        _getRenderFnPorColecao(colecao)();
+        // Indicador visual de sincronização
+        _piscarIndicadorSync();
+      }
+    }, (err) => {
+      console.warn(`[DB] Erro no listener de ${colecao}:`, err.message);
+      // Fallback: carrega uma vez via getDocs
+      window._firebase.getDocs(colRef).then(snap => {
+        db[colecao] = snap.docs.map(d => ({id:d.id,...d.data()})).filter(d=>!d._placeholder);
+        _colsCarregadas++;
+        if (_colsCarregadas >= _totalCols) updateStorageInfo();
+      }).catch(() => { db[colecao] = []; _colsCarregadas++; });
+    });
+  });
+
+  db.notificacoes = []; // preenchido pelo listener de notificações
+  console.log('[DB] Listeners em tempo real iniciados para todas as coleções.');
+}
+
+/**
+ * Para todos os listeners do banco de dados (chamado no logout)
+ */
+function pararListenersDB() {
+  Object.keys(_dbListeners).forEach(col => {
+    if (_dbListeners[col]) { _dbListeners[col](); delete _dbListeners[col]; }
+  });
+  console.log('[DB] Listeners encerrados.');
+}
+
+/**
+ * Fallback: carrega dados uma única vez (sem tempo real)
+ */
+async function _loadDBUmaVez() {
+  for (const f of DB_COLECOES) {
     try {
       const snap = await window._firebase.getDocs(fsColl('stockflow', f, 'items'));
-      db[f] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      db[f] = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(d=>!d._placeholder);
     } catch(e) { console.warn('Erro ao carregar', f, e); db[f] = []; }
   }
-  db.notificacoes = []; // preenchido pelo listener em tempo real
+  db.notificacoes = [];
   updateStorageInfo();
+}
+
+// Mantém compatibilidade com código que chama loadDB()
+async function loadDB() {
+  return _loadDBUmaVez();
+}
+
+// Indicador visual piscante de sincronização com Firebase
+let _syncTimer = null;
+function _piscarIndicadorSync() {
+  const el = document.getElementById('sync-indicator');
+  if (!el) return;
+  el.style.opacity = '1';
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(() => { el.style.opacity = '0'; }, 1200);
 }
 
 // Salva UM documento no Firestore
@@ -1270,13 +1400,6 @@ async function saveDB() {
   updateStorageInfo();
 }
 
-async function saveItem(collName, item) {
-  // Save just one item instead of whole collection
-  const ref = fsDoc('stockflow', collName, 'items', item.id);
-  await window._firebase.setDoc(ref, item);
-  updateStorageInfo();
-}
-
 async function deleteItem(collName, itemId) {
   db[collName] = db[collName].filter(x => x.id !== itemId);
   await window._firebase.deleteDoc(fsDoc('stockflow', collName, 'items', itemId));
@@ -1293,11 +1416,19 @@ function fmtDT(d) { if(!d) return '—'; return new Date(d).toLocaleString('pt-B
 // Callbacks registrados pelo observer do módulo ES
 window._onAuthReady = async (user) => {
   currentUser = user;
-  await loadDB();
+  // Carrega dados inicialmente via getDocs (garante que db[] está pronto antes de renderizar)
+  await _loadDBUmaVez();
   iniciarApp();
+  // Após app iniciado, substitui por listeners em tempo real
+  iniciarListenersDB();
+  iniciarListenerAuditoria();
   logAudit('login', `Login: ${user.nome}`, `E-mail: ${user.email} | Perfil: ${user.role}`);
 };
 window._onAuthLogout = () => {
+  // Cancela todos os listeners do banco de dados
+  pararListenersDB();
+  // Cancela listener de auditoria
+  pararListenerAuditoria();
   // Cancela listener de notificações
   if (window._notifUnsubscribe) { window._notifUnsubscribe(); window._notifUnsubscribe = null; }
   // Cancela listener de requisições
@@ -1306,6 +1437,8 @@ window._onAuthLogout = () => {
     else clearInterval(window._reqUnsubscribe);
     window._reqUnsubscribe = null;
   }
+  // Limpa o banco em memória
+  Object.keys(db).forEach(k => db[k] = []);
   currentUser = null;
   document.getElementById('app').classList.remove('logged');
   document.getElementById('auth-screen').style.display = 'flex';
@@ -1377,7 +1510,7 @@ async function cadastrarUsuario() {
     // Limpa form
     ['nu-nome','nu-email','nu-senha'].forEach(id => document.getElementById(id).value='');
     document.getElementById('nu-role').value = 'user';
-    logAudit('usuario', `Usuário cadastrado: ${nome}`, `E-mail: ${email} | Perfil: ${role}`);
+    await logAudit('usuario', `Usuário cadastrado: ${nome}`, `E-mail: ${email} | Perfil: ${role}`);
     toast('Usuário cadastrado com sucesso!');
     renderUsuarios();
   } catch(e) {
@@ -1529,7 +1662,11 @@ function navigateTo(page) {
   if (page === 'cadastrar-material') renderMateriais();
   if (page === 'cadastrar-estoque') renderEstoques();
   if (page === 'relatorios') iniciarRelatorios();
-  if (page === 'auditoria') renderAuditoria();
+  if (page === 'auditoria') {
+    // Tenta migrar logs antigos do localStorage para o Firebase (executado uma vez)
+    _migrarLogsLocaisParaFirebase();
+    renderAuditoria();
+  }
 }
 
 // ===========================
@@ -1629,7 +1766,7 @@ function renderEstoques() {
 async function delEstoque(id) {
   if (!confirm('Remover estoque?')) return;
   const _delEst=db.estoques.find(e=>e.id===id);
-  logAudit('estoque', `Estoque removido: ${_delEst?_delEst.nome:'?'}`, `ID: ${id}`);
+  await logAudit('estoque', `Estoque removido: ${_delEst?_delEst.nome:'?'}`, `ID: ${id}`);
   const itensDel = db.itens.filter(i => i.estoqueId===id).map(i=>i.id);
   db.estoques = db.estoques.filter(e => e.id!==id);
   db.itens = db.itens.filter(i => i.estoqueId!==id);
@@ -1689,7 +1826,7 @@ async function delMaterial(id) {
   if (!confirm('Remover?')) return;
   const itensDel = db.itens.filter(i => i.materialId===id).map(i=>i.id);
   const _delMat=db.materiais.find(m=>m.id===id);
-  logAudit('material', `Material removido: ${_delMat?_delMat.nome:'?'}`, `ID: ${id}`);
+  await logAudit('material', `Material removido: ${_delMat?_delMat.nome:'?'}`, `ID: ${id}`);
   db.materiais = db.materiais.filter(m => m.id!==id);
   db.itens = db.itens.filter(i => i.materialId!==id);
   renderMateriais();
@@ -1736,7 +1873,7 @@ async function salvarEdicaoMaterial() {
   m.unidade=document.getElementById('edit-mat-unidade').value.trim();
   m.min=min!==''?+min:null; m.max=max!==''?+max:null;
   m.diasChegada=dias!==''?+dias:null;
-  logAudit('material', `Material editado: ${m.nome}`, `Cat: ${m.cat||'—'} | Min: ${m.min??'—'} | Max: ${m.max??'—'}`);
+  await logAudit('material', `Material editado: ${m.nome}`, `Cat: ${m.cat||'—'} | Min: ${m.min??'—'} | Max: ${m.max??'—'}`);
   fecharModal('modal-material'); renderMateriais();
   try { await saveItem('materiais', m); toast('Material atualizado!'); }
   catch(e) { toast('Erro ao atualizar.','error'); }
@@ -1775,7 +1912,7 @@ async function registrarEntrada() {
   ['ent-qtd','ent-val','ent-lote','ent-obs'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('ent-semlote').checked=false; toggleLote(); renderEntradas();
   toast(mesclou?`Lote "${loteVal}" somado! Total: ${item.qtd}`:`Entrada de ${qtd} ${mat.nome} registrada!`);
-  logAudit('entrada', mesclou?`Lote "${loteVal}" somado (+${qtd})`:`Entrada de ${qtd}x ${mat.nome}`, `Lote: ${loteVal} | Estoque: ${est.nome} | Qtd: +${qtd}`);
+  await logAudit('entrada', mesclou?`Lote "${loteVal}" somado (+${qtd})`:`Entrada de ${qtd}x ${mat.nome}`, `Lote: ${loteVal} | Estoque: ${est.nome} | Qtd: +${qtd}`);
   try {
     await saveItem('itens', item);
     await saveItem('entradas', entrada);
@@ -1831,7 +1968,7 @@ async function registrarSaida() {
   ['sai-qtd','sai-motivo','sai-resp'].forEach(i=>document.getElementById(i).value='');
   if(currentUser){const sr=document.getElementById('sai-resp');if(sr)sr.value=currentUser.nome;}
   carregarItensSaida(); renderSaidas();
-  logAudit('saida', `Saída de ${qtd}x ${mat?mat.nome:'?'}`, `Lote: ${item.lote} | Estoque: ${est?est.nome:'?'} | Qtd: -${qtd}${motivo?' | Motivo: '+motivo:''}${resp?' | Resp: '+resp:''}`);
+  await logAudit('saida', `Saída de ${qtd}x ${mat?mat.nome:'?'}`, `Lote: ${item.lote} | Estoque: ${est?est.nome:'?'} | Qtd: -${qtd}${motivo?' | Motivo: '+motivo:''}${resp?' | Resp: '+resp:''}`);
   toast(`Saída de ${qtd} registrada!`);
   try {
     await saveItem('itens', item);
@@ -2224,7 +2361,7 @@ async function registrarTransferencia(){
   renderTransferencias(); carregarItensTransf();
   document.getElementById('trf-info-item').style.display='none';
   document.getElementById('trf-qtd').value='';
-  logAudit('transferencia', `Transferência de ${qtd}x ${mat?mat.nome:'?'}`, `De: ${estOrig?estOrig.nome:'?'} → Para: ${estDest?estDest.nome:'?'} | Lote: ${itemOrig.lote}${resp?' | Resp: '+resp:''}`);
+  await logAudit('transferencia', `Transferência de ${qtd}x ${mat?mat.nome:'?'}`, `De: ${estOrig?estOrig.nome:'?'} → Para: ${estDest?estDest.nome:'?'} | Lote: ${itemOrig.lote}${resp?' | Resp: '+resp:''}`);
   toast(`${qtd} ${mat?mat.nome:''} transferidos para ${estDest?estDest.nome:'?'}!`);
   try {
     await saveItem('itens', itemOrig);
@@ -2331,7 +2468,7 @@ async function registrarRequisicao(){
   // Notificação para o admin
   adicionarNotif('adm',`📋 Nova requisição de ${currentUser.nome}: ${qtd}x ${mat?mat.nome:''} para ${setor}`,'pendente',req.id);
   try {
-    logAudit('requisicao', `Requisição enviada: ${req.qtd}x ${req.materialNome}`, `Estoque: ${req.estoqueNome} | Setor: ${req.setor}`);
+    await logAudit('requisicao', `Requisição enviada: ${req.qtd}x ${req.materialNome}`, `Estoque: ${req.estoqueNome} | Setor: ${req.setor}`);
     await saveItem('requisicoes', req);
     toast('Requisição enviada!');
   } catch(e) {
@@ -2515,7 +2652,7 @@ async function confirmarAcaoReq(){
     adicionarNotif(req.solicitanteId,`❌ Sua requisição de ${req.qtd}x ${req.materialNome} foi NEGADA. Motivo: ${motivo}`,'negada',reqId);
     toast('Requisição negada.');
   }
-  logAudit('atendimento', `Requisição ${acao==='atender'?'ATENDIDA':acao==='aguardo'?'EM AGUARDO':'NEGADA'}: ${req.materialNome}`, `Qtd: ${acao==='atender'?(document.getElementById('modal-atender-qtd')?.value||req.qtd):req.qtd} | Solicitante: ${req.solicitanteNome}${motivo?' | Motivo: '+motivo:''}`);
+  await logAudit('atendimento', `Requisição ${acao==='atender'?'ATENDIDA':acao==='aguardo'?'EM AGUARDO':'NEGADA'}: ${req.materialNome}`, `Qtd: ${acao==='atender'?(document.getElementById('modal-atender-qtd')?.value||req.qtd):req.qtd} | Solicitante: ${req.solicitanteNome}${motivo?' | Motivo: '+motivo:''}`);
   fecharModal('modal-atender'); renderAtendimento();
   try {
     await saveItem('requisicoes', req);
@@ -3589,7 +3726,7 @@ function _usuarioCards() {
 _afterAsync('renderUsuarios', async () => _usuarioCards());
 
 // ══════════════════════════════════════════════════════
-//  AUDITORIA — Motor de logs automáticos
+//  AUDITORIA — Motor de logs com Firebase em tempo real
 // ══════════════════════════════════════════════════════
 
 // Configuração de cores/labels por tipo
@@ -3608,28 +3745,90 @@ const AUDIT_META = {
   sistema:      { cor:'var(--muted)',   bg:'rgba(107,114,128,.12)', emoji:'⚙️', label:'Sistema'      },
 };
 
-// Armazena logs em memória (localStorage para persistência local)
-const AUDIT_KEY = 'sf_audit_logs';
-const AUDIT_MAX = 2000; // máximo de logs em memória
+// Cache em memória dos logs vindos do Firebase (ordenados do mais novo ao mais antigo)
+let _auditLogsCache = [];
+let _auditUnsubscribe = null;
 
-function _getAuditLogs() {
+// Fallback: localStorage para quando offline
+const AUDIT_KEY = 'sf_audit_logs';
+const AUDIT_MAX = 2000;
+function _getAuditLogsLocal() {
   try { return JSON.parse(localStorage.getItem(AUDIT_KEY) || '[]'); }
   catch(e) { return []; }
 }
-function _saveAuditLogs(logs) {
+function _saveAuditLogsLocal(logs) {
   try { localStorage.setItem(AUDIT_KEY, JSON.stringify(logs.slice(0, AUDIT_MAX))); }
-  catch(e) { /* ignora se localStorage cheio */ }
+  catch(e) {}
 }
 
 /**
- * Registra um evento de auditoria
- * @param {string} tipo - login|logout|entrada|saida|transferencia|requisicao|atendimento|material|estoque|usuario|backup|sistema
- * @param {string} acao - Descrição curta da ação
- * @param {string} detalhe - Detalhes adicionais
+ * Inicia listener em tempo real da coleção de auditoria no Firebase.
+ * Chamado logo após o login.
  */
-function logAudit(tipo, acao, detalhe='') {
+function iniciarListenerAuditoria() {
+  // Cancela listener anterior se existir
+  if (_auditUnsubscribe) { _auditUnsubscribe(); _auditUnsubscribe = null; }
+
+  // Carrega fila de reenvio pendente do localStorage
+  try {
+    const filaLocal = JSON.parse(localStorage.getItem('sf_audit_fila') || '[]');
+    if (filaLocal.length) { _filaReenvioAudit = filaLocal; _processarFilaReenvioAudit(); }
+  } catch(e) {}
+
+  try {
+    const { firestore, collection, onSnapshot, query } = window._firebase;
+    if (!firestore || !onSnapshot) return;
+
+    // Importar orderBy dinamicamente (já está disponível via window._firebase se adicionado)
+    const colRef = collection(firestore, 'stockflow', 'auditoria', 'items');
+
+    _auditUnsubscribe = onSnapshot(colRef, (snapshot) => {
+      // Converte todos os docs para array e ordena por ts desc
+      const logs = [];
+      snapshot.forEach(d => logs.push(d.data()));
+      logs.sort((a, b) => (b.ts || '').localeCompare(a.ts || ''));
+      _auditLogsCache = logs;
+
+      // Salva localmente como fallback
+      _saveAuditLogsLocal(logs);
+
+      // Atualiza badge de contagem no menu (opcional)
+      _atualizarBadgeAuditoria(logs.length);
+
+      // Se a página de auditoria estiver aberta, re-renderiza automaticamente
+      const pg = document.getElementById('page-auditoria');
+      if (pg && pg.classList.contains('active')) {
+        renderAuditoria();
+      }
+    }, (err) => {
+      console.warn('[Audit] onSnapshot erro, usando cache local:', err.message);
+      _auditLogsCache = _getAuditLogsLocal();
+    });
+  } catch(e) {
+    console.warn('[Audit] Listener não iniciado, usando localStorage:', e.message);
+    _auditLogsCache = _getAuditLogsLocal();
+  }
+}
+
+function _atualizarBadgeAuditoria(total) {
+  // Pode ser expandido para mostrar badge no menu futuramente
+}
+
+/**
+ * Cancela o listener de auditoria (chamado no logout)
+ */
+function pararListenerAuditoria() {
+  if (_auditUnsubscribe) { _auditUnsubscribe(); _auditUnsubscribe = null; }
+  _auditLogsCache = [];
+}
+
+/**
+ * Registra um evento de auditoria no Firebase (e localStorage como fallback)
+ */
+async function logAudit(tipo, acao, detalhe='') {
+  const id = Date.now() + '_' + Math.random().toString(36).slice(2,7);
   const log = {
-    id:      Date.now() + '_' + Math.random().toString(36).slice(2,7),
+    id,
     ts:      new Date().toISOString(),
     tipo,
     acao,
@@ -3638,18 +3837,69 @@ function logAudit(tipo, acao, detalhe='') {
     email:   currentUser ? currentUser.email : '—',
     role:    currentUser ? currentUser.role  : '—',
   };
-  const logs = _getAuditLogs();
-  logs.unshift(log);
-  _saveAuditLogs(logs);
 
-  // Se a página de auditoria estiver aberta, re-renderiza
+  // Atualiza o cache local imediatamente para resposta instantânea na UI
+  _auditLogsCache.unshift(log);
+  _saveAuditLogsLocal(_auditLogsCache);
+
+  // Se a página de auditoria estiver aberta, re-renderiza imediatamente com o novo log
   const pg = document.getElementById('page-auditoria');
   if (pg && pg.classList.contains('active')) renderAuditoria();
+
+  // Salva no Firebase com retry automático
+  const _salvarNoFirebase = async (tentativa = 1) => {
+    try {
+      const { firestore, doc, setDoc } = window._firebase;
+      if (!firestore || !setDoc) return;
+      const ref = doc(firestore, 'stockflow', 'auditoria', 'items', id);
+      await setDoc(ref, log);
+    } catch(e) {
+      console.warn(`[Audit] Tentativa ${tentativa} falhou:`, e.message);
+      if (tentativa < 3) {
+        // Retry com backoff: 1s, 3s
+        await new Promise(r => setTimeout(r, tentativa * 1000));
+        return _salvarNoFirebase(tentativa + 1);
+      }
+      // Após 3 tentativas, marca para reenvio posterior
+      _adicionarFilaReenvio(log);
+    }
+  };
+  _salvarNoFirebase();
 }
+
+// Fila de logs que falharam e precisam ser reenviados
+let _filaReenvioAudit = [];
+function _adicionarFilaReenvio(log) {
+  _filaReenvioAudit.push(log);
+  try { localStorage.setItem('sf_audit_fila', JSON.stringify(_filaReenvioAudit)); } catch(e) {}
+}
+// Processa fila de reenvio quando a conexão voltar
+async function _processarFilaReenvioAudit() {
+  const fila = _filaReenvioAudit.slice();
+  if (!fila.length) return;
+  try {
+    const { firestore, doc, setDoc } = window._firebase;
+    if (!firestore || !setDoc) return;
+    for (const log of fila) {
+      await setDoc(doc(firestore, 'stockflow', 'auditoria', 'items', log.id), log);
+      _filaReenvioAudit = _filaReenvioAudit.filter(l => l.id !== log.id);
+    }
+    localStorage.removeItem('sf_audit_fila');
+    console.log('[Audit] Fila de reenvio processada:', fila.length, 'logs.');
+  } catch(e) {}
+}
+// Tenta processar fila quando o usuário volta a focar na aba
+window.addEventListener('focus', _processarFilaReenvioAudit);
 
 // Estado de paginação
 let _audPage = 0;
 const _audPerPage = 50;
+
+function _getAuditLogs() {
+  // Usa o cache do Firebase; se vazio, tenta localStorage
+  if (_auditLogsCache.length > 0) return _auditLogsCache;
+  return _getAuditLogsLocal();
+}
 
 function _audFilteredLogs() {
   const busca  = (document.getElementById('aud-busca')?.value || '').toLowerCase().trim();
@@ -3675,11 +3925,52 @@ function _audFilteredLogs() {
   });
 }
 
+/**
+ * Migra logs antigos do localStorage para o Firebase (executado uma vez)
+ */
+let _migracao_feita = false;
+async function _migrarLogsLocaisParaFirebase() {
+  if (_migracao_feita) return;
+  _migracao_feita = true;
+  try {
+    const local = _getAuditLogsLocal();
+    if (!local.length) return;
+    const { firestore, doc, setDoc } = window._firebase;
+    if (!firestore || !setDoc) return;
+    // Salva apenas logs que não estão no cache do Firebase
+    const cachedIds = new Set(_auditLogsCache.map(l => l.id));
+    const toMigrate = local.filter(l => l.id && !cachedIds.has(l.id));
+    if (!toMigrate.length) return;
+    console.log(`[Audit] Migrando ${toMigrate.length} logs do localStorage para Firebase...`);
+    for (const log of toMigrate) {
+      const ref = doc(firestore, 'stockflow', 'auditoria', 'items', log.id);
+      await setDoc(ref, log);
+    }
+    console.log('[Audit] Migração concluída.');
+  } catch(e) {
+    console.warn('[Audit] Erro na migração:', e.message);
+  }
+}
+
 function renderAuditoria() {
   const all    = _audFilteredLogs();
   const total  = all.length;
   const start  = _audPage * _audPerPage;
   const page   = all.slice(start, start + _audPerPage);
+
+  // Atualiza badge de status tempo real
+  const badge = document.getElementById('aud-status-badge');
+  if (badge) {
+    if (_auditUnsubscribe) {
+      badge.style.background = 'rgba(0,229,160,.12)';
+      badge.style.color = 'var(--accent)';
+      badge.innerHTML = '<span style="width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block;animation:pulse-dot 1.5s ease-in-out infinite;"></span> TEMPO REAL';
+    } else {
+      badge.style.background = 'rgba(255,149,0,.12)';
+      badge.style.color = 'var(--warn)';
+      badge.innerHTML = '<span style="width:7px;height:7px;border-radius:50%;background:var(--warn);display:inline-block;"></span> CACHE LOCAL';
+    }
+  }
 
   // Contador
   const ctr = document.getElementById('aud-contador');
