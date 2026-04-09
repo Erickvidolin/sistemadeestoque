@@ -457,6 +457,105 @@ tr:hover td{background:rgba(255,255,255,.02);}
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: .4; transform: scale(.7); }
 }
+#validade-apres-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 10000;
+  flex-direction: column;
+  overflow: hidden;
+}
+#validade-apres-overlay.open { display: flex; }
+
+#validade-apres-header {
+  padding: 28px 48px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+#validade-apres-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 32px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+#validade-apres-subtitle {
+  color: var(--muted);
+  font-size: 16px;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+#validade-apres-body {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+#validade-apres-scroll-track {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  will-change: transform;
+}
+#validade-apres-table-wrap {
+  padding: 0 48px 40px;
+}
+#validade-apres-table-wrap table {
+  font-size: 22px;
+  min-width: 100%;
+}
+#validade-apres-table-wrap th {
+  font-size: 13px;
+  letter-spacing: 1.5px;
+  padding: 18px 20px;
+  border-bottom: 2px solid var(--border);
+}
+#validade-apres-table-wrap td {
+  padding: 20px 20px;
+  font-size: 20px;
+  border-bottom: 1px solid var(--border);
+}
+#validade-apres-table-wrap tr:hover td { background: rgba(255,255,255,.03); }
+.apres-badge {
+  padding: 6px 18px;
+  border-radius: 99px;
+  font-size: 14px;
+  font-weight: 800;
+  font-family: 'Syne', sans-serif;
+  letter-spacing: .5px;
+  white-space: nowrap;
+}
+#validade-apres-clock {
+  font-family: 'Syne', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 1px;
+}
+@keyframes val-scroll {
+  from { transform: translateY(0); }
+  to   { transform: translateY(var(--scroll-dist, -50%)); }
+}
+.val-apres-running #validade-apres-scroll-track {
+  animation: val-scroll linear infinite;
+  animation-duration: var(--scroll-dur, 30s);
+}
+
+/* Normal table in the page */
+#val-table-normal th { white-space: nowrap; }
+.val-status-badge {
+  padding: 3px 12px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'Syne', sans-serif;
+  white-space: nowrap;
+}
 </style>
 </head>
 <body>
@@ -824,13 +923,12 @@ tr:hover td{background:rgba(255,255,255,.02);}
     <div id="page-requisicoes" class="page">
       <div class="section-title">Nova Requisição</div>
       <div class="section-sub">Solicite materiais do estoque principal</div>
-      <div class="req-layout" style="display:grid;grid-template-columns:460px 1fr;gap:24px;align-items:start;">
+      <div class="req-layout" style="display:grid;grid-template-columns:500px 1fr;gap:24px;align-items:start;">
         <div class="card">
-          <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:18px;">Solicitar Material</div>
+          <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:18px;">Solicitar Materiais</div>
+
+          <!-- Seletor de estoque e setor — fixo para todos os itens -->
           <div class="form-group"><label>Estoque *</label><select id="req-estoque" onchange="carregarMateraisReq()"><option value="">Selecione...</option></select></div>
-          <div class="form-group"><label>Material *</label><div id="sf-req-material-wrap" class="sf-wrap"></div><select id="req-material" onchange="carregarLotesReq()" style="display:none;"><option value="">Selecione o estoque primeiro...</option></select></div>
-          <div class="form-group"><label>Lote *</label><div id="sf-req-lote-wrap" class="sf-wrap"></div><select id="req-lote" style="display:none;"><option value="">Selecione o material primeiro...</option></select></div>
-          <div id="req-info-lote" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:12px;color:var(--muted);margin-bottom:12px;"></div>
           <div class="form-group">
             <label>Setor Solicitante *</label>
             <select id="req-setor">
@@ -838,15 +936,31 @@ tr:hover td{background:rgba(255,255,255,.02);}
               <option>Usinagem</option><option>Acabamento</option><option>Área Limpa</option><option>Quarentena</option><option>Qualidade</option><option>Produto Acabado</option><option>PDI</option><option>Administrativo</option><option>Manutenção</option>
             </select>
           </div>
-          <div class="form-group"><label>Quantidade *</label><input id="req-qtd" type="number" min="1" placeholder="0"></div>
-          <div class="form-group"><label>Justificativa</label><input id="req-justif" type="text" placeholder="Para qual finalidade?"></div>
-          <button class="btn btn-primary" onclick="registrarRequisicao()" style="width:100%;">Enviar Requisição</button>
+          <div class="form-group"><label>Justificativa geral</label><input id="req-justif" type="text" placeholder="Para qual finalidade?"></div>
+
+          <!-- Lista de itens adicionados -->
+          <div id="req-itens-lista" style="margin-bottom:14px;display:none;">
+            <div style="font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;">Itens da Requisição</div>
+            <div id="req-itens-cards"></div>
+          </div>
+
+          <!-- Formulário para adicionar item -->
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;" id="req-add-item-box">
+            <div style="font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px;">Adicionar Item</div>
+            <div class="form-group"><label>Material *</label><div id="sf-req-material-wrap" class="sf-wrap"></div><select id="req-material" onchange="carregarLotesReq()" style="display:none;"><option value="">Selecione o estoque primeiro...</option></select></div>
+            <div class="form-group"><label>Lote *</label><div id="sf-req-lote-wrap" class="sf-wrap"></div><select id="req-lote" style="display:none;"><option value="">Selecione o material primeiro...</option></select></div>
+            <div id="req-info-lote" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--muted);margin-bottom:10px;"></div>
+            <div class="form-group" style="margin-bottom:0;"><label>Quantidade *</label><input id="req-qtd" type="number" min="1" placeholder="0"></div>
+            <button class="btn btn-secondary" onclick="adicionarItemRequisicao()" style="width:100%;margin-top:10px;border-color:rgba(0,229,160,.3);color:var(--accent);">+ Adicionar à Lista</button>
+          </div>
+
+          <button class="btn btn-primary" onclick="registrarRequisicao()" style="width:100%;" id="btn-enviar-req">Enviar Requisição</button>
         </div>
         <div>
           <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:15px;margin-bottom:14px;">Minhas Requisições</div>
           <!-- TABLE (desktop) -->
           <div class="card desktop-only">
-            <div class="table-scroll-wrap"><table><thead><tr><th>Material</th><th>Lote</th><th>Setor</th><th>Qtd</th><th>Status</th><th>Obs</th><th>Data</th></tr></thead><tbody id="minhas-req-tbody"></tbody></table></div>
+            <div class="table-scroll-wrap"><table><thead><tr><th>Materiais</th><th>Setor</th><th>Itens</th><th>Status</th><th>Obs</th><th>Data</th></tr></thead><tbody id="minhas-req-tbody"></tbody></table></div>
             <div id="minhas-req-empty" style="text-align:center;color:var(--muted);padding:28px;display:none;">Nenhuma requisição feita.</div>
           </div>
           <!-- CARDS (mobile) -->
@@ -878,7 +992,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
       <!-- TABLE (desktop) -->
       <div class="card desktop-only">
         <div class="table-scroll-wrap"><table>
-          <thead><tr><th>Material</th><th>Lote</th><th>Setor</th><th>Solicitante</th><th>Qtd</th><th>Justif.</th><th>Data</th><th>Status</th><th>Ações</th></tr></thead>
+          <thead><tr><th>Materiais / Solicitante</th><th>Setor</th><th>Itens</th><th>Justif.</th><th>Data</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody id="atendimento-tbody"></tbody>
         </table></div>
         <div id="atendimento-empty" style="text-align:center;color:var(--muted);padding:32px;display:none;">Nenhuma requisição encontrada.</div>
@@ -1109,8 +1223,121 @@ tr:hover td{background:rgba(255,255,255,.02);}
         <div id="aud-paginacao" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-top:1px solid var(--border);font-size:13px;"></div>
       </div>
     </div>
+    <!-- PAGE: VALIDADE DE MATERIAIS -->
+    <div id="page-validade" class="page">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:6px;">
+        <div>
+          <div class="section-title">⏰ Controle de Validade</div>
+          <div class="section-sub">Materiais vencidos ou próximos do vencimento</div>
+        </div>
+        <button class="btn btn-primary" onclick="abrirApresentacaoValidade()" style="display:flex;align-items:center;gap:8px;padding:11px 20px;">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-2"/></svg>
+          Modo Apresentação
+        </button>
+      </div>
+
+      <!-- Config card -->
+      <div class="card" style="margin-bottom:18px;">
+        <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;">⚙️ Configurações</div>
+
+          <div style="display:flex;align-items:center;gap:8px;">
+            <label style="margin:0;white-space:nowrap;font-size:13px;">Materiais exibidos:</label>
+            <input type="number" id="val-qtd-config" value="20" min="5" max="200" style="width:76px;padding:7px 10px;font-size:13px;" oninput="renderValidade()">
+          </div>
+
+          <div style="display:flex;align-items:center;gap:8px;">
+            <label style="margin:0;white-space:nowrap;font-size:13px;">Velocidade (apresentação):</label>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <button onclick="alterarVelocidadeApres(-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;width:30px;height:30px;font-size:16px;cursor:pointer;line-height:1;transition:all .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">−</button>
+              <span id="val-speed-label" style="font-family:'Syne',sans-serif;font-weight:700;font-size:13px;min-width:70px;text-align:center;color:var(--accent);">Normal</span>
+              <button onclick="alterarVelocidadeApres(+1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;width:30px;height:30px;font-size:16px;cursor:pointer;line-height:1;transition:all .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">+</button>
+            </div>
+          </div>
+
+          <div style="color:var(--muted);font-size:12px;flex:1;">
+            Mostra vencidos ou com até 7 dias para vencer. Se não houver, exibe os <strong id="val-qtd-config-label">20</strong> mais próximos.
+          </div>
+          <button class="btn btn-secondary" onclick="renderValidade()" style="padding:7px 14px;font-size:12px;">🔄 Atualizar</button>
+        </div>
+      </div>
+
+      <!-- Summary badges -->
+      <div id="val-summary" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px;"></div>
+
+      <!-- Table -->
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div id="val-table-header" style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:15px;" id="val-table-title">Materiais</div>
+          <span id="val-table-count" style="font-size:12px;color:var(--muted);"></span>
+        </div>
+        <div class="table-scroll-wrap">
+          <table id="val-table-normal">
+            <thead>
+              <tr>
+                <th>Material</th>
+                <th>Lote</th>
+                <th>Estoque</th>
+                <th>Qtd</th>
+                <th>Validade</th>
+                <th>Dias Restantes</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="val-tbody"></tbody>
+          </table>
+        </div>
+        <div id="val-empty" style="display:none;text-align:center;color:var(--muted);padding:48px 20px;">
+          <div style="font-size:40px;margin-bottom:10px;">✅</div>
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px;margin-bottom:6px;">Nenhum material próximo do vencimento</div>
+          <div style="font-size:13px;">Todos os materiais estão dentro do prazo.</div>
+        </div>
+      </div>
+    </div>
+
   </div><!-- /main -->
 </div><!-- /app -->
+
+<!-- APRESENTAÇÃO VALIDADE — FULLSCREEN OVERLAY -->
+<div id="validade-apres-overlay">
+  <div id="validade-apres-header">
+    <div>
+      <div id="validade-apres-title">
+        <span style="font-family:'Syne',sans-serif;font-weight:800;">Stock<span style="color:var(--accent)">Flow</span></span>
+        <span style="width:2px;height:32px;background:var(--border);border-radius:1px;"></span>
+        <span>⏰ Controle de Validade</span>
+      </div>
+      <div id="validade-apres-subtitle">
+        <span id="val-apres-info-line">—</span>
+        <span id="val-apres-clock-badge" style="display:flex;align-items:center;gap:6px;background:rgba(0,229,160,.08);border:1px solid rgba(0,229,160,.2);border-radius:8px;padding:4px 12px;">
+          <span style="width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block;animation:pulse-dot 1.5s ease-in-out infinite;"></span>
+          <span id="validade-apres-clock">—</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Controles de velocidade + fechar -->
+    <div style="display:flex;align-items:center;gap:12px;">
+      <!-- Controle de velocidade -->
+      <div style="display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 14px;">
+        <span style="font-size:12px;color:var(--muted);font-family:'Syne',sans-serif;font-weight:700;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;">Velocidade</span>
+        <button id="apres-btn-slow" onclick="alterarVelocidadeApres(-1)" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;width:34px;height:34px;font-size:20px;cursor:pointer;line-height:1;transition:all .15s;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text)'">−</button>
+        <span id="apres-speed-label" style="font-family:'Syne',sans-serif;font-weight:800;font-size:15px;color:var(--accent);min-width:72px;text-align:center;">Normal</span>
+        <button id="apres-btn-fast" onclick="alterarVelocidadeApres(+1)" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;width:34px;height:34px;font-size:20px;cursor:pointer;line-height:1;transition:all .15s;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text)'">+</button>
+      </div>
+
+      <button onclick="fecharApresentacaoValidade()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:10px 20px;font-size:14px;font-family:'Syne',sans-serif;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text)'">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        Fechar (ESC)
+      </button>
+    </div>
+  </div>
+  <div id="validade-apres-body">
+    <div id="validade-apres-scroll-track">
+      <div id="validade-apres-table-wrap"></div>
+    </div>
+  </div>
+</div>
 
 <!-- MODALS -->
 <div id="modal-material" class="modal">
@@ -1174,15 +1401,15 @@ tr:hover td{background:rgba(255,255,255,.02);}
 </div>
 
 <div id="modal-atender" class="modal">
-  <div class="modal-box">
+  <div class="modal-box" style="max-width:640px;">
     <div class="modal-title" id="modal-atender-title">Atender Requisição <button class="modal-close" onclick="fecharModal('modal-atender')">✕</button></div>
     <input type="hidden" id="modal-atender-id">
     <input type="hidden" id="modal-atender-acao">
-    <input type="hidden" id="modal-atender-qtd-original">
     <div id="modal-atender-info" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:16px;font-size:13px;"></div>
-    <div class="form-group" id="modal-atender-qtd-group" style="display:none;">
-      <label>Quantidade a Atender <span style="color:var(--muted);font-size:11px;" id="modal-atender-qtd-hint"></span></label>
-      <input id="modal-atender-qtd" type="number" min="1" placeholder="0" oninput="verificarQtdDiferente()">
+    <!-- Itens com qtd editável (modo atender) -->
+    <div id="modal-atender-itens-wrap" style="display:none;margin-bottom:16px;">
+      <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;">Itens — ajuste as quantidades</div>
+      <div id="modal-atender-itens-list"></div>
     </div>
     <div class="form-group" id="modal-atender-motivo-group" style="display:none;">
       <label id="modal-atender-motivo-label">Motivo *</label>
@@ -1239,7 +1466,7 @@ function _getRenderFnPorColecao(colecao) {
   const renders = {
     estoques:      () => { if(pageId==='cadastrar-estoque') renderEstoques(); renderDash(); _atualizarSelectsGlobais(); },
     materiais:     () => { if(pageId==='cadastrar-material') renderMateriais(); renderDash(); _atualizarSelectsGlobais(); },
-    itens:         () => { renderDash(); if(pageId==='entrada') renderEntradas(); if(pageId==='saida') renderSaidas(); if(pageId==='analise') { populateSel('analise-estoque', db.estoques); carregarAnalise(); } if(pageId==='transferencia') renderTransferencias(); if(pageId==='compras') renderCompras(); },
+    itens:         () => { renderDash(); if(pageId==='entrada') renderEntradas(); if(pageId==='saida') renderSaidas(); if(pageId==='analise') { populateSel('analise-estoque', db.estoques); carregarAnalise(); } if(pageId==='transferencia') renderTransferencias(); if(pageId==='compras') renderCompras(); if(pageId==='validade') renderValidade(); },
     entradas:      () => { if(pageId==='entrada') renderEntradas(); renderDash(); },
     saidas:        () => { if(pageId==='saida') renderSaidas(); renderDash(); },
     transferencias:() => { if(pageId==='transferencia') renderTransferencias(); },
@@ -1602,6 +1829,8 @@ const NAV_ADM = [
   { id:'backup', icon:'cloud', label:'Backup & Restauração' },
   { id:'relatorios', icon:'document', label:'Relatórios' },
   { type:'sep' },
+  { id:'validade', icon:'clock', label:'Controle de Validade' },
+  { type:'sep' },
   { id:'auditoria', icon:'audit', label:'Auditoria & Logs' },
 ];
 const NAV_USER = [
@@ -1623,6 +1852,7 @@ const ICONS = {
   clipboard:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>',
   document:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>',
   audit:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>',
+  clock:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>',
 };
 
 function buildNav() {
@@ -1667,6 +1897,7 @@ function navigateTo(page) {
     _migrarLogsLocaisParaFirebase();
     renderAuditoria();
   }
+  if (page === 'validade') renderValidade();
 }
 
 // ===========================
@@ -2403,6 +2634,9 @@ function popularSelectEstoqueReq(){
     selEst.innerHTML+=`<option value="${estPrincipal.id}">${estPrincipal.nome} (Principal)</option>`;
     selEst.value=estPrincipal.id;
   }
+  // Limpa lista de itens ao trocar estoque
+  window._reqItensTemp = [];
+  _renderReqItensTmp();
   carregarMateraisReq();
 }
 function carregarMateraisReq(){
@@ -2439,25 +2673,112 @@ function carregarLotesReq(){
     info.innerHTML=`Disponível: <strong style="color:var(--text)">${Number.isInteger(item.qtd)?item.qtd:Math.round(item.qtd*100)/100}</strong> | Lote: <strong style="color:var(--text)">${item.lote}</strong>${item.validade?` | Validade: <strong style="color:var(--text)">${fmt(item.validade)}</strong>`:''}`;
   };
 }
+
+// --- Multi-item temp list ---
+if (!window._reqItensTemp) window._reqItensTemp = [];
+
+function _renderReqItensTmp() {
+  const lista = document.getElementById('req-itens-lista');
+  const cards = document.getElementById('req-itens-cards');
+  if (!lista || !cards) return;
+  if (!window._reqItensTemp.length) { lista.style.display='none'; return; }
+  lista.style.display='block';
+  cards.innerHTML = window._reqItensTemp.map((it, idx) => `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:7px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <div style="flex:1;">
+        <strong style="font-size:13px;">${escHtml(it.materialNome)}</strong>
+        <span style="font-size:11px;color:var(--muted);margin-left:8px;">${escHtml(it.lote)}</span>
+        <br><span style="font-size:12px;color:var(--accent);font-weight:700;">${it.qtd} un.</span>
+        <span style="font-size:11px;color:var(--muted);">&nbsp;(disp: ${it.qtdDisp})</span>
+      </div>
+      <button onclick="removerItemRequisicaoTmp(${idx})" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:16px;padding:0 4px;">✕</button>
+    </div>`).join('');
+}
+
+function removerItemRequisicaoTmp(idx) {
+  window._reqItensTemp.splice(idx, 1);
+  _renderReqItensTmp();
+}
+
+function adicionarItemRequisicao() {
+  const matId = document.getElementById('req-material').value;
+  const itemId = document.getElementById('req-lote').value;
+  const qtd = +document.getElementById('req-qtd').value;
+  const estoqueId = document.getElementById('req-estoque')?.value || '';
+  if (!estoqueId) return toast('Selecione o estoque.','error');
+  if (!matId) return toast('Selecione o material.','error');
+  if (!itemId) return toast('Selecione o lote.','error');
+  if (!qtd || qtd <= 0) return toast('Quantidade inválida.','error');
+  const item = db.itens.find(i => i.id === itemId);
+  if (!item) return toast('Item não encontrado.','error');
+
+  // Soma qtd já reservada nesta mesma sessão para este item
+  const jaReservado = (window._reqItensTemp||[]).filter(t=>t.itemId===itemId).reduce((s,t)=>s+t.qtd,0);
+  if (qtd + jaReservado > item.qtd) return toast(`Insuficiente. Disponível: ${item.qtd - jaReservado}`,'error');
+
+  const mat = db.materiais.find(m => m.id === matId);
+  if (!window._reqItensTemp) window._reqItensTemp = [];
+  window._reqItensTemp.push({
+    matId, itemId,
+    materialNome: mat?.nome || '?',
+    lote: item.lote,
+    qtd,
+    qtdDisp: item.qtd,
+  });
+  // Limpa campos de item
+  document.getElementById('req-material').value = '';
+  document.getElementById('req-lote').innerHTML = '<option value="">Selecione o material primeiro...</option>';
+  document.getElementById('req-info-lote').style.display = 'none';
+  document.getElementById('req-qtd').value = '';
+  _renderReqItensTmp();
+  toast(`${mat?.nome} adicionado à lista.`);
+}
+
 async function registrarRequisicao(){
-  const matId=document.getElementById('req-material').value;
-  const itemId=document.getElementById('req-lote').value;
-  const setor=document.getElementById('req-setor').value;
-  const qtd=+document.getElementById('req-qtd').value;
-  const justif=document.getElementById('req-justif').value.trim();
-  const estoqueSelId=document.getElementById('req-estoque')?document.getElementById('req-estoque').value:'';
-  if(!estoqueSelId)return toast('Selecione o estoque.','error');
-  if(!matId)return toast('Selecione o material.','error');
-  if(!itemId)return toast('Selecione o lote.','error');
-  if(!setor)return toast('Selecione o setor.','error');
-  if(!qtd||qtd<=0)return toast('Quantidade inválida.','error');
-  const item=db.itens.find(i=>i.id===itemId);
-  if(!item)return toast('Item não encontrado.','error');
-  if(qtd>item.qtd)return toast(`Insuficiente. Disponível: ${item.qtd}`,'error');
-  const mat=db.materiais.find(m=>m.id===matId);
-  const estReq=db.estoques.find(e=>e.id===estoqueSelId)||getEstoquePrincipal();
-  const req={id:uid(),materialId:matId,itemId,materialNome:mat?mat.nome:'?',estoqueNome:estReq?estReq.nome:'?',lote:item.lote,setor,qtd,justif,status:'pendente',motivo:'',solicitanteId:currentUser.id,solicitanteNome:currentUser.nome,data:new Date().toISOString()};
+  if (!window._reqItensTemp) window._reqItensTemp = [];
+  // Suporte legado: se lista vazia mas campos preenchidos, adiciona automaticamente
+  if (!window._reqItensTemp.length) {
+    const matId = document.getElementById('req-material').value;
+    const itemId = document.getElementById('req-lote').value;
+    const qtd = +document.getElementById('req-qtd').value;
+    const estoqueId = document.getElementById('req-estoque')?.value || '';
+    if (matId && itemId && qtd > 0 && estoqueId) {
+      adicionarItemRequisicao();
+      if (!window._reqItensTemp.length) return; // falhou
+    } else {
+      return toast('Adicione ao menos um item.','error');
+    }
+  }
+  const setor = document.getElementById('req-setor').value;
+  const justif = document.getElementById('req-justif').value.trim();
+  const estoqueSelId = document.getElementById('req-estoque')?.value || '';
+  if (!estoqueSelId) return toast('Selecione o estoque.','error');
+  if (!setor) return toast('Selecione o setor.','error');
+
+  const estReq = db.estoques.find(e=>e.id===estoqueSelId) || getEstoquePrincipal();
+  const itensDaReq = [...window._reqItensTemp];
+  // Monta resumo de materiais
+  const matNomes = [...new Set(itensDaReq.map(i=>i.materialNome))].join(', ');
+
+  const req = {
+    id: uid(),
+    itens: itensDaReq.map(i=>({ matId:i.matId, itemId:i.itemId, materialNome:i.materialNome, lote:i.lote, qtd:i.qtd, qtdAtendida:null })),
+    // Campos legados (para compatibilidade com visualizações antigas)
+    materialId: itensDaReq[0].matId,
+    itemId: itensDaReq[0].itemId,
+    materialNome: matNomes,
+    estoqueNome: estReq?.nome || '?',
+    lote: itensDaReq[0].lote,
+    qtd: itensDaReq.reduce((s,i)=>s+i.qtd, 0),
+    setor, justif, status:'pendente', motivo:'',
+    solicitanteId: currentUser.id,
+    solicitanteNome: currentUser.nome,
+    data: new Date().toISOString()
+  };
+
   db.requisicoes.unshift(req);
+  window._reqItensTemp = [];
+  _renderReqItensTmp();
   ['req-qtd','req-justif'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('req-material').value='';
   document.getElementById('req-lote').innerHTML='<option value="">Selecione o material primeiro...</option>';
@@ -2465,43 +2786,46 @@ async function registrarRequisicao(){
   document.getElementById('req-info-lote').style.display='none';
   popularSelectEstoqueReq();
   renderMinhasReq();
-  // Notificação para o admin
-  adicionarNotif('adm',`📋 Nova requisição de ${currentUser.nome}: ${qtd}x ${mat?mat.nome:''} para ${setor}`,'pendente',req.id);
+  adicionarNotif('adm',`📋 Nova requisição de ${currentUser.nome}: ${itensDaReq.length} item(ns) — ${matNomes} para ${setor}`,'pendente',req.id);
   try {
-    await logAudit('requisicao', `Requisição enviada: ${req.qtd}x ${req.materialNome}`, `Estoque: ${req.estoqueNome} | Setor: ${req.setor}`);
+    await logAudit('requisicao', `Requisição enviada: ${itensDaReq.length} item(ns)`, `Estoque: ${req.estoqueNome} | Setor: ${req.setor} | Materiais: ${matNomes}`);
     await saveItem('requisicoes', req);
     toast('Requisição enviada!');
   } catch(e) {
     toast('Erro ao salvar requisição.','error');
-    console.error('Erro ao salvar requisição:', e);
-    // Remove da memória se falhou
     db.requisicoes = db.requisicoes.filter(r => r.id !== req.id);
     renderMinhasReq();
   }
 }
+
 function renderMinhasReq(){
   if(!currentUser)return;
   const minhas=db.requisicoes.filter(r=>r.solicitanteId===currentUser.id);
   // Desktop table
   const tb=document.getElementById('minhas-req-tbody');
   const em=document.getElementById('minhas-req-empty');
-  if(tb){tb.innerHTML='';if(!minhas.length){em.style.display='block';}else{em.style.display='none';minhas.forEach(r=>{tb.innerHTML+=`<tr>
-      <td><strong>${r.materialNome}</strong></td>
-      <td><span style="font-size:11px;background:rgba(255,255,255,.06);padding:2px 7px;border-radius:4px;">${r.lote}</span></td>
+  if(tb){tb.innerHTML='';if(!minhas.length){em.style.display='block';}else{em.style.display='none';minhas.forEach(r=>{
+    const itens = r.itens||[{materialNome:r.materialNome,lote:r.lote,qtd:r.qtd,qtdAtendida:r.qtdAtendida}];
+    const matResume = itens.length===1 ? `<strong>${itens[0].materialNome}</strong><br><span style="font-size:11px;color:var(--muted);">${itens[0].lote}</span>` :
+      `<strong>${itens.length} materiais</strong><br><span style="font-size:11px;color:var(--muted);">${itens.map(i=>i.materialNome).slice(0,2).join(', ')}${itens.length>2?'...':''}</span>`;
+    const qtdResume = itens.map(i=>`${i.materialNome}: <strong>${i.qtd}</strong>${i.qtdAtendida!=null&&i.qtdAtendida!==i.qtd?` <span style="font-size:10px;color:var(--accent)">✓${i.qtdAtendida}</span>`:''}`).join('<br>');
+    tb.innerHTML+=`<tr>
+      <td>${matResume}</td>
       <td style="color:var(--muted)">${r.setor}</td>
-      <td><strong>${r.qtd}</strong>${r.qtdAtendida&&r.qtdAtendida!==r.qtd?`<br><span style="font-size:10px;color:var(--accent)">✓ ${r.qtdAtendida} atend.</span>`:''}</td>
+      <td style="font-size:12px;">${qtdResume}</td>
       <td><span class="badge ${reqBadgeCls(r.status)}">${reqLabel(r.status)}</span></td>
-      <td style="color:var(--muted);font-size:12px;max-width:180px;">${r.motivo||'—'}</td>
+      <td style="color:var(--muted);font-size:12px;max-width:160px;">${r.motivo||'—'}</td>
       <td style="color:var(--muted);font-size:11px;">${fmt(r.data)}</td>
     </tr>`;});}}
   // Mobile cards
   const cards=document.getElementById('minhas-req-cards');
-  if(cards){cards.innerHTML='';minhas.forEach(r=>{cards.innerHTML+=`<div class="req-card">
-    <div class="req-card-header"><strong>${r.materialNome}</strong><span class="badge ${reqBadgeCls(r.status)}">${reqLabel(r.status)}</span></div>
+  if(cards){cards.innerHTML='';minhas.forEach(r=>{
+    const itens=r.itens||[{materialNome:r.materialNome,lote:r.lote,qtd:r.qtd}];
+    cards.innerHTML+=`<div class="req-card">
+    <div class="req-card-header"><strong>${itens.length===1?itens[0].materialNome:itens.length+' materiais'}</strong><span class="badge ${reqBadgeCls(r.status)}">${reqLabel(r.status)}</span></div>
     <div style="font-size:12px;color:var(--muted);line-height:1.9;">
-      Lote: <span style="color:var(--text)">${r.lote}</span><br>
-      Solicitado: <strong style="color:var(--text)">${r.qtd}</strong>${r.qtdAtendida&&r.qtdAtendida!==r.qtd?` · Atendido: <strong style="color:var(--accent)">${r.qtdAtendida}</strong>`:''}
-      <br>Setor: ${r.setor} &nbsp;·&nbsp; ${fmt(r.data)}<br>
+      ${itens.map(i=>`${escHtml(i.materialNome)}: <strong style="color:var(--text)">${i.qtd}</strong>`).join(' · ')}<br>
+      Setor: ${r.setor} · ${fmt(r.data)}<br>
       ${r.motivo?`<span style="color:var(--warn)">📌 ${r.motivo}</span>`:''}
     </div>
   </div>`;});}
@@ -2512,6 +2836,12 @@ function reqLabel(s){return{pendente:'Pendente',atendida:'Atendida',aguardo:'Em 
 // ===========================
 // ATENDIMENTO DE REQUISIÇÕES
 // ===========================
+function _reqItensNormalize(r) {
+  // Compatibilidade: requisições antigas têm um item só (sem array itens)
+  if (r.itens && r.itens.length) return r.itens;
+  return [{ matId:r.materialId, itemId:r.itemId, materialNome:r.materialNome, lote:r.lote, qtd:r.qtd, qtdAtendida:r.qtdAtendida ?? null }];
+}
+
 function renderAtendimento(){
   const filtroStatus=document.getElementById('atend-filtro-status')?.value||'';
   const filtroSetor=document.getElementById('atend-filtro-setor')?.value||'';
@@ -2527,15 +2857,17 @@ function renderAtendimento(){
   // Desktop
   const tb=document.getElementById('atendimento-tbody');
   const em=document.getElementById('atendimento-empty');
-  if(tb){tb.innerHTML='';if(!reqs.length){em.style.display='block';}else{em.style.display='none';reqs.forEach(r=>{const isPending=r.status==='pendente';tb.innerHTML+=`<tr>
-      <td><strong>${r.materialNome}</strong><br><span style="color:var(--muted);font-size:11px;">${r.solicitanteNome}</span></td>
-      <td><span style="font-size:11px;background:rgba(255,255,255,.06);padding:2px 7px;border-radius:4px;">${r.lote}</span></td>
+  if(tb){tb.innerHTML='';if(!reqs.length){em.style.display='block';}else{em.style.display='none';reqs.forEach(r=>{
+    const isPending=r.status==='pendente';
+    const itens=_reqItensNormalize(r);
+    const itensHtml=itens.map(i=>`<div style="font-size:12px;line-height:1.7;"><strong>${escHtml(i.materialNome)}</strong> <span style="color:var(--muted);font-size:11px;">${escHtml(i.lote)}</span><br><span style="color:var(--accent);font-weight:700;">${i.qtd}</span>${i.qtdAtendida!=null&&i.qtdAtendida!==i.qtd?`<span style="font-size:10px;color:var(--muted);"> → atend: <strong style="color:var(--accent)">${i.qtdAtendida}</strong></span>`:''}</div>`).join('');
+    tb.innerHTML+=`<tr>
+      <td><strong>${itens.length===1?escHtml(itens[0].materialNome):itens.length+' materiais'}</strong><br><span style="color:var(--muted);font-size:11px;">${escHtml(r.solicitanteNome)}</span></td>
       <td style="color:var(--muted)">${r.setor}</td>
-      <td style="color:var(--muted)">${r.solicitanteNome}</td>
-      <td><strong>${r.qtd}</strong></td>
-      <td style="color:var(--muted);font-size:12px;max-width:140px;">${r.justif||'—'}</td>
+      <td>${itensHtml}</td>
+      <td style="color:var(--muted);font-size:12px;max-width:130px;">${r.justif||'—'}</td>
       <td style="color:var(--muted);font-size:11px;">${fmt(r.data)}</td>
-      <td><span class="badge ${reqBadgeCls(r.status)}">${reqLabel(r.status)}</span>${r.motivo?`<br><span style="font-size:10px;color:var(--muted)">${r.motivo.slice(0,30)}...</span>`:''}</td>
+      <td><span class="badge ${reqBadgeCls(r.status)}">${reqLabel(r.status)}</span>${r.motivo?`<br><span style="font-size:10px;color:var(--muted)">${r.motivo.slice(0,28)}…</span>`:''}</td>
       <td style="display:flex;gap:4px;flex-wrap:wrap;">
         ${(isPending||r.status==='aguardo')?`<button class="btn btn-primary" style="padding:3px 8px;font-size:11px;" onclick="abrirAcaoReq('${r.id}','atender')">Atender</button>
         ${isPending?`<button class="btn btn-secondary" style="padding:3px 8px;font-size:11px;color:var(--warn);border-color:rgba(255,149,0,.3);" onclick="abrirAcaoReq('${r.id}','aguardo')">Aguardo</button>`:''}
@@ -2544,10 +2876,13 @@ function renderAtendimento(){
     </tr>`;});}}
   // Mobile
   const cards=document.getElementById('atendimento-cards');
-  if(cards){cards.innerHTML='';reqs.forEach(r=>{const isPending=r.status==='pendente';cards.innerHTML+=`<div class="req-card">
-    <div class="req-card-header"><div><strong>${r.materialNome}</strong><br><span style="font-size:11px;color:var(--muted)">${r.solicitanteNome} · ${r.setor}</span></div><span class="badge ${reqBadgeCls(r.status)}">${reqLabel(r.status)}</span></div>
+  if(cards){cards.innerHTML='';reqs.forEach(r=>{
+    const isPending=r.status==='pendente';
+    const itens=_reqItensNormalize(r);
+    cards.innerHTML+=`<div class="req-card">
+    <div class="req-card-header"><div><strong>${itens.length===1?itens[0].materialNome:itens.length+' materiais'}</strong><br><span style="font-size:11px;color:var(--muted)">${r.solicitanteNome} · ${r.setor}</span></div><span class="badge ${reqBadgeCls(r.status)}">${reqLabel(r.status)}</span></div>
     <div style="font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:10px;">
-      Lote: <span style="color:var(--text)">${r.lote}</span> · Qtd: <strong style="color:var(--text)">${r.qtd}</strong>${r.qtdAtendida&&r.qtdAtendida!==r.qtd?` <span style="color:var(--accent);font-size:11px;">(atend: ${r.qtdAtendida})</span>`:''}<br>
+      ${itens.map(i=>`${escHtml(i.materialNome)}: <strong style="color:var(--text)">${i.qtd}</strong>`).join(' · ')}<br>
       ${r.justif?`Justif: ${r.justif}<br>`:''}${fmt(r.data)}
       ${r.motivo?`<br><span style="color:var(--warn)">Obs: ${r.motivo}</span>`:''}
     </div>
@@ -2563,56 +2898,80 @@ function abrirAcaoReq(reqId, acao){
   const req=db.requisicoes.find(r=>r.id===reqId); if(!req)return;
   document.getElementById('modal-atender-id').value=reqId;
   document.getElementById('modal-atender-acao').value=acao;
-  document.getElementById('modal-atender-qtd-original').value=req.qtd;
   const titles={atender:'Atender Requisição',aguardo:'Colocar em Aguardo',negar:'Negar Requisição'};
   const btns={atender:'Confirmar Atendimento',aguardo:'Confirmar Aguardo',negar:'Confirmar Negação'};
   const btnCls={atender:'btn-primary',aguardo:'btn-warn',negar:'btn-danger'};
   document.getElementById('modal-atender-title').innerHTML=titles[acao]+` <button class="modal-close" onclick="fecharModal('modal-atender')">✕</button>`;
+
+  const itens = _reqItensNormalize(req);
   document.getElementById('modal-atender-info').innerHTML=`
     <div style="line-height:1.8;font-size:13px;">
-      <strong>${req.materialNome}</strong> — Lote: ${req.lote}<br>
-      Solicitante: ${req.solicitanteNome} · Setor: ${req.setor}<br>
-      Quantidade solicitada: <strong style="color:var(--text)">${req.qtd}</strong> · ${fmt(req.data)}
-      ${req.justif?`<br>Justificativa: ${req.justif}`:''}
+      Solicitante: <strong>${escHtml(req.solicitanteNome)}</strong> · Setor: <strong>${escHtml(req.setor)}</strong><br>
+      Data: ${fmt(req.data)}${req.justif?`<br>Justificativa: ${escHtml(req.justif)}`:''}
       ${req.status==='aguardo'?`<br><span style="color:var(--warn);">⏳ Em aguardo: ${req.motivo||''}</span>`:''}
     </div>`;
-  const motivoGroup=document.getElementById('modal-atender-motivo-group');
-  const motivoLabel=document.getElementById('modal-atender-motivo-label');
-  const qtdGroup=document.getElementById('modal-atender-qtd-group');
-  const qtdInput=document.getElementById('modal-atender-qtd');
-  const qtdHint=document.getElementById('modal-atender-qtd-hint');
+
+  const itensWrap = document.getElementById('modal-atender-itens-wrap');
+  const itensList = document.getElementById('modal-atender-itens-list');
+  const motivoGroup = document.getElementById('modal-atender-motivo-group');
+  const motivoLabel = document.getElementById('modal-atender-motivo-label');
   document.getElementById('modal-atender-motivo').value='';
-  if(acao==='atender'){
-    qtdGroup.style.display='block';
-    qtdInput.value=req.qtd;
-    qtdInput.max=req.qtd;
-    qtdHint.textContent=`(máx: ${req.qtd} solicitado)`;
+
+  if (acao === 'atender') {
+    itensWrap.style.display='block';
+    itensList.innerHTML = itens.map((it, idx) => {
+      const item = db.itens.find(i=>i.id===it.itemId);
+      const disp = item ? item.qtd : 0;
+      return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:120px;">
+          <strong style="font-size:13px;">${escHtml(it.materialNome)}</strong>
+          <span style="font-size:11px;color:var(--muted);margin-left:6px;">${escHtml(it.lote)}</span>
+          <br><span style="font-size:11px;color:var(--muted);">Solicitado: <strong style="color:var(--text)">${it.qtd}</strong> · Disp: <strong style="color:var(--accent)">${disp}</strong></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <label style="font-size:12px;margin:0;white-space:nowrap;">Atender:</label>
+          <input type="number" id="modal-atender-qtd-${idx}" value="${it.qtd}" min="0" max="${disp}"
+            style="width:72px;padding:6px 8px;font-size:13px;font-weight:700;text-align:center;"
+            oninput="_verificarQtdsAtender()">
+        </div>
+      </div>`;
+    }).join('');
     motivoGroup.style.display='none';
-    motivoLabel.textContent='Motivo (quantidade diferente) *';
+    motivoLabel.textContent='Motivo (quantidade(s) alterada(s)) *';
+    // Verifica diferença inicial
+    setTimeout(_verificarQtdsAtender, 50);
   } else {
-    qtdGroup.style.display='none';
+    itensWrap.style.display='none';
     motivoGroup.style.display='block';
     motivoLabel.textContent=acao==='aguardo'?'Motivo do aguardo *':'Motivo da negação *';
   }
   const btn=document.getElementById('modal-atender-btn');
-  btn.textContent=btns[acao];
-  btn.className='btn '+btnCls[acao];
-  btn.style.flex='2';
+  btn.textContent=btns[acao]; btn.className='btn '+btnCls[acao]; btn.style.flex='2';
   abrirModal('modal-atender');
 }
-function verificarQtdDiferente(){
-  const qtdOriginal=+document.getElementById('modal-atender-qtd-original').value;
-  const qtdAtender=+document.getElementById('modal-atender-qtd').value;
-  const motivoGroup=document.getElementById('modal-atender-motivo-group');
-  const motivoLabel=document.getElementById('modal-atender-motivo-label');
-  if(qtdAtender>0 && qtdAtender!==qtdOriginal){
-    motivoGroup.style.display='block';
-    motivoLabel.textContent=`Motivo (qtd alterada de ${qtdOriginal} para ${qtdAtender}) *`;
+
+function _verificarQtdsAtender() {
+  const reqId = document.getElementById('modal-atender-id').value;
+  const req = db.requisicoes.find(r=>r.id===reqId); if(!req) return;
+  const itens = _reqItensNormalize(req);
+  let hasDiff = false;
+  itens.forEach((it, idx) => {
+    const inp = document.getElementById(`modal-atender-qtd-${idx}`);
+    if (inp && +inp.value !== it.qtd) hasDiff = true;
+  });
+  const motivoGroup = document.getElementById('modal-atender-motivo-group');
+  const motivoLabel = document.getElementById('modal-atender-motivo-label');
+  if (hasDiff) {
+    motivoGroup.style.display = 'block';
+    motivoLabel.textContent = 'Motivo (quantidade(s) alterada(s)) *';
   } else {
-    motivoGroup.style.display='none';
-    document.getElementById('modal-atender-motivo').value='';
+    motivoGroup.style.display = 'none';
+    document.getElementById('modal-atender-motivo').value = '';
   }
 }
+
+// Mantida para compatibilidade (chamada antiga)
+function verificarQtdDiferente() { _verificarQtdsAtender(); }
 
 async function confirmarAcaoReq(){
   const reqId=document.getElementById('modal-atender-id').value;
@@ -2620,39 +2979,64 @@ async function confirmarAcaoReq(){
   const motivo=document.getElementById('modal-atender-motivo').value.trim();
   const req=db.requisicoes.find(r=>r.id===reqId); if(!req)return;
   if((acao==='aguardo'||acao==='negar')&&!motivo)return toast('Informe o motivo.','error');
+
   const itemsToSave = [];
+
   if(acao==='atender'){
-    const qtdAtender=+document.getElementById('modal-atender-qtd').value;
-    const qtdOriginal=+document.getElementById('modal-atender-qtd-original').value;
-    if(!qtdAtender||qtdAtender<=0)return toast('Informe a quantidade a atender.','error');
-    if(qtdAtender!==qtdOriginal&&!motivo)return toast('Informe o motivo da alteração de quantidade.','error');
-    const item=db.itens.find(i=>i.id===req.itemId);
-    if(item){
-      if(qtdAtender>item.qtd){toast(`Estoque insuficiente! Disponível: ${item.qtd}`,'error');return;}
-      item.qtd-=qtdAtender;
-      itemsToSave.push({col:'itens',item});
-      const saida={id:uid(),materialNome:req.materialNome,estoqueNome:req.estoqueNome,lote:req.lote,qtd:qtdAtender,motivo:`Requisição #${reqId.slice(-6)} — ${req.setor}`,resp:currentUser.nome,data:new Date().toISOString()};
-      db.saidas.unshift(saida);
-      itemsToSave.push({col:'saidas',item:saida});
+    const itens = _reqItensNormalize(req);
+    // Lê todas as quantidades dos inputs
+    const qtdsAtender = itens.map((it, idx) => {
+      const inp = document.getElementById(`modal-atender-qtd-${idx}`);
+      return inp ? Math.max(0, +inp.value) : it.qtd;
+    });
+    // Valida
+    for (let idx=0; idx<itens.length; idx++) {
+      const it = itens[idx];
+      const qtdAte = qtdsAtender[idx];
+      if (qtdAte <= 0) return toast(`Quantidade inválida para "${it.materialNome}".`,'error');
+      const item = db.itens.find(i=>i.id===it.itemId);
+      if (item && qtdAte > item.qtd) return toast(`Estoque insuficiente para "${it.materialNome}". Disponível: ${item.qtd}`,'error');
     }
-    const qtdAnterior=req.qtd;
-    req.qtdAtendida=qtdAtender; req.status='atendida'; req.motivo=motivo||'';
-    if(qtdAtender!==qtdAnterior){
-      adicionarNotif(req.solicitanteId,`✅ Sua requisição de ${req.materialNome} foi ATENDIDA com quantidade alterada: solicitado ${qtdAnterior}, atendido ${qtdAtender}. Motivo: ${motivo}`,'atendida',reqId);
+    // Verifica se tem diff e requer motivo
+    const hasDiff = itens.some((it, idx) => qtdsAtender[idx] !== it.qtd);
+    if (hasDiff && !motivo) return toast('Informe o motivo da alteração de quantidade.','error');
+
+    // Executa baixa para cada item
+    for (let idx=0; idx<itens.length; idx++) {
+      const it = itens[idx];
+      const qtdAte = qtdsAtender[idx];
+      it.qtdAtendida = qtdAte;
+      const item = db.itens.find(i=>i.id===it.itemId);
+      if (item) {
+        item.qtd -= qtdAte;
+        itemsToSave.push({col:'itens', item});
+        const saida={id:uid(),materialNome:it.materialNome,estoqueNome:req.estoqueNome,lote:it.lote,qtd:qtdAte,motivo:`Requisição #${reqId.slice(-6)} — ${req.setor}`,resp:currentUser.nome,data:new Date().toISOString()};
+        db.saidas.unshift(saida);
+        itemsToSave.push({col:'saidas',item:saida});
+      }
+    }
+    // Atualiza itens no req
+    if (req.itens) req.itens = itens;
+    req.qtdAtendida = qtdsAtender[0]; req.status='atendida'; req.motivo=motivo||'';
+    const resumo = itens.map((it,idx)=>`${it.materialNome}: ${qtdsAtender[idx]}${qtdsAtender[idx]!==it.qtd?` (sol. ${it.qtd})`:''}`).join(', ');
+    if (hasDiff) {
+      adicionarNotif(req.solicitanteId,`✅ Sua requisição foi ATENDIDA com ajustes. ${resumo}. Motivo: ${motivo}`,'atendida',reqId);
     } else {
-      adicionarNotif(req.solicitanteId,`✅ Sua requisição de ${qtdAtender}x ${req.materialNome} foi ATENDIDA!`,'atendida',reqId);
+      adicionarNotif(req.solicitanteId,`✅ Sua requisição foi ATENDIDA! ${resumo}`,'atendida',reqId);
     }
-    toast('Requisição atendida e estoque baixado!');
+    toast('Requisição atendida e estoque(s) baixado(s)!');
+
   } else if(acao==='aguardo'){
     req.status='aguardo'; req.motivo=motivo;
-    adicionarNotif(req.solicitanteId,`⏳ Sua requisição de ${req.qtd}x ${req.materialNome} está EM AGUARDO. Motivo: ${motivo}`,'aguardo',reqId);
+    adicionarNotif(req.solicitanteId,`⏳ Sua requisição está EM AGUARDO. Motivo: ${motivo}`,'aguardo',reqId);
     toast('Requisição colocada em aguardo.');
   } else if(acao==='negar'){
     req.status='negada'; req.motivo=motivo;
-    adicionarNotif(req.solicitanteId,`❌ Sua requisição de ${req.qtd}x ${req.materialNome} foi NEGADA. Motivo: ${motivo}`,'negada',reqId);
+    adicionarNotif(req.solicitanteId,`❌ Sua requisição foi NEGADA. Motivo: ${motivo}`,'negada',reqId);
     toast('Requisição negada.');
   }
-  await logAudit('atendimento', `Requisição ${acao==='atender'?'ATENDIDA':acao==='aguardo'?'EM AGUARDO':'NEGADA'}: ${req.materialNome}`, `Qtd: ${acao==='atender'?(document.getElementById('modal-atender-qtd')?.value||req.qtd):req.qtd} | Solicitante: ${req.solicitanteNome}${motivo?' | Motivo: '+motivo:''}`);
+
+  await logAudit('atendimento', `Requisição ${acao==='atender'?'ATENDIDA':acao==='aguardo'?'EM AGUARDO':'NEGADA'}: ${req.materialNome}`, `Setor: ${req.setor} | Solicitante: ${req.solicitanteNome}${motivo?' | Motivo: '+motivo:''}`);
   fecharModal('modal-atender'); renderAtendimento();
   try {
     await saveItem('requisicoes', req);
@@ -4152,6 +4536,311 @@ function exportarAuditoriaPDF() {
   const nome = `auditoria_${new Date().toISOString().slice(0,10)}.pdf`;
   doc.save(nome);
   toast(`PDF exportado: ${nome}`);
+}
+
+// ===========================
+// CONTROLE DE VALIDADE
+// ===========================
+
+function _getValQtdConfig() {
+  const v = parseInt(document.getElementById('val-qtd-config')?.value) || 20;
+  return Math.max(5, Math.min(200, v));
+}
+
+function _buildValidadeRows() {
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+
+  // Todos os itens com validade, ordenados do mais crítico para o mais distante
+  const rows = db.itens
+    .filter(i => i.validade)
+    .map(i => {
+      const mat = db.materiais.find(m => m.id === i.materialId);
+      const est = db.estoques.find(e => e.id === i.estoqueId);
+      const valDate = new Date(i.validade + 'T00:00:00');
+      const diasRestantes = Math.round((valDate - hoje) / (1000*60*60*24));
+      return {
+        material: mat?.nome || '—',
+        lote: i.lote || '—',
+        estoque: est?.nome || '—',
+        qtd: i.qtd,
+        validade: i.validade,
+        diasRestantes,
+        vencido: diasRestantes < 0,
+        urgente: diasRestantes >= 0 && diasRestantes <= 7,
+      };
+    })
+    .sort((a, b) => a.diasRestantes - b.diasRestantes); // mais crítico primeiro
+
+  // Para a tabela da página (filtrada por regra)
+  const criticos = rows.filter(r => r.vencido || r.urgente);
+  if (criticos.length > 0) {
+    return { rows: criticos, rowsApres: rows, modo: 'critico' };
+  }
+  const qtd = _getValQtdConfig();
+  const proximos = rows.filter(r => r.diasRestantes >= 0).slice(0, qtd);
+  return { rows: proximos, rowsApres: rows, modo: 'proximos' };
+}
+
+function _valStatusInfo(row) {
+  if (row.vencido) return { label:'VENCIDO', bg:'rgba(255,59,92,.18)', cor:'#ff3b5c' };
+  if (row.diasRestantes === 0) return { label:'VENCE HOJE', bg:'rgba(255,59,92,.14)', cor:'#ff3b5c' };
+  if (row.diasRestantes <= 3) return { label:`${row.diasRestantes}d restantes`, bg:'rgba(255,149,0,.18)', cor:'#ff9500' };
+  if (row.diasRestantes <= 7) return { label:`${row.diasRestantes}d restantes`, bg:'rgba(255,149,0,.12)', cor:'#ff9500' };
+  return { label:`${row.diasRestantes}d`, bg:'rgba(0,229,160,.1)', cor:'#00e5a0' };
+}
+
+function renderValidade() {
+  const { rows, rowsApres, modo } = _buildValidadeRows();
+  const qtdConfig = _getValQtdConfig();
+
+  // Atualiza label config
+  const lbl = document.getElementById('val-qtd-config-label');
+  if (lbl) lbl.textContent = qtdConfig;
+
+  // Summary
+  const sumEl = document.getElementById('val-summary');
+  if (sumEl) {
+    const vencidos = rows.filter(r => r.vencido).length;
+    const hoje7    = rows.filter(r => !r.vencido && r.diasRestantes <= 7).length;
+    const total    = rows.length;
+    sumEl.innerHTML = `
+      <div style="background:rgba(255,59,92,.1);border:1px solid rgba(255,59,92,.25);border-radius:10px;padding:12px 20px;display:flex;align-items:center;gap:10px;">
+        <span style="font-size:22px;font-weight:800;font-family:'Syne',sans-serif;color:#ff3b5c">${vencidos}</span>
+        <span style="font-size:13px;color:var(--muted);">Vencidos</span>
+      </div>
+      <div style="background:rgba(255,149,0,.1);border:1px solid rgba(255,149,0,.25);border-radius:10px;padding:12px 20px;display:flex;align-items:center;gap:10px;">
+        <span style="font-size:22px;font-weight:800;font-family:'Syne',sans-serif;color:#ff9500">${hoje7}</span>
+        <span style="font-size:13px;color:var(--muted);">Vencem em 7 dias</span>
+      </div>
+      <div style="background:rgba(0,229,160,.08);border:1px solid rgba(0,229,160,.2);border-radius:10px;padding:12px 20px;display:flex;align-items:center;gap:10px;">
+        <span style="font-size:22px;font-weight:800;font-family:'Syne',sans-serif;color:var(--accent)">${total}</span>
+        <span style="font-size:13px;color:var(--muted);">Registros listados</span>
+      </div>
+      ${modo === 'proximos' ? `<div style="background:rgba(0,102,255,.08);border:1px solid rgba(0,102,255,.2);border-radius:10px;padding:12px 20px;display:flex;align-items:center;gap:8px;"><span style="font-size:12px;color:#5599ff;">ℹ️ Nenhum vencido/urgente — exibindo os ${qtdConfig} mais próximos</span></div>` : ''}
+    `;
+  }
+
+  // Title
+  const titleEl = document.getElementById('val-table-title');
+  const countEl = document.getElementById('val-table-count');
+  if (titleEl) titleEl.textContent = modo === 'critico' ? '🚨 Materiais Vencidos ou com ≤ 7 dias' : `📅 ${qtdConfig} Mais Próximos do Vencimento`;
+  if (countEl) countEl.textContent = `${rows.length} registro${rows.length !== 1 ? 's' : ''}`;
+
+  // Empty
+  const emEl = document.getElementById('val-empty');
+  const tbEl = document.getElementById('val-tbody');
+  if (!rows.length) {
+    if (emEl) emEl.style.display = 'block';
+    if (tbEl) tbEl.innerHTML = '';
+    return;
+  }
+  if (emEl) emEl.style.display = 'none';
+
+  if (tbEl) {
+    tbEl.innerHTML = rows.map(row => {
+      const st = _valStatusInfo(row);
+      const valFmt = row.validade ? new Date(row.validade + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
+      const diasLabel = row.vencido
+        ? `<span style="color:#ff3b5c;font-weight:700;">${Math.abs(row.diasRestantes)}d atrás</span>`
+        : row.diasRestantes === 0
+          ? `<span style="color:#ff3b5c;font-weight:700;">Hoje</span>`
+          : `<span style="color:${row.diasRestantes<=7?'#ff9500':'var(--muted)'};">${row.diasRestantes}d</span>`;
+      return `<tr style="${row.vencido ? 'background:rgba(255,59,92,.04)' : row.urgente ? 'background:rgba(255,149,0,.03)' : ''}">
+        <td><strong>${escHtml(row.material)}</strong></td>
+        <td style="color:var(--muted);font-size:12px;">${escHtml(row.lote)}</td>
+        <td style="font-size:13px;">${escHtml(row.estoque)}</td>
+        <td style="font-weight:600;">${row.qtd}</td>
+        <td style="font-size:13px;color:var(--muted);">${valFmt}</td>
+        <td>${diasLabel}</td>
+        <td><span class="val-status-badge" style="background:${st.bg};color:${st.cor};">${st.label}</span></td>
+      </tr>`;
+    }).join('');
+  }
+}
+
+// ── MODO APRESENTAÇÃO ─────────────────────────────────────────────────────────
+
+let _apresClockInterval = null;
+let _apresScrollRAF = null;
+let _apresScrollPos = 0;
+
+// Tabela de velocidades: índice 0 = mais lento, 4 = mais rápido
+const _APRES_SPEEDS = [
+  { label: 'Muito Lento', px: 0.2  },
+  { label: 'Lento',       px: 0.45 },
+  { label: 'Normal',      px: 0.8  },
+  { label: 'Rápido',      px: 1.4  },
+  { label: 'Muito Rápido',px: 2.2  },
+];
+let _apresSpeedIdx = 2; // padrão = Normal
+
+function _getApresSpeed() {
+  return _APRES_SPEEDS[_apresSpeedIdx].px;
+}
+
+function _syncSpeedLabels() {
+  const lbl = _APRES_SPEEDS[_apresSpeedIdx].label;
+  const pageEl   = document.getElementById('val-speed-label');
+  const apresEl  = document.getElementById('apres-speed-label');
+  const btnSlow  = document.getElementById('apres-btn-slow');
+  const btnFast  = document.getElementById('apres-btn-fast');
+  if (pageEl)  pageEl.textContent  = lbl;
+  if (apresEl) apresEl.textContent = lbl;
+  // Desabilita botões nos extremos
+  if (btnSlow) btnSlow.style.opacity = _apresSpeedIdx === 0 ? '.35' : '1';
+  if (btnFast) btnFast.style.opacity = _apresSpeedIdx === _APRES_SPEEDS.length - 1 ? '.35' : '1';
+}
+
+function alterarVelocidadeApres(delta) {
+  const novoIdx = _apresSpeedIdx + delta;
+  if (novoIdx < 0 || novoIdx >= _APRES_SPEEDS.length) return;
+  _apresSpeedIdx = novoIdx;
+  _syncSpeedLabels();
+  // Feedback visual rápido no label da apresentação
+  const apresEl = document.getElementById('apres-speed-label');
+  if (apresEl) {
+    apresEl.style.transform = 'scale(1.18)';
+    apresEl.style.transition = 'transform .12s';
+    setTimeout(() => { apresEl.style.transform = 'scale(1)'; }, 160);
+  }
+}
+
+function abrirApresentacaoValidade() {
+  const overlay = document.getElementById('validade-apres-overlay');
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  _apresScrollPos = 0;
+  _syncSpeedLabels();
+  _renderApresTabela();
+  _iniciarRelogioApres();
+  document._valApresKeyHandler = (e) => {
+    if (e.key === 'Escape') fecharApresentacaoValidade();
+    if (e.key === '+' || e.key === '=') alterarVelocidadeApres(+1);
+    if (e.key === '-' || e.key === '_') alterarVelocidadeApres(-1);
+  };
+  document.addEventListener('keydown', document._valApresKeyHandler);
+}
+
+function fecharApresentacaoValidade() {
+  const overlay = document.getElementById('validade-apres-overlay');
+  overlay.classList.remove('open');
+  document.body.style.overflow = '';
+  clearInterval(_apresClockInterval);
+  if (_apresScrollRAF) { cancelAnimationFrame(_apresScrollRAF); _apresScrollRAF = null; }
+  if (document._valApresKeyHandler) {
+    document.removeEventListener('keydown', document._valApresKeyHandler);
+    document._valApresKeyHandler = null;
+  }
+}
+
+function _buildApresRowHTML(row) {
+  const st = _valStatusInfo(row);
+  const valFmt = row.validade ? new Date(row.validade + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
+  const bgRow = row.vencido ? 'rgba(255,59,92,.06)' : row.urgente ? 'rgba(255,149,0,.04)' : 'transparent';
+  const diasTxt = row.vencido
+    ? `<span style="color:#ff3b5c;font-size:13px;">${Math.abs(row.diasRestantes)}d atrás</span>`
+    : row.diasRestantes === 0
+      ? `<span style="color:#ff3b5c;font-size:13px;">Hoje</span>`
+      : `<span style="color:${row.diasRestantes<=7?'#ff9500':'var(--muted)'};font-size:13px;">${row.diasRestantes}d</span>`;
+  return `<tr style="background:${bgRow};border-bottom:1px solid var(--border);">
+    <td style="padding:22px 28px;">
+      <strong style="font-size:22px;font-family:'Syne',sans-serif;">${escHtml(row.material)}</strong>
+      <br><span style="font-size:13px;color:var(--muted);">Lote: ${escHtml(row.lote)}</span>
+    </td>
+    <td style="padding:22px 28px;font-size:18px;color:var(--text);">${escHtml(row.estoque)}</td>
+    <td style="padding:22px 28px;">
+      <span style="font-size:20px;font-weight:700;font-family:'Syne',sans-serif;">${valFmt}</span>
+      <br>${diasTxt}
+    </td>
+    <td style="padding:22px 28px;">
+      <span style="padding:8px 22px;border-radius:99px;font-size:15px;font-weight:800;font-family:'Syne',sans-serif;background:${st.bg};color:${st.cor};letter-spacing:.5px;">${st.label}</span>
+    </td>
+  </tr>`;
+}
+
+function _renderApresTabela() {
+  if (_apresScrollRAF) { cancelAnimationFrame(_apresScrollRAF); _apresScrollRAF = null; }
+
+  const { rowsApres, modo } = _buildValidadeRows();
+  const vencidos = rowsApres.filter(r => r.vencido).length;
+  const urgentes = rowsApres.filter(r => !r.vencido && r.urgente).length;
+  const total    = rowsApres.length;
+
+  // Info line
+  const infoEl = document.getElementById('val-apres-info-line');
+  if (infoEl) {
+    if (vencidos > 0 || urgentes > 0) {
+      infoEl.innerHTML = `<span style="color:#ff3b5c;font-weight:700;">${vencidos} vencido${vencidos!==1?'s':''}</span>&nbsp;·&nbsp;<span style="color:#ff9500;font-weight:700;">${urgentes} urgente${urgentes!==1?'s':''}</span>&nbsp;·&nbsp;<span style="color:var(--muted);">${total} total com validade</span>`;
+    } else {
+      infoEl.innerHTML = `<span style="color:var(--accent);">${total} material${total!==1?'is':''} com validade cadastrada</span>`;
+    }
+  }
+
+  const wrap = document.getElementById('validade-apres-table-wrap');
+  const track = document.getElementById('validade-apres-scroll-track');
+
+  if (!total) {
+    wrap.innerHTML = `<div style="padding:0 48px;text-align:center;padding-top:80px;color:var(--muted);">
+      <div style="font-size:64px;margin-bottom:16px;">✅</div>
+      <div style="font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin-bottom:10px;">Tudo em dia!</div>
+      <div style="font-size:18px;">Nenhum material com validade cadastrada.</div>
+    </div>`;
+    return;
+  }
+
+  const tableHead = `<table style="width:100%;border-collapse:collapse;">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:18px 28px;color:var(--muted);font-size:12px;font-weight:700;font-family:'Syne',sans-serif;letter-spacing:1.5px;border-bottom:2px solid var(--border);text-transform:uppercase;position:sticky;top:0;background:var(--bg);">Material</th>
+        <th style="text-align:left;padding:18px 28px;color:var(--muted);font-size:12px;font-weight:700;font-family:'Syne',sans-serif;letter-spacing:1.5px;border-bottom:2px solid var(--border);text-transform:uppercase;position:sticky;top:0;background:var(--bg);">Estoque</th>
+        <th style="text-align:left;padding:18px 28px;color:var(--muted);font-size:12px;font-weight:700;font-family:'Syne',sans-serif;letter-spacing:1.5px;border-bottom:2px solid var(--border);text-transform:uppercase;position:sticky;top:0;background:var(--bg);">Validade</th>
+        <th style="text-align:left;padding:18px 28px;color:var(--muted);font-size:12px;font-weight:700;font-family:'Syne',sans-serif;letter-spacing:1.5px;border-bottom:2px solid var(--border);text-transform:uppercase;position:sticky;top:0;background:var(--bg);">Status</th>
+      </tr>
+    </thead>
+    <tbody>${rowsApres.map(_buildApresRowHTML).join('')}</tbody>
+  </table>`;
+
+  // Duplica para loop infinito contínuo
+  wrap.innerHTML = `<div style="padding:0 48px 0;">${tableHead}</div><div style="padding:0 48px 0;" aria-hidden="true">${tableHead}</div>`;
+
+  // Aguarda render para medir altura real
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      _apresScrollPos = 0;
+      track.style.transform = 'translateY(0px)';
+      _iniciarScrollRAF();
+    });
+  });
+}
+
+function _iniciarScrollRAF() {
+  if (_apresScrollRAF) cancelAnimationFrame(_apresScrollRAF);
+  const track = document.getElementById('validade-apres-scroll-track');
+  if (!track) return;
+
+  function step() {
+    if (!document.getElementById('validade-apres-overlay')?.classList.contains('open')) return;
+    const halfH = track.scrollHeight / 2;
+    if (halfH <= 0) { _apresScrollRAF = requestAnimationFrame(step); return; }
+
+    _apresScrollPos += _getApresSpeed(); // lê velocidade atual a cada frame
+    if (_apresScrollPos >= halfH) {
+      _apresScrollPos -= halfH; // seamless loop
+    }
+    track.style.transform = `translateY(-${_apresScrollPos}px)`;
+    _apresScrollRAF = requestAnimationFrame(step);
+  }
+  _apresScrollRAF = requestAnimationFrame(step);
+}
+
+function _iniciarRelogioApres() {
+  clearInterval(_apresClockInterval);
+  const el = document.getElementById('validade-apres-clock');
+  const update = () => {
+    if (el) el.textContent = new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  };
+  update();
+  _apresClockInterval = setInterval(update, 1000);
 }
 
 // Log inicial de sistema quando app é carregado
