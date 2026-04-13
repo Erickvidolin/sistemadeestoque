@@ -46,7 +46,8 @@ const DEFAULT_ADMIN = {
 // COLEÇÕES DO SISTEMA — criadas automaticamente no primeiro boot
 // ============================================================
 const COLECOES = ['estoques','materiais','itens','entradas','saidas',
-                  'transferencias','requisicoes','notificacoes','auditoria'];
+                  'transferencias','requisicoes','notificacoes','auditoria',
+                  'recebimentos','inspecoes'];
 
 const firebaseApp = initializeApp(firebaseConfig);
 const auth        = getAuth(firebaseApp);
@@ -184,7 +185,8 @@ onAuthStateChanged(auth, async (user) => {
           email:    user.email,
           nome:     data.nome || user.email,
           username: data.username || user.email,
-          role:     data.role || 'user'
+          role:     data.role || 'user',
+          areas:    Array.isArray(data.areas) ? data.areas : []
         };
         window._fbReady = true;
         // Remove mensagem de boot ao logar
@@ -276,6 +278,22 @@ label{font-size:13px;color:var(--muted);margin-bottom:6px;display:block;font-wei
 .badge-attended{background:rgba(0,229,160,.15);color:var(--accent);}
 .badge-denied{background:rgba(255,59,92,.15);color:var(--danger);}
 .badge-waiting{background:rgba(0,102,255,.15);color:#5599ff;}
+.badge-quality{background:rgba(168,85,247,.15);color:#a855f7;}
+.badge-recv{background:rgba(20,184,166,.15);color:#14b8a6;}
+
+/* RECEBIMENTO & QUALIDADE */
+.recv-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:14px;transition:border-color .2s;}
+.recv-card:hover{border-color:rgba(20,184,166,.4);}
+.recv-card.critico{border-left:3px solid #a855f7;}
+.insp-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:14px;}
+.insp-card.pendente{border-left:3px solid var(--warn);}
+.insp-card.aprovado{border-left:3px solid var(--accent);}
+.insp-card.reprovado{border-left:3px solid var(--danger);}
+.sample-row{display:grid;grid-template-columns:80px 1fr;gap:8px;align-items:start;padding:10px 0;border-bottom:1px solid var(--border);}
+.sample-row:last-child{border-bottom:none;}
+.check-point{display:flex;align-items:center;gap:10px;padding:6px 0;}
+.avatar-quality{background:rgba(168,85,247,.2);color:#a855f7;}
+.avatar-recv{background:rgba(20,184,166,.2);color:#14b8a6;}
 
 /* TABLE */
 table{width:100%;border-collapse:collapse;font-size:13px;}
@@ -741,11 +759,24 @@ tr:hover td{background:rgba(255,255,255,.02);}
             <input id="mat-dias" type="number" placeholder="Ex: 7" min="0">
             <div style="font-size:11px;color:var(--muted);margin-top:4px;">Média de dias desde o pedido até a chegada no estoque.</div>
           </div>
-          <button class="btn btn-primary" onclick="salvarMaterial()" style="width:100%;">Cadastrar Material</button>
+          <div class="form-group">
+            <label class="checkbox-wrap"><input type="checkbox" id="mat-critico" onchange="toggleMatCritico()"><span style="font-size:13px;color:var(--text);">🔴 Material Crítico (requer inspeção de qualidade)</span></label>
+          </div>
+          <div id="mat-critico-fields" style="display:none;background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.2);border-radius:10px;padding:16px;margin-top:4px;">
+            <div style="font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:#a855f7;letter-spacing:.5px;text-transform:uppercase;margin-bottom:12px;">Configurações de Qualidade</div>
+            <div class="form-group"><label>EP (Especificação do Produto)</label><input id="mat-ep" type="text" placeholder="Ex: EP-001, Norma ABNT..."></div>
+            <div style="font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px;margin-top:4px;">Pontos de Verificação</div>
+            <div id="mat-pontos-lista"></div>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <button type="button" class="btn btn-secondary" style="flex:1;font-size:12px;padding:8px;" onclick="addPontoVerif('visual')">+ Visual</button>
+              <button type="button" class="btn btn-secondary" style="flex:1;font-size:12px;padding:8px;" onclick="addPontoVerif('medida')">+ Medida</button>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="salvarMaterial()" style="width:100%;margin-top:16px;">Cadastrar Material</button>
         </div>
         <div class="card">
           <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:14px;">Materiais Cadastrados</div>
-          <div class="table-scroll-wrap"><table><thead><tr><th>Nome</th><th>Cat.</th><th>Unid.</th><th>Mín</th><th>Máx</th><th>Dias</th><th></th></tr></thead><tbody id="materiais-tbody"></tbody></table></div>
+          <div class="table-scroll-wrap"><table><thead><tr><th>Nome</th><th>Cat.</th><th>Unid.</th><th>Mín</th><th>Máx</th><th>Dias</th><th>Crítico</th><th></th></tr></thead><tbody id="materiais-tbody"></tbody></table></div>
           <div class="data-cards" id="materiais-cards"></div>
           <div id="materiais-empty" style="text-align:center;color:var(--muted);padding:28px;display:none;">Nenhum material cadastrado.</div>
         </div>
@@ -1013,10 +1044,20 @@ tr:hover td{background:rgba(255,255,255,.02);}
           <div class="form-group"><label>Senha *</label><input id="nu-senha" type="password" placeholder="Mínimo 6 caracteres"></div>
           <div class="form-group">
             <label>Perfil de Acesso *</label>
-            <select id="nu-role">
-              <option value="user">Usuário Comum — apenas requisições</option>
+            <select id="nu-role" onchange="toggleAreasSel('nu-areas-box','nu-role')">
+              <option value="user">Usuário — acesso personalizado</option>
+              <option value="quality">Qualidade — qualidade + recebimento crítico</option>
+              <option value="recv">Recebimento — apenas recebimento</option>
               <option value="adm">Administrador — acesso total</option>
             </select>
+          </div>
+          <div id="nu-areas-box" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px;">
+            <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px;">Áreas de Acesso</div>
+            <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="nu-area-check" value="requisicoes"><span style="font-size:13px;">📋 Requisições</span></label>
+            <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="nu-area-check" value="recebimento"><span style="font-size:13px;">📦 Recebimento de Materiais</span></label>
+            <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="nu-area-check" value="qualidade"><span style="font-size:13px;">🔬 Qualidade (inspeção crítica)</span></label>
+            <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="nu-area-check" value="estoque"><span style="font-size:13px;">📦 Estoque (entrada/saída)</span></label>
+            <label class="checkbox-wrap"><input type="checkbox" class="nu-area-check" value="relatorios"><span style="font-size:13px;">📄 Relatórios</span></label>
           </div>
           <div id="nu-error" style="display:none;color:var(--danger);font-size:13px;margin-bottom:12px;padding:10px;background:rgba(255,59,92,.08);border-radius:8px;"></div>
           <button class="btn btn-primary" onclick="cadastrarUsuario()" style="width:100%;" id="btn-cadastrar-usuario">Cadastrar Usuário</button>
@@ -1024,12 +1065,41 @@ tr:hover td{background:rgba(255,255,255,.02);}
         <div class="card">
           <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:14px;">Usuários Cadastrados</div>
           <div class="table-scroll-wrap"><table>
-            <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Cadastrado</th><th></th></tr></thead>
+            <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Áreas</th><th>Cadastrado</th><th></th></tr></thead>
             <tbody id="usuarios-tbody"></tbody>
           </table></div>
           <div class="data-cards" id="usuarios-cards"></div>
           <div id="usuarios-empty" style="text-align:center;color:var(--muted);padding:28px;display:none;">Nenhum usuário cadastrado.</div>
           <div id="usuarios-loading" style="text-align:center;color:var(--muted);padding:28px;">Carregando...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: EDITAR ÁREAS DO USUÁRIO -->
+    <div id="modal-edit-areas" class="modal">
+      <div class="modal-box" style="max-width:440px;">
+        <div class="modal-title">Editar Acesso <button class="modal-close" onclick="fecharModal('modal-edit-areas')">✕</button></div>
+        <input type="hidden" id="edit-area-uid">
+        <div class="form-group">
+          <label>Perfil</label>
+          <select id="edit-area-role" onchange="toggleAreasSel('edit-areas-box','edit-area-role')">
+            <option value="user">Usuário — acesso personalizado</option>
+            <option value="quality">Qualidade</option>
+            <option value="recv">Recebimento</option>
+            <option value="adm">Administrador</option>
+          </select>
+        </div>
+        <div id="edit-areas-box" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px;">
+          <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px;">Áreas de Acesso</div>
+          <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="edit-area-check" value="requisicoes"><span style="font-size:13px;">📋 Requisições</span></label>
+          <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="edit-area-check" value="recebimento"><span style="font-size:13px;">📦 Recebimento de Materiais</span></label>
+          <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="edit-area-check" value="qualidade"><span style="font-size:13px;">🔬 Qualidade</span></label>
+          <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="edit-area-check" value="estoque"><span style="font-size:13px;">📦 Estoque</span></label>
+          <label class="checkbox-wrap"><input type="checkbox" class="edit-area-check" value="relatorios"><span style="font-size:13px;">📄 Relatórios</span></label>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-secondary" onclick="fecharModal('modal-edit-areas')" style="flex:1;">Cancelar</button>
+          <button class="btn btn-primary" onclick="salvarAcessoUsuario()" style="flex:2;">Salvar</button>
         </div>
       </div>
     </div>
@@ -1298,6 +1368,158 @@ tr:hover td{background:rgba(255,255,255,.02);}
   </div><!-- /main -->
 </div><!-- /app -->
 
+<!-- ===== PAGE: RECEBIMENTO ===== -->
+<script>document.addEventListener('DOMContentLoaded',()=>{
+  const main = document.getElementById('main');
+  const recvPage = document.createElement('div');
+  recvPage.id = 'page-recebimento';
+  recvPage.className = 'page';
+  recvPage.innerHTML = `
+    <div class="section-title">📦 Recebimento de Materiais</div>
+    <div class="section-sub">Registre a entrada de materiais com nota fiscal</div>
+    <div class="form-table-layout" style="display:grid;grid-template-columns:460px 1fr;gap:24px;align-items:start;">
+      <div class="card">
+        <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:18px;">Novo Recebimento</div>
+        <div class="form-group"><label>Data *</label><input id="recv-data" type="date"></div>
+        <div class="form-group"><label>Nº Nota Fiscal *</label><input id="recv-nf" type="text" placeholder="Ex: 000123"></div>
+        <div class="form-group"><label>Material *</label>
+          <select id="recv-material" onchange="onRecvMaterialChange()"><option value="">Selecione...</option></select>
+        </div>
+        <div id="recv-critico-aviso" style="display:none;background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.3);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#a855f7;">
+          ⚠️ <strong>Material Crítico</strong> — Este recebimento será enviado para inspeção de qualidade.
+        </div>
+        <div class="form-group"><label>Fornecedor *</label><input id="recv-fornecedor" type="text" placeholder="Nome do fornecedor"></div>
+        <div class="grid-2">
+          <div class="form-group"><label>Qtd Pedida *</label><input id="recv-qtd-pedida" type="number" min="1" placeholder="0"></div>
+          <div class="form-group"><label>Qtd Recebida *</label><input id="recv-qtd-recebida" type="number" min="0" placeholder="0"></div>
+        </div>
+        <div class="form-group"><label>Observação</label><input id="recv-obs" type="text" placeholder="Opcional"></div>
+        <div id="recv-teste-box" style="display:none;background:rgba(255,149,0,.08);border:1px solid rgba(255,149,0,.3);border-radius:8px;padding:10px 14px;margin-bottom:12px;">
+          <label class="checkbox-wrap"><input type="checkbox" id="recv-teste-sistema"><span style="font-size:13px;color:var(--warn);font-weight:600;">🧪 Marcar como Teste de Sistema</span></label>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Registros de teste podem ser excluídos e não afetam o estoque real.</div>
+        </div>
+        <button class="btn btn-primary" id="btn-registrar-recv" onclick="registrarRecebimento()" style="width:100%;">Registrar Recebimento</button>
+      </div>
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:15px;margin-bottom:14px;">Histórico de Recebimentos</div>
+        <div id="recv-lista-cards"></div>
+        <div id="recv-empty" style="text-align:center;color:var(--muted);padding:40px;display:none;">Nenhum recebimento registrado.</div>
+      </div>
+    </div>
+  `;
+  main.appendChild(recvPage);
+
+  const qualPage = document.createElement('div');
+  qualPage.id = 'page-qualidade';
+  qualPage.className = 'page';
+  qualPage.innerHTML = `
+    <div class="section-title">🔬 Qualidade — Inspeção de Recebimento Crítico</div>
+    <div class="section-sub">Inspecione os materiais críticos recebidos e registre os resultados de amostragem</div>
+    <div class="grid-2" style="margin-bottom:18px;" id="qual-stats-area">
+      <div class="stat-card warn"><div style="color:var(--muted);font-size:11px;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:.5px">PENDENTES</div><div id="qual-stat-pend" style="font-size:32px;font-family:'Syne',sans-serif;font-weight:800;margin-top:4px;color:var(--warn)">0</div></div>
+      <div class="stat-card green"><div style="color:var(--muted);font-size:11px;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:.5px">APROVADOS</div><div id="qual-stat-aprov" style="font-size:32px;font-family:'Syne',sans-serif;font-weight:800;margin-top:4px;color:var(--accent)">0</div></div>
+    </div>
+    <div id="qual-insp-lista"></div>
+    <div id="qual-empty" style="text-align:center;color:var(--muted);padding:60px;display:none;">
+      <div style="font-size:48px;margin-bottom:12px;">✅</div>
+      <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:20px;margin-bottom:8px;">Nenhuma inspeção pendente</div>
+      <div style="font-size:14px;">Todos os materiais críticos foram inspecionados.</div>
+    </div>
+  `;
+  main.appendChild(qualPage);
+
+  // HISTÓRICO DE RECEBIMENTOS
+  const histPage = document.createElement('div');
+  histPage.id = 'page-historico-recebimentos';
+  histPage.className = 'page';
+  histPage.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:6px;">
+      <div>
+        <div class="section-title">📋 Histórico de Recebimentos</div>
+        <div class="section-sub">Todos os recebimentos finalizados — normais e críticos</div>
+      </div>
+      <button class="btn btn-primary" onclick="exportarHistoricoPDF()" style="display:flex;align-items:center;gap:8px;padding:10px 18px;">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Exportar PDF
+      </button>
+    </div>
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <div style="position:relative;flex:1;min-width:180px;">
+          <svg style="position:absolute;left:9px;top:50%;transform:translateY(-50%);" width="13" height="13" fill="none" stroke="var(--muted)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/></svg>
+          <input id="hist-busca" type="text" placeholder="Buscar material, NF, fornecedor..." oninput="renderHistoricoRecebimentos()" style="padding-left:30px;font-size:13px;">
+        </div>
+        <select id="hist-filtro-status" onchange="renderHistoricoRecebimentos()" style="width:auto;padding:8px 12px;font-size:13px;">
+          <option value="">Todos os status</option>
+          <option value="recebido">Recebido (normal)</option>
+          <option value="aprovado">Aprovado Qualidade</option>
+          <option value="reprovado">Reprovado Qualidade</option>
+          <option value="entrada_realizada">No Estoque</option>
+        </select>
+        <select id="hist-filtro-tipo" onchange="renderHistoricoRecebimentos()" style="width:auto;padding:8px 12px;font-size:13px;">
+          <option value="">Todos os tipos</option>
+          <option value="normal">Normal</option>
+          <option value="critico">Crítico</option>
+        </select>
+        <div style="min-width:130px;">
+          <input id="hist-de" type="date" onchange="renderHistoricoRecebimentos()" style="font-size:12px;padding:8px 10px;">
+        </div>
+        <div style="min-width:130px;">
+          <input id="hist-ate" type="date" onchange="renderHistoricoRecebimentos()" style="font-size:12px;padding:8px 10px;">
+        </div>
+        <button class="btn btn-secondary" onclick="limparFiltrosHistorico()" style="padding:8px 12px;font-size:12px;">✕</button>
+      </div>
+    </div>
+    <div id="hist-stats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;"></div>
+    <div id="hist-lista-cards"></div>
+    <div id="hist-empty" style="text-align:center;color:var(--muted);padding:60px;display:none;">
+      <div style="font-size:40px;margin-bottom:10px;">📋</div>
+      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px;margin-bottom:6px;">Nenhum recebimento encontrado</div>
+      <div style="font-size:13px;">Ajuste os filtros ou aguarde novos recebimentos.</div>
+    </div>
+  `;
+  main.appendChild(histPage);
+
+  // NÃO CONFORMIDADES
+  const ncPage = document.createElement('div');
+  ncPage.id = 'page-nao-conformidades';
+  ncPage.className = 'page';
+  ncPage.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:6px;">
+      <div>
+        <div class="section-title">⚠️ Não Conformidades</div>
+        <div class="section-sub">Registro e acompanhamento de não conformidades abertas nas inspeções</div>
+      </div>
+      <button class="btn btn-primary" onclick="exportarNCsPDF()" style="display:flex;align-items:center;gap:8px;padding:10px 18px;">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Exportar PDF
+      </button>
+    </div>
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <div style="position:relative;flex:1;min-width:180px;">
+          <svg style="position:absolute;left:9px;top:50%;transform:translateY(-50%);" width="13" height="13" fill="none" stroke="var(--muted)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/></svg>
+          <input id="nc-busca" type="text" placeholder="Buscar material, NF..." oninput="renderNaoConformidades()" style="padding-left:30px;font-size:13px;">
+        </div>
+        <select id="nc-filtro-status" onchange="renderNaoConformidades()" style="width:auto;padding:8px 12px;font-size:13px;">
+          <option value="">Todos</option>
+          <option value="aberta">Aberta</option>
+          <option value="em_analise">Em Análise</option>
+          <option value="encerrada">Encerrada</option>
+        </select>
+        <button class="btn btn-secondary" onclick="document.getElementById('nc-busca').value='';document.getElementById('nc-filtro-status').value='';renderNaoConformidades();" style="padding:8px 12px;font-size:12px;">✕</button>
+      </div>
+    </div>
+    <div id="nc-stats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;"></div>
+    <div id="nc-lista-cards"></div>
+    <div id="nc-empty" style="text-align:center;color:var(--muted);padding:60px;display:none;">
+      <div style="font-size:40px;margin-bottom:10px;">✅</div>
+      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px;margin-bottom:6px;">Nenhuma não conformidade registrada</div>
+    </div>
+  `;
+  main.appendChild(ncPage);
+});</script>
+
 <!-- APRESENTAÇÃO VALIDADE — FULLSCREEN OVERLAY -->
 <div id="validade-apres-overlay">
   <div id="validade-apres-header">
@@ -1341,7 +1563,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
 
 <!-- MODALS -->
 <div id="modal-material" class="modal">
-  <div class="modal-box">
+  <div class="modal-box" style="max-width:560px;">
     <div class="modal-title">Editar Material <button class="modal-close" onclick="fecharModal('modal-material')">✕</button></div>
     <input type="hidden" id="edit-mat-id">
     <div class="form-group"><label>Nome *</label><input id="edit-mat-nome" type="text"></div>
@@ -1352,6 +1574,19 @@ tr:hover td{background:rgba(255,255,255,.02);}
       <div class="form-group"><label>Máximo</label><input id="edit-mat-max" type="number" min="0"></div>
     </div>
     <div class="form-group"><label>Dias para chegada (lead time)</label><input id="edit-mat-dias" type="number" min="0" placeholder="Ex: 7"></div>
+    <div class="form-group">
+      <label class="checkbox-wrap"><input type="checkbox" id="edit-mat-critico" onchange="toggleEditMatCritico()"><span style="font-size:13px;color:var(--text);">🔴 Material Crítico</span></label>
+    </div>
+    <div id="edit-mat-critico-fields" style="display:none;background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.2);border-radius:10px;padding:16px;margin-top:4px;">
+      <div style="font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:#a855f7;letter-spacing:.5px;text-transform:uppercase;margin-bottom:12px;">Configurações de Qualidade</div>
+      <div class="form-group"><label>EP (Especificação do Produto)</label><input id="edit-mat-ep" type="text" placeholder="Ex: EP-001"></div>
+      <div style="font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px;margin-top:4px;">Pontos de Verificação</div>
+      <div id="edit-mat-pontos-lista"></div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button type="button" class="btn btn-secondary" style="flex:1;font-size:12px;padding:8px;" onclick="addPontoVerifEdit('visual')">+ Visual</button>
+        <button type="button" class="btn btn-secondary" style="flex:1;font-size:12px;padding:8px;" onclick="addPontoVerifEdit('medida')">+ Medida</button>
+      </div>
+    </div>
     <div style="display:flex;gap:10px;margin-top:8px;">
       <button class="btn btn-secondary" onclick="fecharModal('modal-material')" style="flex:1;">Cancelar</button>
       <button class="btn btn-primary" onclick="salvarEdicaoMaterial()" style="flex:2;">Salvar</button>
@@ -1422,7 +1657,129 @@ tr:hover td{background:rgba(255,255,255,.02);}
   </div>
 </div>
 
+
+<!-- MODAL: Abrir Não Conformidade -->
+<div id="modal-nc" class="modal">
+  <div class="modal-box" style="max-width:560px;">
+    <div class="modal-title">
+      ⚠️ Abrir Não Conformidade
+      <button class="modal-close" onclick="fecharModal('modal-nc')">✕</button>
+    </div>
+    <input type="hidden" id="nc-insp-id">
+    <div id="nc-ref-box" style="background:rgba(255,149,0,.06);border:1px solid rgba(255,149,0,.25);border-radius:10px;padding:14px 16px;margin-bottom:18px;font-size:13px;"></div>
+    <div class="form-group">
+      <label>Título da NC *</label>
+      <input id="nc-titulo" type="text" placeholder="Ex: Dimensão fora do especificado">
+    </div>
+    <div class="form-group">
+      <label>Descrição / Defeito encontrado *</label>
+      <textarea id="nc-descricao" rows="3" placeholder="Descreva detalhadamente o problema encontrado..." style="resize:vertical;"></textarea>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Classificação</label>
+        <select id="nc-classificacao">
+          <option value="critica">Crítica</option>
+          <option value="maior">Maior</option>
+          <option value="menor" selected>Menor</option>
+          <option value="observacao">Observação</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Responsável pela NC</label>
+        <input id="nc-responsavel" type="text" placeholder="Nome do responsável">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Ação imediata / Contenção</label>
+      <textarea id="nc-acao" rows="2" placeholder="Descreva a ação tomada imediatamente..." style="resize:vertical;"></textarea>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:4px;">
+      <button class="btn btn-secondary" onclick="fecharModal('modal-nc')" style="flex:1;">Cancelar</button>
+      <button class="btn btn-warn" onclick="confirmarAbrirNC()" style="flex:2;background:var(--warn);color:#000;">⚠️ Registrar Não Conformidade</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Detalhes / Encerrar NC -->
+<div id="modal-nc-detalhe" class="modal">
+  <div class="modal-box" style="max-width:600px;">
+    <div class="modal-title">
+      Não Conformidade
+      <button class="modal-close" onclick="fecharModal('modal-nc-detalhe')">✕</button>
+    </div>
+    <input type="hidden" id="ncd-id">
+    <div id="ncd-conteudo"></div>
+    <div class="form-group" id="ncd-encerra-group">
+      <label>Ação corretiva / Encerramento</label>
+      <textarea id="ncd-acao-corretiva" rows="3" placeholder="Descreva a ação corretiva tomada..." style="resize:vertical;"></textarea>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:4px;">
+      <button class="btn btn-secondary" onclick="fecharModal('modal-nc-detalhe')" style="flex:1;">Fechar</button>
+      <button class="btn btn-primary" id="ncd-btn-encerrar" onclick="encerrarNC()" style="flex:2;">✅ Encerrar NC</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
+
+<!-- MODAL: Dar entrada no estoque pelo recebimento aprovado -->
+<div id="modal-recv-entrada" class="modal">
+  <div class="modal-box" style="max-width:520px;">
+    <div class="modal-title">
+      📦 Dar Entrada no Estoque
+      <button class="modal-close" onclick="fecharModal('modal-recv-entrada')">✕</button>
+    </div>
+
+    <input type="hidden" id="mre-recv-id">
+
+    <!-- Info do material (só leitura) -->
+    <div id="mre-info-box" style="background:rgba(0,229,160,.06);border:1px solid rgba(0,229,160,.2);border-radius:10px;padding:14px 16px;margin-bottom:18px;font-size:13px;">
+    </div>
+
+    <!-- Estoque destino -->
+    <div class="form-group">
+      <label>Estoque Destino *</label>
+      <select id="mre-estoque"><option value="">Selecione...</option></select>
+    </div>
+
+    <!-- Lote -->
+    <div class="form-group" id="mre-lote-group">
+      <label>Lote *</label>
+      <input id="mre-lote" type="text" placeholder="Informe o código do lote">
+    </div>
+    <div class="form-group">
+      <label class="checkbox-wrap">
+        <input type="checkbox" id="mre-semlote" onchange="toggleMreLote()">
+        <span style="font-size:13px;color:var(--text);">Sem lote</span>
+      </label>
+    </div>
+
+    <!-- Quantidade e validade -->
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Quantidade *</label>
+        <input id="mre-qtd" type="number" min="1" placeholder="0">
+        <div id="mre-qtd-hint" style="font-size:11px;color:var(--muted);margin-top:4px;"></div>
+      </div>
+      <div class="form-group">
+        <label>Validade</label>
+        <input id="mre-val" type="date">
+      </div>
+    </div>
+
+    <!-- Observação -->
+    <div class="form-group">
+      <label>Observação</label>
+      <input id="mre-obs" type="text" placeholder="Opcional">
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:4px;">
+      <button class="btn btn-secondary" onclick="fecharModal('modal-recv-entrada')" style="flex:1;">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarEntradaRecebimento()" style="flex:2;">✅ Confirmar Entrada no Estoque</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // ===========================
@@ -1443,7 +1800,7 @@ function fsDoc(...args) { return window._firebase.doc(window._firebase.firestore
 function fsColl(...args) { return window._firebase.collection(window._firebase.firestore, ...args); }
 
 // Estrutura em memória — espelhada do Firestore
-let db = { estoques:[], materiais:[], itens:[], entradas:[], saidas:[], transferencias:[], requisicoes:[], notificacoes:[] };
+let db = { estoques:[], materiais:[], itens:[], entradas:[], saidas:[], transferencias:[], requisicoes:[], notificacoes:[], recebimentos:[], inspecoes:[], naoconformidades:[] };
 
 // ─────────────────────────────────────────────────────────────────
 //  LISTENERS EM TEMPO REAL — onSnapshot para todas as coleções
@@ -1457,7 +1814,7 @@ const _dbListeners = {};
  * Cada vez que o Firebase detecta uma mudança, o db[] é atualizado
  * automaticamente e a página atual é re-renderizada.
  */
-const DB_COLECOES = ['estoques','materiais','itens','entradas','saidas','transferencias','requisicoes'];
+const DB_COLECOES = ['estoques','materiais','itens','entradas','saidas','transferencias','requisicoes','recebimentos','inspecoes','naoconformidades'];
 
 // Mapa de qual função renderizar para cada coleção alterada
 function _getRenderFnPorColecao(colecao) {
@@ -1471,6 +1828,9 @@ function _getRenderFnPorColecao(colecao) {
     saidas:        () => { if(pageId==='saida') renderSaidas(); renderDash(); },
     transferencias:() => { if(pageId==='transferencia') renderTransferencias(); },
     requisicoes:   () => { if(pageId==='requisicoes') renderMinhasReq(); if(pageId==='atendimento') renderAtendimento(); renderDash(); },
+    recebimentos:  () => { if(pageId==='recebimento') renderRecebimentos(); if(pageId==='qualidade') renderQualidade(); },
+    inspecoes:     () => { if(pageId==='qualidade') renderQualidade(); if(pageId==='historico-recebimentos') renderHistoricoRecebimentos(); },
+    naoconformidades:() => { if(pageId==='nao-conformidades') renderNaoConformidades(); },
   };
   return renders[colecao] || (() => {});
 }
@@ -1481,6 +1841,7 @@ function _atualizarSelectsGlobais() {
   if (pageId==='saida')        { populateSel('sai-estoque', db.estoques); }
   if (pageId==='transferencia'){ iniciarTransferencia(); }
   if (pageId==='requisicoes')  { popularSelectEstoqueReq(); }
+  if (pageId==='recebimento')  { popularSelectRecvMaterial(); }
 }
 
 /**
@@ -1712,12 +2073,15 @@ async function cadastrarUsuario() {
   const btn   = document.getElementById('btn-cadastrar-usuario');
   errEl.style.display = 'none';
 
+  // Coletar áreas selecionadas
+  const areas = [];
+  document.querySelectorAll('.nu-area-check:checked').forEach(cb => areas.push(cb.value));
+
   if (!nome || !email || !senha) { errEl.style.display='block'; errEl.textContent='Preencha todos os campos obrigatórios.'; return; }
   if (senha.length < 6) { errEl.style.display='block'; errEl.textContent='A senha deve ter pelo menos 6 caracteres.'; return; }
 
   btn.disabled = true; btn.textContent = 'Cadastrando...';
   try {
-    // Cria o usuário no Firebase Auth usando a API REST (para não deslogar o admin)
     const apiKey = window._firebase.auth.app.options.apiKey;
     const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`, {
       method: 'POST', headers:{'Content-Type':'application/json'},
@@ -1727,17 +2091,16 @@ async function cadastrarUsuario() {
     if (data.error) throw new Error(data.error.message);
     const uid = data.localId;
 
-    // Salva perfil no Firestore
     await window._firebase.setDoc(window._firebase.doc(window._firebase.firestore, 'users', uid), {
-      nome, email, role, username: email,
+      nome, email, role, username: email, areas,
       criadoEm: new Date().toISOString(),
       criadoPor: currentUser.uid
     });
 
-    // Limpa form
     ['nu-nome','nu-email','nu-senha'].forEach(id => document.getElementById(id).value='');
     document.getElementById('nu-role').value = 'user';
-    await logAudit('usuario', `Usuário cadastrado: ${nome}`, `E-mail: ${email} | Perfil: ${role}`);
+    document.querySelectorAll('.nu-area-check').forEach(cb => cb.checked = false);
+    await logAudit('usuario', `Usuário cadastrado: ${nome}`, `E-mail: ${email} | Perfil: ${role} | Áreas: ${areas.join(',')}`);
     toast('Usuário cadastrado com sucesso!');
     renderUsuarios();
   } catch(e) {
@@ -1761,17 +2124,63 @@ async function renderUsuarios() {
     if(ld) ld.style.display='none';
     const users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     if (!users.length) { if(em) em.style.display='block'; return; }
+    const roleLabels = {adm:'<span class="badge badge-ok">Administrador</span>', quality:'<span class="badge badge-quality">Qualidade</span>', recv:'<span class="badge badge-recv">Recebimento</span>', user:'<span class="badge badge-waiting">Usuário</span>'};
     users.forEach(u => {
       const isMe = u.id === currentUser.uid;
+      const areasStr = (u.areas && u.areas.length) ? u.areas.join(', ') : (u.role==='adm'?'Total':u.role==='quality'?'Qualidade+Receb.':u.role==='recv'?'Recebimento':'Requisições');
       tb.innerHTML += `<tr>
         <td><strong>${u.nome||'—'}</strong></td>
         <td style="color:var(--muted);font-size:12px;">${u.email||'—'}</td>
-        <td><span class="badge ${u.role==='adm'?'badge-ok':'badge-waiting'}">${u.role==='adm'?'Administrador':'Usuário'}</span></td>
+        <td>${roleLabels[u.role]||roleLabels.user}</td>
+        <td style="color:var(--muted);font-size:11px;">${areasStr}</td>
         <td style="color:var(--muted);font-size:11px;">${u.criadoEm?new Date(u.criadoEm).toLocaleDateString('pt-BR'):'—'}</td>
-        <td>${isMe?'<span style="color:var(--muted);font-size:11px;">(você)</span>':`<button class="btn btn-secondary" style="padding:3px 8px;font-size:11px;" onclick="alterarRoleUsuario('${u.id}','${u.role==='adm'?'user':'adm'}')">${u.role==='adm'?'→ Usuário':'→ Admin'}</button>`}</td>
+        <td>${isMe?'<span style="color:var(--muted);font-size:11px;">(você)</span>':`<button class="btn btn-secondary" style="padding:3px 10px;font-size:11px;" onclick="abrirEditarAcesso('${u.id}')">⚙️ Acesso</button>`}</td>
       </tr>`;
     });
   } catch(e) { if(ld) ld.style.display='none'; toast('Erro ao carregar usuários.','error'); }
+}
+
+function toggleAreasSel(boxId, roleSelId) {
+  const role = document.getElementById(roleSelId).value;
+  const box = document.getElementById(boxId);
+  if (!box) return;
+  if (role === 'adm') { box.style.display='none'; return; }
+  box.style.display = 'block';
+  // Preset de áreas conforme role
+  const checkboxes = box.querySelectorAll('input[type=checkbox]');
+  if (role === 'quality') {
+    checkboxes.forEach(cb => { cb.checked = cb.value === 'qualidade' || cb.value === 'recebimento'; });
+  } else if (role === 'recv') {
+    checkboxes.forEach(cb => { cb.checked = cb.value === 'recebimento'; });
+  }
+  // user mantém como está
+}
+
+async function abrirEditarAcesso(userId) {
+  const snap = await window._firebase.getDoc(window._firebase.doc(window._firebase.firestore, 'users', userId));
+  if (!snap.exists()) return;
+  const u = snap.data();
+  document.getElementById('edit-area-uid').value = userId;
+  document.getElementById('edit-area-role').value = u.role || 'user';
+  const areas = u.areas || [];
+  document.querySelectorAll('.edit-area-check').forEach(cb => { cb.checked = areas.includes(cb.value); });
+  toggleAreasSel('edit-areas-box','edit-area-role');
+  abrirModal('modal-edit-areas');
+}
+
+async function salvarAcessoUsuario() {
+  const userId = document.getElementById('edit-area-uid').value;
+  const role = document.getElementById('edit-area-role').value;
+  const areas = [];
+  document.querySelectorAll('.edit-area-check:checked').forEach(cb => areas.push(cb.value));
+  try {
+    await window._firebase.setDoc(window._firebase.doc(window._firebase.firestore, 'users', userId),
+      { role, areas }, { merge: true });
+    toast('Acesso atualizado!');
+    fecharModal('modal-edit-areas');
+    renderUsuarios();
+    await logAudit('usuario', `Acesso alterado`, `UID: ${userId} | Perfil: ${role} | Áreas: ${areas.join(',')}`);
+  } catch(e) { toast('Erro ao atualizar acesso.','error'); }
 }
 
 async function alterarRoleUsuario(uid, novoRole) {
@@ -1791,18 +2200,26 @@ function iniciarApp() {
   // User chip
   const av = document.getElementById('avatar-chip');
   av.textContent = currentUser.nome.slice(0,2).toUpperCase();
-  av.className = 'user-avatar ' + (currentUser.role === 'adm' ? 'avatar-adm' : 'avatar-user');
+  const roleAvatarClass = {adm:'avatar-adm', quality:'avatar-quality', recv:'avatar-recv', user:'avatar-user'};
+  av.className = 'user-avatar ' + (roleAvatarClass[currentUser.role] || 'avatar-user');
   document.getElementById('username-chip').textContent = currentUser.nome;
-  document.getElementById('role-chip').textContent = currentUser.role === 'adm' ? 'Administrador' : 'Usuário';
+  const roleLabels = {adm:'Administrador', quality:'Qualidade', recv:'Recebimento', user:'Usuário'};
+  document.getElementById('role-chip').textContent = roleLabels[currentUser.role] || 'Usuário';
   buildNav();
-  iniciarListenerNotifs(); // inicia listener em tempo real de notificações
-  iniciarListenerRequisicoes(); // inicia listener em tempo real de requisições
+  iniciarListenerNotifs();
+  iniciarListenerRequisicoes();
   updateStorageInfo();
   // Navigate to first page
-  if (currentUser.role === 'adm') {
-    navigateTo('dash');
-  } else {
-    navigateTo('requisicoes');
+  if (currentUser.role === 'adm') navigateTo('dash');
+  else if (currentUser.role === 'quality') navigateTo('qualidade');
+  else if (currentUser.role === 'recv') navigateTo('recebimento');
+  else {
+    // usuário comum — vai para primeira área permitida
+    const areas = currentUser.areas || [];
+    if (areas.includes('recebimento')) navigateTo('recebimento');
+    else if (areas.includes('qualidade')) navigateTo('qualidade');
+    else if (areas.includes('estoque')) navigateTo('entrada');
+    else navigateTo('requisicoes');
   }
 }
 
@@ -1822,6 +2239,12 @@ const NAV_ADM = [
   { id:'transferencia', icon:'arrows', label:'Transferência' },
   { id:'analise', icon:'chart', label:'Análise de Estoques' },
   { type:'sep' },
+  { label:'RECEBIMENTO & QUALIDADE', type:'label' },
+  { id:'recebimento', icon:'recv', label:'Recebimento de Materiais' },
+  { id:'qualidade', icon:'quality', label:'Qualidade — Inspeção' },
+  { id:'historico-recebimentos', icon:'history', label:'Histórico de Recebimentos' },
+  { id:'nao-conformidades', icon:'nc', label:'Não Conformidades' },
+  { type:'sep' },
   { label:'REQUISIÇÕES', type:'label' },
   { id:'atendimento', icon:'check-circle', label:'Atendimento' },
   { type:'sep' },
@@ -1832,6 +2255,17 @@ const NAV_ADM = [
   { id:'validade', icon:'clock', label:'Controle de Validade' },
   { type:'sep' },
   { id:'auditoria', icon:'audit', label:'Auditoria & Logs' },
+];
+const NAV_QUALITY = [
+  { label:'QUALIDADE', type:'label' },
+  { id:'qualidade', icon:'quality', label:'Inspeção de Qualidade' },
+  { id:'recebimento', icon:'recv', label:'Recebimento de Materiais' },
+  { id:'historico-recebimentos', icon:'history', label:'Histórico de Recebimentos' },
+  { id:'nao-conformidades', icon:'nc', label:'Não Conformidades' },
+];
+const NAV_RECV = [
+  { label:'RECEBIMENTO', type:'label' },
+  { id:'recebimento', icon:'recv', label:'Recebimento de Materiais' },
 ];
 const NAV_USER = [
   { id:'requisicoes', icon:'clipboard', label:'Requisições' },
@@ -1853,14 +2287,36 @@ const ICONS = {
   document:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>',
   audit:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>',
   clock:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+  recv:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>',
+  quality:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>',
+  history:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.05 11A9 9 0 0112 3"/>',
+  nc:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>',
 };
 
 function buildNav() {
   const menu = document.getElementById('nav-menu');
-  const items = currentUser.role === 'adm' ? NAV_ADM : NAV_USER;
   menu.innerHTML = '';
+  let items;
+  if (currentUser.role === 'adm') {
+    items = NAV_ADM;
+  } else if (currentUser.role === 'quality') {
+    items = NAV_QUALITY;
+  } else if (currentUser.role === 'recv') {
+    items = NAV_RECV;
+  } else {
+    // user com áreas customizadas
+    const areas = currentUser.areas || [];
+    const custom = [];
+    if (areas.includes('requisicoes')) custom.push({ id:'requisicoes', icon:'clipboard', label:'Requisições' });
+    if (areas.includes('recebimento')) custom.push({ id:'recebimento', icon:'recv', label:'Recebimento' });
+    if (areas.includes('qualidade'))   custom.push({ id:'qualidade', icon:'quality', label:'Qualidade' });
+    if (areas.includes('estoque'))     custom.push({ id:'entrada', icon:'arrow-down', label:'Entrada' }, { id:'saida', icon:'arrow-up', label:'Saída' });
+    if (areas.includes('relatorios'))  custom.push({ id:'relatorios', icon:'document', label:'Relatórios' });
+    if (!custom.length) custom.push({ id:'requisicoes', icon:'clipboard', label:'Requisições' });
+    items = custom;
+  }
   items.forEach(item => {
-    if (item.type === 'sep') { menu.innerHTML += '<div class="nav-sep"></div>'; return; }
+    if (item.type === 'sep')   { menu.innerHTML += '<div class="nav-sep"></div>'; return; }
     if (item.type === 'label') { menu.innerHTML += `<div class="nav-label">${item.label}</div>`; return; }
     const icon = ICONS[item.icon] || '';
     menu.innerHTML += `<div class="nav-item" id="nav-${item.id}" onclick="navigateTo('${item.id}')">
@@ -1898,6 +2354,10 @@ function navigateTo(page) {
     renderAuditoria();
   }
   if (page === 'validade') renderValidade();
+  if (page === 'recebimento') { popularSelectRecvMaterial(); renderRecebimentos(); _mostrarTesteBoxAdm(); }
+  if (page === 'qualidade') renderQualidade();
+  if (page === 'historico-recebimentos') renderHistoricoRecebimentos();
+  if (page === 'nao-conformidades') renderNaoConformidades();
 }
 
 // ===========================
@@ -2019,15 +2479,73 @@ async function togglePrincipal(id) {
 // ===========================
 // MATERIAIS
 // ===========================
+// Pontos de verificação em memória para o form de novo material
+let _matPontosNovo = [];
+window._matPontoNovo = _matPontosNovo;
+let _matPontosEdit = [];
+window._matPontoEdit = _matPontosEdit;
+function toggleMatCritico() {
+  const chk = document.getElementById('mat-critico');
+  document.getElementById('mat-critico-fields').style.display = chk.checked ? 'block' : 'none';
+  if (!chk.checked) { _matPontosNovo = []; window._matPontoNovo = _matPontosNovo; renderPontosList('mat-pontos-lista', _matPontosNovo, false); }
+}
+function toggleEditMatCritico() {
+  const chk = document.getElementById('edit-mat-critico');
+  document.getElementById('edit-mat-critico-fields').style.display = chk.checked ? 'block' : 'none';
+}
+function addPontoVerif(tipo) {
+  _matPontosNovo.push({ tipo, desc:'', min:'', max:'' });
+  window._matPontoNovo = _matPontosNovo;
+  renderPontosList('mat-pontos-lista', _matPontosNovo, false);
+}
+function addPontoVerifEdit(tipo) {
+  _matPontosEdit.push({ tipo, desc:'', min:'', max:'' });
+  window._matPontoEdit = _matPontosEdit;
+  renderPontosList('edit-mat-pontos-lista', _matPontosEdit, true);
+}
+function renderPontosList(containerId, pontos, isEdit) {
+  const c = document.getElementById(containerId); if(!c) return;
+  c.innerHTML = '';
+  // Sincroniza referências globais para uso no oninput
+  if (!isEdit) window._matPontoNovo = pontos;
+  else window._matPontoEdit = pontos;
+  pontos.forEach((p,i) => {
+    c.innerHTML += `<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <span style="font-size:11px;font-weight:700;color:${p.tipo==='visual'?'#14b8a6':'var(--warn)'};text-transform:uppercase;letter-spacing:.5px;">${p.tipo==='visual'?'👁 Visual':'📏 Medida'} #${i+1}</span>
+        <button type="button" onclick="_rmPonto(${i},'${isEdit?'edit':'new'}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0;">✕</button>
+      </div>
+      <div class="form-group" style="margin-bottom:${p.tipo==='medida'?'8px':'0'};">
+        <input type="text" placeholder="Descrição do ponto de verificação *" value="${escHtml(p.desc||'')}"
+          oninput="window._matPonto${isEdit?'Edit':'Novo'}[${i}].desc=this.value" style="font-size:13px;">
+      </div>
+      ${p.tipo==='medida'?`<div class="grid-2">
+        <div class="form-group" style="margin-bottom:0;"><input type="number" placeholder="Mín" value="${p.min||''}" oninput="window._matPonto${isEdit?'Edit':'Novo'}[${i}].min=this.value" style="font-size:13px;"></div>
+        <div class="form-group" style="margin-bottom:0;"><input type="number" placeholder="Máx" value="${p.max||''}" oninput="window._matPonto${isEdit?'Edit':'Novo'}[${i}].max=this.value" style="font-size:13px;"></div>
+      </div>`:''}
+    </div>`;
+  });
+}
+function _rmPonto(idx, mode) {
+  if (mode==='edit') { _matPontosEdit.splice(idx,1); renderPontosList('edit-mat-pontos-lista', _matPontosEdit, true); }
+  else { _matPontosNovo.splice(idx,1); renderPontosList('mat-pontos-lista', _matPontosNovo, false); }
+}
+
 async function salvarMaterial() {
   const nome = document.getElementById('mat-nome').value.trim();
   if (!nome) return toast('Informe o nome.','error');
   const min = document.getElementById('mat-min').value;
   const max = document.getElementById('mat-max').value;
   const dias = document.getElementById('mat-dias').value;
-  const novo = { id:uid(), nome, cat:document.getElementById('mat-cat').value.trim(), unidade:document.getElementById('mat-unidade').value.trim(), min:min!==''?+min:null, max:max!==''?+max:null, diasChegada:dias!==''?+dias:null };
+  const critico = document.getElementById('mat-critico').checked;
+  const ep = critico ? document.getElementById('mat-ep').value.trim() : '';
+  const pontos = critico ? _matPontosNovo.map(p=>({...p})) : [];
+  const novo = { id:uid(), nome, cat:document.getElementById('mat-cat').value.trim(), unidade:document.getElementById('mat-unidade').value.trim(), min:min!==''?+min:null, max:max!==''?+max:null, diasChegada:dias!==''?+dias:null, critico, ep, pontos };
   db.materiais.push(novo);
-  ['mat-nome','mat-cat','mat-unidade','mat-min','mat-max','mat-dias'].forEach(i => document.getElementById(i).value='');
+  ['mat-nome','mat-cat','mat-unidade','mat-min','mat-max','mat-dias','mat-ep'].forEach(i => { const el=document.getElementById(i); if(el) el.value=''; });
+  document.getElementById('mat-critico').checked = false;
+  document.getElementById('mat-critico-fields').style.display = 'none';
+  _matPontosNovo = []; renderPontosList('mat-pontos-lista', _matPontosNovo, false);
   renderMateriais();
   try { await saveItem('materiais', novo); toast('Material cadastrado!'); }
   catch(e) { toast('Erro ao salvar material.','error'); }
@@ -2045,6 +2563,7 @@ function renderMateriais() {
       <td>${m.min!==null?m.min:'—'}</td>
       <td>${m.max!==null?m.max:'—'}</td>
       <td>${m.diasChegada!==null&&m.diasChegada!==undefined?m.diasChegada+'d':'—'}</td>
+      <td>${m.critico?'<span class="badge badge-quality">Crítico</span>':'<span style="color:var(--muted);font-size:11px;">—</span>'}</td>
       <td style="display:flex;gap:5px;flex-wrap:wrap;">
         <button class="btn btn-secondary" style="padding:3px 8px;font-size:11px;" onclick="abrirEditarMaterial('${m.id}')">Editar</button>
         <button class="btn btn-secondary" style="padding:3px 8px;font-size:11px;border-color:rgba(0,229,160,.3);color:var(--accent);" onclick="copiarMaterial('${m.id}')">⎘</button>
@@ -2090,6 +2609,13 @@ function abrirEditarMaterial(id) {
   document.getElementById('edit-mat-min').value=m.min!==null?m.min:'';
   document.getElementById('edit-mat-max').value=m.max!==null?m.max:'';
   document.getElementById('edit-mat-dias').value=m.diasChegada!==null&&m.diasChegada!==undefined?m.diasChegada:'';
+  document.getElementById('edit-mat-critico').checked = !!m.critico;
+  document.getElementById('edit-mat-ep').value = m.ep||'';
+  document.getElementById('edit-mat-critico-fields').style.display = m.critico ? 'block' : 'none';
+  _matPontosEdit.length = 0;
+  (m.pontos||[]).forEach(p => _matPontosEdit.push({...p}));
+  window._matPontoEdit = _matPontosEdit;
+  renderPontosList('edit-mat-pontos-lista', _matPontosEdit, true);
   abrirModal('modal-material');
 }
 async function salvarEdicaoMaterial() {
@@ -2099,12 +2625,16 @@ async function salvarEdicaoMaterial() {
   const min=document.getElementById('edit-mat-min').value;
   const max=document.getElementById('edit-mat-max').value;
   const dias=document.getElementById('edit-mat-dias').value;
+  const critico=document.getElementById('edit-mat-critico').checked;
+  const ep=critico?document.getElementById('edit-mat-ep').value.trim():'';
+  const pontos=critico?_matPontosEdit.map(p=>({...p})):[];
   const m=db.materiais.find(m=>m.id===id); if (!m) return;
   m.nome=nome; m.cat=document.getElementById('edit-mat-cat').value.trim();
   m.unidade=document.getElementById('edit-mat-unidade').value.trim();
   m.min=min!==''?+min:null; m.max=max!==''?+max:null;
   m.diasChegada=dias!==''?+dias:null;
-  await logAudit('material', `Material editado: ${m.nome}`, `Cat: ${m.cat||'—'} | Min: ${m.min??'—'} | Max: ${m.max??'—'}`);
+  m.critico=critico; m.ep=ep; m.pontos=pontos;
+  await logAudit('material', `Material editado: ${m.nome}`, `Cat: ${m.cat||'—'} | Crítico: ${critico}`);
   fecharModal('modal-material'); renderMateriais();
   try { await saveItem('materiais', m); toast('Material atualizado!'); }
   catch(e) { toast('Erro ao atualizar.','error'); }
@@ -4849,6 +5379,1063 @@ window.addEventListener('load', () => {
     if (currentUser) logAudit('sistema', 'Sessão ativa', `Usuário: ${currentUser.nome}`);
   }, 3000);
 });
+
+// ===========================
+// RECEBIMENTO DE MATERIAIS
+// ===========================
+
+function _calcAmostragem(qtd) {
+  if (qtd < 2)       return null;
+  if (qtd <= 15)     return { amostras:2, tolerancia:0 };
+  if (qtd <= 50)     return { amostras:3, tolerancia:0 };
+  if (qtd <= 150)    return { amostras:5, tolerancia:0 };
+  if (qtd <= 500)    return { amostras:8, tolerancia:1 };
+  if (qtd <= 3200)   return { amostras:13, tolerancia:1 };
+  if (qtd <= 35000)  return { amostras:20, tolerancia:2 };
+  if (qtd <= 500000) return { amostras:32, tolerancia:3 };
+  return { amostras:50, tolerancia:5 };
+}
+
+function popularSelectRecvMaterial() {
+  const sel = document.getElementById('recv-material'); if(!sel) return;
+  const v = sel.value;
+  sel.innerHTML = '<option value="">Selecione o material...</option>';
+  db.materiais.forEach(m => sel.innerHTML += `<option value="${m.id}">${m.nome}${m.critico?' ⚠️ CRÍTICO':''}</option>`);
+  sel.value = v;
+}
+
+function onRecvMaterialChange() {
+  const matId = document.getElementById('recv-material').value;
+  const aviso = document.getElementById('recv-critico-aviso');
+  const btn = document.getElementById('btn-registrar-recv');
+  if (!matId) { aviso.style.display='none'; btn.textContent='Registrar Recebimento'; btn.style.background=''; return; }
+  const mat = db.materiais.find(m=>m.id===matId);
+  if (mat && mat.critico) {
+    aviso.style.display='block';
+    btn.textContent='Enviar para Recebimento Crítico 🔬';
+    btn.style.background='linear-gradient(135deg,#a855f7,#7c3aed)';
+    btn.style.color='#fff';
+  } else {
+    aviso.style.display='none';
+    btn.textContent='Registrar Recebimento';
+    btn.style.background='';
+    btn.style.color='';
+  }
+}
+
+async function registrarRecebimento() {
+  const data     = document.getElementById('recv-data').value;
+  const nf       = document.getElementById('recv-nf').value.trim();
+  const matId    = document.getElementById('recv-material').value;
+  const forn     = document.getElementById('recv-fornecedor').value.trim();
+  const qtdPed   = +document.getElementById('recv-qtd-pedida').value;
+  const qtdRec   = +document.getElementById('recv-qtd-recebida').value;
+  const obs      = document.getElementById('recv-obs').value.trim();
+  const isTeste  = currentUser.role === 'adm' && document.getElementById('recv-teste-sistema')?.checked;
+
+  if (!data)   return toast('Informe a data.','error');
+  if (!nf)     return toast('Informe o nº da nota fiscal.','error');
+  if (!matId)  return toast('Selecione o material.','error');
+  if (!forn)   return toast('Informe o fornecedor.','error');
+  if (!qtdPed||qtdPed<=0) return toast('Informe a quantidade pedida.','error');
+  if (isNaN(qtdRec)||qtdRec<0) return toast('Informe a quantidade recebida.','error');
+
+  const mat = db.materiais.find(m=>m.id===matId);
+  const receb = {
+    id: uid(), data, nf, materialId: matId, materialNome: mat?mat.nome:'?',
+    fornecedor: forn, qtdPedida: qtdPed, qtdRecebida: qtdRec, obs,
+    critico: !!(mat&&mat.critico), status: 'recebido',
+    teste: !!isTeste,
+    criadoEm: new Date().toISOString(), criadoPor: currentUser.nome
+  };
+
+  // Se crítico, cria inspeção automática
+  if (receb.critico) {
+    receb.status = 'aguardando_inspecao';
+    const amost = _calcAmostragem(qtdRec);
+    const insp = {
+      id: uid(), recebimentoId: receb.id, materialId: matId,
+      materialNome: mat?mat.nome:'?', fornecedor: forn,
+      nf, data, qtdRecebida: qtdRec,
+      amostras: amost ? amost.amostras : 2,
+      tolerancia: amost ? amost.tolerancia : 0,
+      pontos: (mat&&mat.pontos)||[],
+      ep: (mat&&mat.ep)||'',
+      resultados: [], // preenchido pela qualidade
+      status: 'pendente',
+      teste: !!isTeste,
+      criadoEm: new Date().toISOString()
+    };
+    db.inspecoes.push(insp);
+    try { await saveItem('inspecoes', insp); } catch(e){}
+    toast('Enviado para inspeção de qualidade! 🔬');
+  } else {
+    toast('Recebimento registrado com sucesso!');
+  }
+
+  db.recebimentos.push(receb);
+  ['recv-nf','recv-fornecedor','recv-qtd-pedida','recv-qtd-recebida','recv-obs'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
+  document.getElementById('recv-material').value='';
+  document.getElementById('recv-critico-aviso').style.display='none';
+  document.getElementById('btn-registrar-recv').textContent='Registrar Recebimento';
+  document.getElementById('btn-registrar-recv').style.background='';
+  document.getElementById('btn-registrar-recv').style.color='';
+  const rts = document.getElementById('recv-teste-sistema'); if(rts) rts.checked=false;
+
+  renderRecebimentos();
+  await logAudit('recebimento',`Recebimento NF ${nf}`,`Material: ${mat?mat.nome:'?'} | Forn: ${forn} | Qtd: ${qtdRec}/${qtdPed}${receb.critico?' | CRÍTICO':''}`);
+  try { await saveItem('recebimentos', receb); } catch(e){ toast('Erro ao salvar recebimento.','error'); }
+}
+
+function renderRecebimentos() {
+  const lista = document.getElementById('recv-lista-cards'); if(!lista) return;
+  const empty = document.getElementById('recv-empty');
+  lista.innerHTML = '';
+  // Excluir finalizados (reprovados e aprovados com entrada realizada) → vão pro histórico
+  const ativos = [...db.recebimentos]
+    .filter(r => r.status !== 'reprovado' && !(r.status === 'aprovado' && r.entradaEstoque))
+    .sort((a,b) => new Date(b.criadoEm) - new Date(a.criadoEm));
+  if (!ativos.length) { empty.style.display='block'; return; } empty.style.display='none';
+
+  // Separar aprovados pendentes de entrada dos demais
+  const aprovadosPendentes = ativos.filter(r => r.status==='aprovado' && !r.entradaEstoque);
+  const demais = ativos.filter(r => !(r.status==='aprovado' && !r.entradaEstoque));
+
+  const renderCard = (r) => {
+    const statusInfo = {
+      recebido:             { label:'Recebido',         color:'var(--accent)',  bg:'rgba(0,229,160,.1)' },
+      aguardando_inspecao:  { label:'Aguard. Inspeção',  color:'#a855f7',        bg:'rgba(168,85,247,.1)' },
+      aprovado:             { label:'Aprovado QLD',      color:'var(--accent)',  bg:'rgba(0,229,160,.1)' },
+      reprovado:            { label:'Reprovado QLD',     color:'var(--danger)',  bg:'rgba(255,59,92,.1)' },
+      entrada_realizada:    { label:'No Estoque ✓',      color:'#14b8a6',        bg:'rgba(20,184,166,.1)' },
+    };
+    // Se aprovado e já deu entrada, mostrar como "No Estoque"
+    const statusKey = (r.status==='aprovado' && r.entradaEstoque) ? 'entrada_realizada' : r.status;
+    const si = statusInfo[statusKey] || statusInfo.recebido;
+    const podeEntrar = r.status==='aprovado' && !r.entradaEstoque && !r.teste;
+    const bordeStyle = r.teste ? 'border-style:dashed;' : podeEntrar ? 'border-left:3px solid var(--accent);' : '';
+
+    lista.innerHTML += `<div class="recv-card${r.critico?' critico':''}" style="${bordeStyle}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:15px;">${escHtml(r.materialNome)}
+            ${r.critico?'<span style="font-size:11px;background:rgba(168,85,247,.15);color:#a855f7;padding:2px 8px;border-radius:99px;margin-left:6px;">CRÍTICO</span>':''}
+            ${r.teste?'<span style="font-size:11px;background:rgba(255,149,0,.15);color:var(--warn);padding:2px 8px;border-radius:99px;margin-left:6px;">🧪 TESTE</span>':''}
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-top:3px;">NF: ${escHtml(r.nf)} · ${escHtml(r.fornecedor)} · ${fmt(r.data)}</div>
+          ${r.entradaEstoque?`<div style="font-size:11px;color:#14b8a6;margin-top:3px;">✓ Entrada realizada em ${fmtDT(r.entradaEstoque.data)} — Lote: ${escHtml(r.entradaEstoque.lote)} · Estoque: ${escHtml(r.entradaEstoque.estoqueNome)}</div>`:''}
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap;">
+          <span style="padding:4px 12px;border-radius:99px;font-size:11px;font-weight:700;font-family:'Syne',sans-serif;background:${si.bg};color:${si.color};white-space:nowrap;">${si.label}</span>
+          ${podeEntrar?`<button onclick="abrirModalEntradaRecebimento('${r.id}')" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;display:flex;align-items:center;gap:6px;transition:all .2s;" onmouseover="this.style.background='#00c98a'" onmouseout="this.style.background='var(--accent)'">📥 Dar Entrada no Estoque</button>`:''}
+          ${(currentUser.role==='adm'&&r.teste)?`<button onclick="excluirRecebimentoTeste('${r.id}')" style="background:rgba(255,59,92,.12);border:1px solid rgba(255,59,92,.3);color:var(--danger);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:700;" title="Excluir registro de teste">🗑 Excluir</button>`:''}
+        </div>
+      </div>
+      <div style="display:flex;gap:20px;font-size:13px;flex-wrap:wrap;">
+        <span style="color:var(--muted);">Pedido: <strong style="color:var(--text);">${r.qtdPedida}</strong></span>
+        <span style="color:var(--muted);">Recebido: <strong style="color:${r.qtdRecebida<r.qtdPedida?'var(--warn)':'var(--accent)'};">${r.qtdRecebida}</strong></span>
+        ${r.obs?`<span style="color:var(--muted);">Obs: ${escHtml(r.obs)}</span>`:''}
+      </div>
+    </div>`;
+  };
+
+  // Aprovados pendentes de entrada aparecem primeiro, destacados
+  if (aprovadosPendentes.length) {
+    lista.innerHTML += `<div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
+      <span style="width:6px;height:6px;border-radius:50%;background:var(--accent);display:inline-block;"></span>
+      Aprovados — aguardando entrada no estoque (${aprovadosPendentes.length})
+    </div>`;
+    aprovadosPendentes.forEach(renderCard);
+    if (demais.length) lista.innerHTML += `<div style="height:1px;background:var(--border);margin:18px 0;"></div>`;
+  }
+  demais.slice(0, 50).forEach(renderCard);
+}
+
+// ===========================
+// QUALIDADE — INSPEÇÃO
+// ===========================
+
+/** Retorna HTML do card de falhas — evita template literal aninhado */
+function _buildFalhasCard(insp, isPendente) {
+  if (isPendente) {
+    return `<div id="falhas-counter-${insp.id}" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 16px;text-align:center;min-width:90px;transition:all .3s;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;">Falhas</div>
+      <div id="falhas-val-${insp.id}" style="font-size:24px;font-weight:800;font-family:'Syne',sans-serif;color:var(--muted);">0</div>
+    </div>`;
+  } else {
+    const f = insp.falhas || 0;
+    const bc = f > insp.tolerancia ? 'rgba(255,59,92,.4)' : 'var(--border)';
+    const fc = f === 0 ? 'var(--accent)' : f > insp.tolerancia ? 'var(--danger)' : 'var(--warn)';
+    return `<div style="background:var(--surface2);border:1px solid ${bc};border-radius:8px;padding:10px 16px;text-align:center;min-width:90px;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;">Falhas</div>
+      <div style="font-size:24px;font-weight:800;font-family:'Syne',sans-serif;color:${fc};">${f}</div>
+    </div>`;
+  }
+}
+
+function renderQualidade() {
+  const lista = document.getElementById('qual-insp-lista'); if(!lista) return;
+  const empty = document.getElementById('qual-empty');
+  lista.innerHTML = '';
+  const pend = db.inspecoes.filter(i=>i.status==='pendente').length;
+  const aprov = db.inspecoes.filter(i=>i.status==='aprovado').length;
+  const pEl = document.getElementById('qual-stat-pend');
+  const aEl = document.getElementById('qual-stat-aprov');
+  if (pEl) pEl.textContent = pend;
+  if (aEl) aEl.textContent = aprov;
+
+  // Mostrar APENAS pendentes na tela de qualidade; aprovados/reprovados vão para histórico
+  const sorted = db.inspecoes.filter(i=>i.status==='pendente')
+    .sort((a,b)=>new Date(b.criadoEm)-new Date(a.criadoEm));
+  if (!sorted.length) { empty.style.display='block'; return; } empty.style.display='none';
+
+  sorted.forEach(insp => {
+    const statusColors = { pendente:{ bg:'rgba(255,149,0,.1)', color:'var(--warn)', label:'Pendente' }, aprovado:{ bg:'rgba(0,229,160,.1)', color:'var(--accent)', label:'Aprovado' }, reprovado:{ bg:'rgba(255,59,92,.1)', color:'var(--danger)', label:'Reprovado' } };
+    const sc = statusColors[insp.status] || statusColors.pendente;
+    const isPendente = insp.status === 'pendente';
+
+    // Gerar linhas de amostras × pontos
+    const amostrasHTML = _buildAmostragemHTML(insp);
+
+    lista.innerHTML += `<div class="insp-card ${insp.status}" id="insp-${insp.id}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+        <div>
+          <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:17px;">${escHtml(insp.materialNome)}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px;">
+            NF: ${escHtml(insp.nf)} · Fornecedor: ${escHtml(insp.fornecedor)} · Data: ${fmt(insp.data)}
+            ${insp.ep?` · <strong style="color:#a855f7;">EP: ${escHtml(insp.ep)}</strong>`:''}
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+          <span style="padding:5px 14px;border-radius:99px;font-size:12px;font-weight:700;font-family:'Syne',sans-serif;background:${sc.bg};color:${sc.color};">${sc.label}</span>
+          ${insp.teste?'<span style="padding:4px 10px;border-radius:99px;font-size:11px;font-weight:700;background:rgba(255,149,0,.15);color:var(--warn);">🧪 TESTE</span>':''}
+          ${(currentUser.role==='adm'&&insp.teste)?`<button onclick="excluirInspeccaoTeste('${insp.id}')" style="background:rgba(255,59,92,.12);border:1px solid rgba(255,59,92,.3);color:var(--danger);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:700;">🗑 Excluir</button>`:''}
+        </div>
+      </div>
+
+      <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 16px;text-align:center;min-width:90px;">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;">Amostras</div>
+          <div style="font-size:24px;font-weight:800;font-family:'Syne',sans-serif;color:#a855f7;">${insp.amostras}</div>
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 16px;text-align:center;min-width:90px;">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;">Tolerância</div>
+          <div style="font-size:24px;font-weight:800;font-family:'Syne',sans-serif;color:${insp.tolerancia===0?'var(--accent)':'var(--warn)'};">${insp.tolerancia}</div>
+        </div>
+        ${_buildFalhasCard(insp, isPendente)}
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 16px;text-align:center;min-width:90px;">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;">Qtd Recebida</div>
+          <div style="font-size:24px;font-weight:800;font-family:'Syne',sans-serif;color:var(--text);">${insp.qtdRecebida}</div>
+        </div>
+      </div>
+
+      ${insp.pontos && insp.pontos.length ? `
+      <div style="font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px;">Inspeção de Amostras</div>
+      ${amostrasHTML}
+      ` : `<div style="color:var(--muted);font-size:13px;margin-bottom:14px;">Nenhum ponto de verificação cadastrado para este material.</div>`}
+
+      ${isPendente ? `
+      <!-- Banner dinâmico de tolerância — atualizado pelo JS a cada input -->
+      <div id="tol-banner-${insp.id}"
+        style="display:none;align-items:flex-start;gap:12px;padding:12px 16px;border-radius:10px;border:1px solid;margin:14px 0;transition:all .3s;">
+      </div>
+      <div class="form-group" style="margin-top:4px;">
+        <label>Observações do Inspetor</label>
+        <textarea id="insp-obs-${insp.id}" rows="2" placeholder="Registre observações sobre a inspeção..." style="resize:vertical;font-size:13px;">${insp.obsInspetor||''}</textarea>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
+        <button id="btn-aprov-${insp.id}" class="btn" onclick="finalizarInspeccao('${insp.id}','aprovado')" style="flex:1;background:var(--accent);color:#000;font-size:13px;transition:opacity .2s;">✅ Aprovar Lote</button>
+        <button class="btn btn-danger" onclick="finalizarInspeccao('${insp.id}','reprovado')" style="flex:1;font-size:13px;">❌ Reprovar Lote</button>
+        <button class="btn" onclick="abrirModalNC('${insp.id}')" style="width:100%;margin-top:4px;background:rgba(255,149,0,.12);border:1px solid rgba(255,149,0,.4);color:var(--warn);font-size:13px;font-family:'Syne',sans-serif;font-weight:700;">⚠️ Abrir Não Conformidade</button>
+      </div>` : `
+      <div style="margin-top:10px;font-size:12px;color:var(--muted);">
+        Inspeção concluída em ${fmtDT(insp.finalizadaEm||insp.criadoEm)} por ${escHtml(insp.inspetor||'—')}
+        ${insp.obsInspetor?`<br>Obs: ${escHtml(insp.obsInspetor)}`:''}
+      </div>`}
+    </div>`;
+  });
+}
+
+function _buildAmostragemHTML(insp) {
+  const pontos = insp.pontos || [];
+  if (!pontos.length) return '';
+  const resultados = insp.resultados || [];
+  let html = `<div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px;">
+      <thead>
+        <tr>
+          <th style="padding:8px 10px;background:var(--surface2);border:1px solid var(--border);font-family:'Syne',sans-serif;font-size:10px;letter-spacing:.5px;white-space:nowrap;">AMOSTRA</th>
+          ${pontos.map(p=>{
+            const hasRange = p.tipo==='medida'&&(String(p.min||'')+String(p.max||'')).trim()!=='';
+            const rangeStr = hasRange
+              ? `<br><span style="font-weight:700;color:#a855f7;font-size:12px;">` +
+                `${p.min!==''&&p.min!==undefined&&p.min!==null?p.min:'—'} … ${p.max!==''&&p.max!==undefined&&p.max!==null?p.max:'—'}</span>`
+              : '';
+            return `<th style="padding:8px 10px;background:var(--surface2);border:1px solid var(--border);font-family:'Syne',sans-serif;font-size:10px;letter-spacing:.5px;white-space:nowrap;color:${p.tipo==='visual'?'#14b8a6':'var(--warn)'};">
+              ${p.tipo==='visual'?'👁':'📏'} ${escHtml(p.desc||'Ponto ')}
+              ${rangeStr}
+            </th>`;
+          }).join('')}
+        </tr>
+      </thead>
+      <tbody>`;
+
+  for (let a = 0; a < insp.amostras; a++) {
+    html += `<tr>
+      <td style="padding:8px 10px;border:1px solid var(--border);font-family:'Syne',sans-serif;font-weight:700;background:rgba(168,85,247,.06);white-space:nowrap;">Amostra ${a+1}</td>`;
+    pontos.forEach((p, pi) => {
+      const key = `${insp.id}_a${a}_p${pi}`;
+      const r = resultados.find(x=>x.a===a&&x.p===pi);
+      if (insp.status === 'pendente') {
+        if (p.tipo === 'visual') {
+          html += `<td style="padding:6px 8px;border:1px solid var(--border);">
+            <div style="display:flex;gap:8px;align-items:center;justify-content:center;">
+              <label class="checkbox-wrap" style="gap:4px;cursor:pointer;">
+                <input type="radio" name="insp_${key}" value="ok" ${r&&r.v==='ok'?'checked':''} onchange="setInspResult('${insp.id}',${a},${pi},'ok',null)" style="accent-color:var(--accent);"> <span style="font-size:11px;color:var(--accent);">✓</span>
+              </label>
+              <label class="checkbox-wrap" style="gap:4px;cursor:pointer;">
+                <input type="radio" name="insp_${key}" value="nok" ${r&&r.v==='nok'?'checked':''} onchange="setInspResult('${insp.id}',${a},${pi},'nok',null)" style="accent-color:var(--danger);"> <span style="font-size:11px;color:var(--danger);">✗</span>
+              </label>
+            </div>
+          </td>`;
+        } else {
+          const icoNow = _getMedidaIcon(r, p);
+          const clrNow = _getMedidaTextColor(r, p);
+          html += `<td style="padding:6px 8px;border:1px solid var(--border);">
+            <div style="display:flex;align-items:center;gap:4px;justify-content:center;">
+              <input type="number" placeholder="valor"
+                value="${r&&r.v!==null?r.v:''}"
+                data-insp-key="${insp.id}_a${a}_p${pi}"
+                onchange="setInspResult('${insp.id}',${a},${pi},this.value,${JSON.stringify(p)})"
+                style="width:100px;font-size:18px;font-weight:700;text-align:center;padding:6px 8px;background:${_getMedidaBg(r,p)};color:${clrNow};border:1px solid var(--border);border-radius:6px;transition:background .2s,color .2s;outline:none;">
+              <span data-insp-icon="${insp.id}_a${a}_p${pi}" style="color:${clrNow};font-weight:900;font-size:18px;min-width:18px;">${icoNow}</span>
+            </div>
+          </td>`;
+        }
+      } else {
+        // Modo visualização
+        if (p.tipo === 'visual') {
+          const v = r?r.v:'—';
+          html += `<td style="padding:8px 10px;border:1px solid var(--border);text-align:center;color:${v==='ok'?'var(--accent)':v==='nok'?'var(--danger)':'var(--muted)'};">${v==='ok'?'✓':v==='nok'?'✗':'—'}</td>`;
+        } else {
+          const v = r&&r.v!==null?r.v:'—';
+          const statusMed = r ? _checkMedida(r.v, p) : null;
+          const txtC = statusMed==='ok'?'#00e5a0':statusMed==='low'||statusMed==='high'?'#ff3b5c':'var(--muted)';
+          const bgC  = statusMed==='ok'?'rgba(0,229,160,.12)':statusMed==='low'||statusMed==='high'?'rgba(255,59,92,.12)':'transparent';
+          const icoV = statusMed==='low'?' ↓':statusMed==='high'?' ↑':'';
+          const hint = statusMed==='low'?` (abaixo de ${p.min})`:statusMed==='high'?` (acima de ${p.max})`:'';
+          html += `<td style="padding:8px 10px;border:1px solid var(--border);text-align:center;" title="${hint}">
+            <span style="font-weight:700;font-size:17px;color:${txtC};background:${bgC};padding:4px 12px;border-radius:6px;display:inline-flex;align-items:center;gap:4px;">
+              ${v}${icoV?`<span style="font-size:11px;">${icoV}</span>`:''}
+            </span>
+          </td>`;
+        }
+      }
+    });
+    html += '</tr>';
+  }
+  html += '</tbody></table></div>';
+  return html;
+}
+
+/**
+ * _checkMedida(val, p) → 'ok' | 'low' | 'high' | null
+ *   ok   = dentro do range
+ *   low  = abaixo do mínimo
+ *   high = acima do máximo
+ *   null = sem range definido ou valor vazio
+ */
+function _checkMedida(val, p) {
+  const n = parseFloat(val);
+  if (isNaN(n) || val === '' || val === null || val === undefined) return null;
+  const hasMin = p.min !== '' && p.min !== null && p.min !== undefined && String(p.min).trim() !== '';
+  const hasMax = p.max !== '' && p.max !== null && p.max !== undefined && String(p.max).trim() !== '';
+  if (!hasMin && !hasMax) return null;           // sem range = sem julgamento
+  if (hasMin && n < parseFloat(p.min)) return 'low';
+  if (hasMax && n > parseFloat(p.max)) return 'high';
+  return 'ok';
+}
+
+/* retorna true/false/null para compatibilidade com código legado */
+function _checkMedidaBool(val, p) {
+  const r = _checkMedida(val, p);
+  if (r === null) return null;
+  return r === 'ok';
+}
+
+function _getMedidaBg(r, p) {
+  if (!r || r.v === null || r.v === '' || r.v === undefined) return 'var(--surface2)';
+  const s = _checkMedida(r.v, p);
+  if (s === null)   return 'var(--surface2)';
+  if (s === 'ok')   return 'rgba(0,229,160,.16)';
+  return 'rgba(255,59,92,.16)';               // low ou high = vermelho
+}
+function _getMedidaTextColor(r, p) {
+  if (!r || r.v === null || r.v === '' || r.v === undefined) return 'var(--text)';
+  const s = _checkMedida(r.v, p);
+  if (s === null)   return 'var(--text)';
+  if (s === 'ok')   return '#00e5a0';
+  return '#ff3b5c';
+}
+/* Ícone direcional — seta baixo/cima para indicar direção da falha */
+function _getMedidaIcon(r, p) {
+  if (!r || r.v === null || r.v === undefined) return '';
+  const s = _checkMedida(r.v, p);
+  if (s === 'low')  return ' ↓';
+  if (s === 'high') return ' ↑';
+  return '';
+}
+function _getMedidaColor(r, p) { return _getMedidaBg(r, p); }
+
+function setInspResult(inspId, amostra, ponto, valor, pontoObj) {
+  const insp = db.inspecoes.find(i=>i.id===inspId); if(!insp) return;
+  if (!insp.resultados) insp.resultados = [];
+  const idx = insp.resultados.findIndex(r=>r.a===amostra&&r.p===ponto);
+  const entry = { a:amostra, p:ponto, v: valor===''?null:(pontoObj&&pontoObj.tipo==='medida'?parseFloat(valor):valor) };
+  if (idx>=0) insp.resultados[idx] = entry; else insp.resultados.push(entry);
+
+  // ── Atualizar visual do input em tempo real ─────────────────────
+  if (pontoObj && pontoObj.tipo === 'medida') {
+    const inp = document.querySelector(`[data-insp-key="${inspId}_a${amostra}_p${ponto}"]`);
+    if (inp) {
+      const bg  = _getMedidaBg(entry, pontoObj);
+      const clr = _getMedidaTextColor(entry, pontoObj);
+      const ico = _getMedidaIcon(entry, pontoObj);
+      inp.style.background = bg;
+      inp.style.color      = clr;
+      inp.style.fontWeight = (entry.v !== null && entry.v !== undefined) ? '700' : '400';
+      // Mostrar ícone direcional no span ao lado
+      const span = document.querySelector(`[data-insp-icon="${inspId}_a${amostra}_p${ponto}"]`);
+      if (span) {
+        span.textContent = ico;
+        span.style.color = clr;
+        span.style.fontWeight = '700';
+        span.style.fontSize = '13px';
+      }
+    }
+  }
+
+  // ── Alerta dinâmico de tolerância ──────────────────────────────
+  _atualizarAlertaTolerancia(inspId);
+}
+
+/**
+ * Recalcula falhas em tempo real e exibe/oculta o banner de alerta
+ * no card da inspeção.
+ */
+function _atualizarAlertaTolerancia(inspId) {
+  const insp = db.inspecoes.find(i=>i.id===inspId); if(!insp) return;
+  const banner = document.getElementById(`tol-banner-${inspId}`);
+  const btnAprov = document.getElementById(`btn-aprov-${inspId}`);
+  if (!banner) return;
+
+  const falhas = _contarFalhas(insp);
+  const tol    = insp.tolerancia;
+
+  // Atualizar contador de falhas em tempo real
+  const fEl = document.getElementById(`falhas-val-${inspId}`);
+  const fCard = document.getElementById(`falhas-counter-${inspId}`);
+  if (fEl) {
+    fEl.textContent = falhas;
+    fEl.style.color = falhas === 0 ? 'var(--muted)' : falhas > tol ? 'var(--danger)' : 'var(--warn)';
+  }
+  if (fCard) {
+    fCard.style.borderColor = falhas > tol ? 'rgba(255,59,92,.4)' : falhas > 0 ? 'rgba(255,149,0,.4)' : 'var(--border)';
+    fCard.style.background  = falhas > tol ? 'rgba(255,59,92,.06)' : falhas > 0 ? 'rgba(255,149,0,.06)' : 'var(--surface2)';
+  }
+
+  if (falhas === 0) {
+    banner.style.display = 'none';
+    if (btnAprov) { btnAprov.style.opacity='1'; btnAprov.disabled=false; }
+    return;
+  }
+
+  const excedeu = falhas > tol;
+  banner.style.display = 'flex';
+  banner.innerHTML = excedeu
+    ? `<span style="font-size:18px;">🚨</span>
+       <div>
+         <strong style="color:var(--danger);font-family:'Syne',sans-serif;">TOLERÂNCIA EXCEDIDA!</strong>
+         <div style="font-size:12px;margin-top:2px;">
+           <strong style="color:var(--danger);">${falhas}</strong> falha(s) detectada(s) —
+           tolerância máxima: <strong>${tol}</strong>.
+           O lote deve ser <strong>reprovado</strong>.
+         </div>
+       </div>`
+    : `<span style="font-size:18px;">⚠️</span>
+       <div>
+         <strong style="color:var(--warn);font-family:'Syne',sans-serif;">Atenção: ${falhas} falha(s)</strong>
+         <div style="font-size:12px;margin-top:2px;">
+           Dentro da tolerância permitida de <strong>${tol}</strong>.
+           Acompanhe antes de aprovar.
+         </div>
+       </div>`;
+
+  banner.style.background  = excedeu ? 'rgba(255,59,92,.1)' : 'rgba(255,149,0,.09)';
+  banner.style.borderColor = excedeu ? 'rgba(255,59,92,.35)' : 'rgba(255,149,0,.35)';
+  banner.style.color       = excedeu ? 'var(--danger)' : 'var(--warn)';
+
+  // Desabilita aprovação quando excedeu tolerância (pode forçar clicando)
+  if (btnAprov) {
+    btnAprov.disabled  = excedeu;
+    btnAprov.style.opacity = excedeu ? '0.4' : '1';
+    btnAprov.title = excedeu ? 'Tolerância excedida — aprove apenas se tiver certeza' : '';
+  }
+}
+
+/** Conta total de falhas visuais + medidas fora do range */
+function _contarFalhas(insp) {
+  return (insp.resultados||[]).filter(r => {
+    const p = (insp.pontos||[])[r.p];
+    if (!p) return false;
+    if (p.tipo === 'visual') return r.v === 'nok';
+    if (p.tipo === 'medida') return _checkMedida(r.v, p) !== 'ok' && _checkMedida(r.v, p) !== null;
+    return false;
+  }).length;
+}
+
+async function finalizarInspeccao(inspId, resultado) {
+  const insp = db.inspecoes.find(i=>i.id===inspId); if(!insp) return;
+  const obs = document.getElementById(`insp-obs-${inspId}`)?.value || '';
+
+  // Contar falhas usando a função centralizada
+  const falhas = _contarFalhas(insp);
+  const excedeuTol = falhas > insp.tolerancia;
+
+  if (resultado === 'aprovado' && excedeuTol) {
+    const ok = confirm(
+      `🚨 TOLERÂNCIA EXCEDIDA!\n\n` +
+      `Foram detectadas ${falhas} falha(s) e a tolerância máxima é ${insp.tolerancia}.\n\n` +
+      `Confirmar APROVAÇÃO mesmo com falhas acima da tolerância?\nEsta ação ficará registrada na auditoria.`
+    );
+    if (!ok) return;
+  }
+
+  insp.status = resultado;
+  insp.obsInspetor = obs;
+  insp.inspetor = currentUser.nome;
+  insp.finalizadaEm = new Date().toISOString();
+  insp.falhas = falhas;
+
+  // Atualizar status do recebimento
+  const recv = db.recebimentos.find(r=>r.id===insp.recebimentoId);
+  if (recv) { recv.status = resultado; try { await saveItem('recebimentos', recv); } catch(e){} }
+
+  renderQualidade();
+  renderRecebimentos();
+  await logAudit('qualidade', `Inspeção ${resultado}: ${insp.materialNome}`, `NF: ${insp.nf} | Falhas: ${falhas}/${insp.tolerancia} (tol) | Excedeu: ${excedeuTol?'SIM':'NÃO'} | Inspetor: ${currentUser.nome}`);
+  try {
+    await saveItem('inspecoes', insp);
+    if (resultado === 'aprovado') {
+      toast('✅ Lote aprovado! Liberado para entrada no estoque.');
+    } else {
+      toast('❌ Lote reprovado.', 'error');
+    }
+  } catch(e) { toast('Erro ao salvar inspeção.','error'); }
+}
+
+// ===========================
+// ENTRADA PELO RECEBIMENTO
+// ===========================
+
+function toggleMreLote() {
+  const sem = document.getElementById('mre-semlote').checked;
+  const grp = document.getElementById('mre-lote-group');
+  const inp = document.getElementById('mre-lote');
+  grp.style.opacity = sem ? '.4' : '1';
+  inp.disabled = sem;
+  if (sem) inp.value = '';
+}
+
+function abrirModalEntradaRecebimento(recvId) {
+  const r = db.recebimentos.find(x=>x.id===recvId);
+  if (!r) return;
+  if (r.status !== 'aprovado') return toast('Apenas recebimentos aprovados pela qualidade podem ser lançados no estoque.','error');
+  if (r.entradaEstoque) return toast('Entrada já foi realizada para este recebimento.','error');
+
+  document.getElementById('mre-recv-id').value = recvId;
+
+  // Info box
+  const mat = db.materiais.find(m=>m.id===r.materialId);
+  const insp = db.inspecoes.find(i=>i.recebimentoId===recvId);
+  document.getElementById('mre-info-box').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;">
+      <div><span style="color:var(--muted);">Material</span><br><strong style="font-size:14px;">${escHtml(r.materialNome)}</strong></div>
+      <div><span style="color:var(--muted);">Nota Fiscal</span><br><strong>${escHtml(r.nf)}</strong></div>
+      <div><span style="color:var(--muted);">Fornecedor</span><br><strong>${escHtml(r.fornecedor)}</strong></div>
+      <div><span style="color:var(--muted);">Qtd Recebida</span><br><strong style="color:var(--accent);font-size:16px;">${r.qtdRecebida}</strong>${mat&&mat.unidade?' <span style="color:var(--muted);">'+mat.unidade+'</span>':''}</div>
+      ${insp?`<div style="grid-column:1/-1;margin-top:4px;"><span style="color:var(--accent);font-size:11px;font-weight:700;">✅ APROVADO PELA QUALIDADE</span>${insp.inspetor?' — <span style="color:var(--muted);font-size:11px;">'+escHtml(insp.inspetor)+'</span>':''}</div>`:''}
+    </div>`;
+
+  // Popular select de estoques
+  const sel = document.getElementById('mre-estoque');
+  sel.innerHTML = '<option value="">Selecione o estoque destino...</option>';
+  db.estoques.forEach(e => sel.innerHTML += `<option value="${e.id}">${e.nome}${e.principal?' ★':''}</option>`);
+  // Pré-selecionar estoque principal se houver
+  const principal = db.estoques.find(e=>e.principal);
+  if (principal) sel.value = principal.id;
+
+  // Pré-preencher quantidade com o recebido
+  document.getElementById('mre-qtd').value = r.qtdRecebida;
+  document.getElementById('mre-qtd-hint').textContent = `Quantidade recebida: ${r.qtdRecebida}`;
+  document.getElementById('mre-lote').value = '';
+  document.getElementById('mre-val').value = '';
+  document.getElementById('mre-obs').value = '';
+  document.getElementById('mre-semlote').checked = false;
+  toggleMreLote();
+
+  abrirModal('modal-recv-entrada');
+  // Focar no campo de lote após abrir
+  setTimeout(()=>{ const l=document.getElementById('mre-lote'); if(l&&!l.disabled) l.focus(); }, 150);
+}
+
+async function confirmarEntradaRecebimento() {
+  const recvId = document.getElementById('mre-recv-id').value;
+  const estId  = document.getElementById('mre-estoque').value;
+  const sem    = document.getElementById('mre-semlote').checked;
+  const lote   = document.getElementById('mre-lote').value.trim();
+  const qtd    = +document.getElementById('mre-qtd').value;
+  const val    = document.getElementById('mre-val').value;
+  const obs    = document.getElementById('mre-obs').value.trim();
+
+  if (!estId)             return toast('Selecione o estoque destino.','error');
+  if (!sem && !lote)      return toast('Informe o lote do material.','error');
+  if (!qtd || qtd <= 0)  return toast('Quantidade inválida.','error');
+
+  const r   = db.recebimentos.find(x=>x.id===recvId);
+  const mat = r ? db.materiais.find(m=>m.id===r.materialId) : null;
+  const est = db.estoques.find(e=>e.id===estId);
+  if (!r || !mat || !est) return toast('Dados inválidos.','error');
+
+  const loteVal = sem ? 'SEM LOTE' : lote;
+
+  // Criar ou somar ao item no estoque
+  let item = db.itens.find(i => i.materialId===r.materialId && i.estoqueId===estId && i.lote===loteVal);
+  const mesclou = !!item;
+  if (item) { item.qtd += qtd; if(val) item.validade = val; }
+  else { item = { id:uid(), materialId:r.materialId, estoqueId:estId, lote:loteVal, qtd, validade:val, obs }; db.itens.push(item); }
+
+  // Registrar entrada
+  const entrada = {
+    id: uid(), materialId: r.materialId, estoqueId: estId,
+    materialNome: mat.nome, estoqueNome: est.nome,
+    lote: loteVal, qtd, validade: val, obs,
+    origem: 'recebimento', recebimentoId: recvId, nf: r.nf,
+    data: new Date().toISOString()
+  };
+  db.entradas.unshift(entrada);
+
+  // Marcar recebimento como entrada realizada
+  r.entradaEstoque = {
+    data: new Date().toISOString(),
+    lote: loteVal, qtd, estoqueId: estId, estoqueNome: est.nome,
+    entradaId: entrada.id, por: currentUser.nome
+  };
+
+  fecharModal('modal-recv-entrada');
+  renderRecebimentos();
+
+  await logAudit('entrada',
+    `Entrada via recebimento: ${qtd}x ${mat.nome}`,
+    `NF: ${r.nf} | Lote: ${loteVal} | Estoque: ${est.nome} | Aprovado QLD`
+  );
+
+  try {
+    await saveItem('itens', item);
+    await saveItem('entradas', entrada);
+    await saveItem('recebimentos', r);
+    toast(mesclou
+      ? `Lote "${loteVal}" somado! Total: ${item.qtd} ${mat.unidade||''}`
+      : `✅ ${qtd} ${mat.nome} entrou no estoque — Lote: ${loteVal}`
+    );
+  } catch(e) { toast('Erro ao salvar entrada.','error'); console.error(e); }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HISTÓRICO DE RECEBIMENTOS
+// ─────────────────────────────────────────────────────────────────────────────
+function limparFiltrosHistorico() {
+  ['hist-busca','hist-filtro-status','hist-filtro-tipo','hist-de','hist-ate'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  renderHistoricoRecebimentos();
+}
+
+function renderHistoricoRecebimentos() {
+  const lista = document.getElementById('hist-lista-cards'); if(!lista) return;
+  const empty = document.getElementById('hist-empty');
+  const stats = document.getElementById('hist-stats');
+  lista.innerHTML = '';
+
+  const busca  = (document.getElementById('hist-busca')?.value||'').toLowerCase();
+  const fSt    = document.getElementById('hist-filtro-status')?.value||'';
+  const fTipo  = document.getElementById('hist-filtro-tipo')?.value||'';
+  const fDe    = document.getElementById('hist-de')?.value||'';
+  const fAte   = document.getElementById('hist-ate')?.value||'';
+
+  // Histórico = TODOS os recebimentos (incluindo finalizados)
+  let todos = [...db.recebimentos].sort((a,b)=>new Date(b.criadoEm)-new Date(a.criadoEm));
+
+  // Filtros
+  todos = todos.filter(r => {
+    if (busca && ![r.materialNome,r.nf,r.fornecedor].some(f=>(f||'').toLowerCase().includes(busca))) return false;
+    if (fTipo === 'critico' && !r.critico) return false;
+    if (fTipo === 'normal' && r.critico) return false;
+    if (fSt) {
+      const st = (r.status==='aprovado'&&r.entradaEstoque)?'entrada_realizada':r.status;
+      if (st !== fSt) return false;
+    }
+    if (fDe && r.data < fDe) return false;
+    if (fAte && r.data > fAte) return false;
+    return true;
+  });
+
+  // Stats
+  const tot = todos.length;
+  const aprov = todos.filter(r=>r.status==='aprovado'||r.entradaEstoque).length;
+  const reprov = todos.filter(r=>r.status==='reprovado').length;
+  const pend = todos.filter(r=>r.status==='aguardando_inspecao').length;
+  if (stats) stats.innerHTML = `
+    <div class="stat-card" style="min-width:120px;"><div style="font-size:10px;color:var(--muted);font-family:'Syne',sans-serif;font-weight:700;letter-spacing:.5px;text-transform:uppercase;">Total</div><div style="font-size:28px;font-weight:800;font-family:'Syne',sans-serif;">${tot}</div></div>
+    <div class="stat-card green" style="min-width:120px;"><div style="font-size:10px;color:var(--muted);font-family:'Syne',sans-serif;font-weight:700;letter-spacing:.5px;text-transform:uppercase;">Aprovados</div><div style="font-size:28px;font-weight:800;font-family:'Syne',sans-serif;color:var(--accent);">${aprov}</div></div>
+    <div class="stat-card danger" style="min-width:120px;"><div style="font-size:10px;color:var(--muted);font-family:'Syne',sans-serif;font-weight:700;letter-spacing:.5px;text-transform:uppercase;">Reprovados</div><div style="font-size:28px;font-weight:800;font-family:'Syne',sans-serif;color:var(--danger);">${reprov}</div></div>
+    <div class="stat-card warn" style="min-width:120px;"><div style="font-size:10px;color:var(--muted);font-family:'Syne',sans-serif;font-weight:700;letter-spacing:.5px;text-transform:uppercase;">Pendentes</div><div style="font-size:28px;font-weight:800;font-family:'Syne',sans-serif;color:var(--warn);">${pend}</div></div>
+  `;
+
+  if (!todos.length) { empty.style.display='block'; return; }
+  empty.style.display = 'none';
+
+  todos.forEach(r => {
+    const insp = db.inspecoes.find(i=>i.recebimentoId===r.id);
+    const ncCount = db.naoconformidades.filter(n=>n.recebimentoId===r.id).length;
+    const stKey = (r.status==='aprovado'&&r.entradaEstoque)?'entrada_realizada':r.status;
+    const stInfo = {
+      recebido:             {label:'Recebido',          color:'var(--accent)',  bg:'rgba(0,229,160,.1)'},
+      aguardando_inspecao:  {label:'Aguard. Inspeção',  color:'#a855f7',        bg:'rgba(168,85,247,.1)'},
+      aprovado:             {label:'Aprovado QLD',       color:'var(--accent)',  bg:'rgba(0,229,160,.1)'},
+      reprovado:            {label:'Reprovado QLD',      color:'var(--danger)',  bg:'rgba(255,59,92,.1)'},
+      entrada_realizada:    {label:'No Estoque ✓',       color:'#14b8a6',        bg:'rgba(20,184,166,.1)'},
+    };
+    const si = stInfo[stKey]||stInfo.recebido;
+    lista.innerHTML += `<div class="recv-card${r.critico?' critico':''}" style="${r.teste?'border-style:dashed;':''}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:15px;">${escHtml(r.materialNome)}
+            ${r.critico?'<span style="font-size:11px;background:rgba(168,85,247,.15);color:#a855f7;padding:2px 8px;border-radius:99px;margin-left:6px;">CRÍTICO</span>':''}
+            ${r.teste?'<span style="font-size:11px;background:rgba(255,149,0,.15);color:var(--warn);padding:2px 8px;border-radius:99px;margin-left:6px;">🧪 TESTE</span>':''}
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-top:3px;">NF: ${escHtml(r.nf)} · ${escHtml(r.fornecedor)} · ${fmt(r.data)} · Criado por: ${escHtml(r.criadoPor||'—')}</div>
+          ${r.entradaEstoque?`<div style="font-size:11px;color:#14b8a6;margin-top:3px;">✓ Estoque: ${escHtml(r.entradaEstoque.lote)} → ${escHtml(r.entradaEstoque.estoqueNome)}</div>`:''}
+          ${insp?`<div style="font-size:11px;color:var(--muted);margin-top:3px;">Inspetor: ${escHtml(insp.inspetor||'—')} · Falhas: ${insp.falhas||0}/${insp.tolerancia}</div>`:''}
+          ${ncCount?`<div style="font-size:11px;color:var(--warn);margin-top:3px;">⚠️ ${ncCount} NC(s) vinculada(s)</div>`:''}
+        </div>
+        <span style="padding:4px 12px;border-radius:99px;font-size:11px;font-weight:700;font-family:'Syne',sans-serif;background:${si.bg};color:${si.color};white-space:nowrap;">${si.label}</span>
+      </div>
+      <div style="display:flex;gap:20px;font-size:13px;flex-wrap:wrap;">
+        <span style="color:var(--muted);">Pedido: <strong style="color:var(--text);">${r.qtdPedida}</strong></span>
+        <span style="color:var(--muted);">Recebido: <strong style="color:${r.qtdRecebida<r.qtdPedida?'var(--warn)':'var(--accent)'};">${r.qtdRecebida}</strong></span>
+        ${r.obs?`<span style="color:var(--muted);">Obs: ${escHtml(r.obs)}</span>`:''}
+      </div>
+    </div>`;
+  });
+}
+
+function exportarHistoricoPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const now = new Date().toLocaleString('pt-BR');
+  const todos = [...db.recebimentos].sort((a,b)=>new Date(b.criadoEm)-new Date(a.criadoEm));
+  let y = 20;
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(16);
+  doc.text('StockFlow — Histórico de Recebimentos', 14, y); y+=8;
+  doc.setFontSize(9);
+  doc.setFont('helvetica','normal');
+  doc.setTextColor(120);
+  doc.text(`Gerado em: ${now} | Total: ${todos.length} recebimentos`, 14, y); y+=10;
+  doc.setTextColor(0);
+
+  const stLabel = {recebido:'Recebido',aguardando_inspecao:'Aguard. Inspeção',aprovado:'Aprovado QLD',reprovado:'Reprovado QLD'};
+  const rows = todos.map(r=>{
+    const insp = db.inspecoes.find(i=>i.recebimentoId===r.id);
+    const st = (r.status==='aprovado'&&r.entradaEstoque)?'No Estoque ✓':(stLabel[r.status]||r.status);
+    return [
+      fmt(r.data),
+      r.nf,
+      r.materialNome + (r.critico?' [CRIT]':''),
+      r.fornecedor,
+      String(r.qtdPedida),
+      String(r.qtdRecebida),
+      st,
+      insp ? `${insp.falhas||0}/${insp.tolerancia}` : '—'
+    ];
+  });
+
+  doc.autoTable({
+    startY: y,
+    head:[['Data','NF','Material','Fornecedor','Ped.','Rec.','Status','Falhas']],
+    body: rows,
+    styles:{fontSize:8, cellPadding:2},
+    headStyles:{fillColor:[17,19,24],textColor:[0,229,160],fontStyle:'bold'},
+    alternateRowStyles:{fillColor:[245,245,245]},
+    columnStyles:{0:{cellWidth:20},1:{cellWidth:18},2:{cellWidth:38},3:{cellWidth:32},4:{cellWidth:10},5:{cellWidth:10},6:{cellWidth:26},7:{cellWidth:14}},
+  });
+
+  // Campo de assinatura
+  const finalY = doc.lastAutoTable.finalY + 20;
+  doc.setDrawColor(180);
+  doc.line(14, finalY+15, 100, finalY+15);
+  doc.line(110, finalY+15, 196, finalY+15);
+  doc.setFontSize(9); doc.setTextColor(100);
+  doc.text('Responsável pelo Recebimento', 14, finalY+20);
+  doc.text('Responsável pela Qualidade', 110, finalY+20);
+  doc.setFontSize(8);
+  doc.text('Assinatura / Data', 14, finalY+26);
+  doc.text('Assinatura / Data', 110, finalY+26);
+
+  doc.save(`historico_recebimentos_${new Date().toISOString().slice(0,10)}.pdf`);
+  toast('PDF gerado com sucesso!');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NÃO CONFORMIDADES
+// ─────────────────────────────────────────────────────────────────────────────
+function abrirModalNC(inspId) {
+  const insp = db.inspecoes.find(i=>i.id===inspId); if(!insp) return;
+  const r = db.recebimentos.find(x=>x.id===insp.recebimentoId);
+  document.getElementById('nc-insp-id').value = inspId;
+  document.getElementById('nc-titulo').value = '';
+  document.getElementById('nc-descricao').value = '';
+  document.getElementById('nc-classificacao').value = 'menor';
+  document.getElementById('nc-responsavel').value = currentUser.nome;
+  document.getElementById('nc-acao').value = '';
+  document.getElementById('nc-ref-box').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;">
+      <div><span style="color:var(--muted);">Material</span><br><strong>${escHtml(insp.materialNome)}</strong></div>
+      <div><span style="color:var(--muted);">NF</span><br><strong>${escHtml(insp.nf)}</strong></div>
+      <div><span style="color:var(--muted);">Fornecedor</span><br><strong>${escHtml(insp.fornecedor)}</strong></div>
+      <div><span style="color:var(--muted);">Falhas</span><br><strong style="color:var(--danger);">${insp.falhas||0} / tol. ${insp.tolerancia}</strong></div>
+    </div>`;
+  abrirModal('modal-nc');
+}
+
+async function confirmarAbrirNC() {
+  const inspId = document.getElementById('nc-insp-id').value;
+  const titulo = document.getElementById('nc-titulo').value.trim();
+  const descricao = document.getElementById('nc-descricao').value.trim();
+  const classificacao = document.getElementById('nc-classificacao').value;
+  const responsavel = document.getElementById('nc-responsavel').value.trim();
+  const acao = document.getElementById('nc-acao').value.trim();
+  if (!titulo) return toast('Informe o título da NC.','error');
+  if (!descricao) return toast('Descreva o defeito encontrado.','error');
+
+  const insp = db.inspecoes.find(i=>i.id===inspId);
+  const r = insp ? db.recebimentos.find(x=>x.id===insp.recebimentoId) : null;
+
+  const nc = {
+    id: uid(),
+    inspId, recebimentoId: insp?.recebimentoId||'',
+    materialNome: insp?.materialNome||'', nf: insp?.nf||'',
+    fornecedor: insp?.fornecedor||'', data: insp?.data||new Date().toISOString().slice(0,10),
+    titulo, descricao, classificacao, responsavel, acaoImediata: acao,
+    acaoCorretiva: '', status: 'aberta',
+    abertoPor: currentUser.nome, abertaEm: new Date().toISOString(),
+    encerradoEm: null, falhas: insp?.falhas||0, tolerancia: insp?.tolerancia||0,
+  };
+
+  db.naoconformidades.push(nc);
+  fecharModal('modal-nc');
+  toast('⚠️ Não Conformidade registrada!');
+  await logAudit('qualidade', `NC aberta: ${titulo}`, `Material: ${insp?.materialNome||'?'} | NF: ${insp?.nf||'?'} | Class: ${classificacao}`);
+  try { await saveItem('naoconformidades', nc); }
+  catch(e) { toast('Erro ao salvar NC.','error'); }
+}
+
+function renderNaoConformidades() {
+  const lista = document.getElementById('nc-lista-cards'); if(!lista) return;
+  const empty = document.getElementById('nc-empty');
+  const stats = document.getElementById('nc-stats');
+  lista.innerHTML = '';
+
+  const busca = (document.getElementById('nc-busca')?.value||'').toLowerCase();
+  const fSt   = document.getElementById('nc-filtro-status')?.value||'';
+
+  let ncs = [...db.naoconformidades].sort((a,b)=>new Date(b.abertaEm)-new Date(a.abertaEm));
+  if (busca) ncs = ncs.filter(n=>[n.materialNome,n.nf,n.titulo,n.fornecedor].some(f=>(f||'').toLowerCase().includes(busca)));
+  if (fSt) ncs = ncs.filter(n=>n.status===fSt);
+
+  const aberta = db.naoconformidades.filter(n=>n.status==='aberta').length;
+  const analise= db.naoconformidades.filter(n=>n.status==='em_analise').length;
+  const encerr = db.naoconformidades.filter(n=>n.status==='encerrada').length;
+  if (stats) stats.innerHTML = `
+    <div class="stat-card danger" style="min-width:110px;"><div style="font-size:10px;color:var(--muted);font-family:'Syne',sans-serif;font-weight:700;letter-spacing:.5px;text-transform:uppercase;">Abertas</div><div style="font-size:28px;font-weight:800;font-family:'Syne',sans-serif;color:var(--danger);">${aberta}</div></div>
+    <div class="stat-card warn" style="min-width:110px;"><div style="font-size:10px;color:var(--muted);font-family:'Syne',sans-serif;font-weight:700;letter-spacing:.5px;text-transform:uppercase;">Em Análise</div><div style="font-size:28px;font-weight:800;font-family:'Syne',sans-serif;color:var(--warn);">${analise}</div></div>
+    <div class="stat-card green" style="min-width:110px;"><div style="font-size:10px;color:var(--muted);font-family:'Syne',sans-serif;font-weight:700;letter-spacing:.5px;text-transform:uppercase;">Encerradas</div><div style="font-size:28px;font-weight:800;font-family:'Syne',sans-serif;color:var(--accent);">${encerr}</div></div>
+  `;
+
+  if (!ncs.length) { empty.style.display='block'; return; } empty.style.display='none';
+
+  const classColors = {critica:'var(--danger)',maior:'var(--warn)',menor:'#5599ff',observacao:'var(--muted)'};
+  const classLabels = {critica:'Crítica',maior:'Maior',menor:'Menor',observacao:'Observação'};
+  const stColors = {aberta:'var(--danger)',em_analise:'var(--warn)',encerrada:'var(--accent)'};
+  const stLabels = {aberta:'Aberta',em_analise:'Em Análise',encerrada:'Encerrada'};
+
+  ncs.forEach(nc => {
+    const clCor = classColors[nc.classificacao]||'var(--muted)';
+    const stCor = stColors[nc.status]||'var(--muted)';
+    lista.innerHTML += `<div class="recv-card" style="border-left:3px solid ${clCor};">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:15px;">${escHtml(nc.titulo)}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:3px;">
+            ${escHtml(nc.materialNome)} · NF: ${escHtml(nc.nf)} · ${escHtml(nc.fornecedor)} · ${fmt(nc.abertaEm)}
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-top:3px;">
+            Aberta por: ${escHtml(nc.abertoPor)} · Falhas: ${nc.falhas}/${nc.tolerancia}
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;flex-wrap:wrap;">
+          <span style="padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;background:rgba(0,0,0,.1);color:${clCor};border:1px solid ${clCor}40;">${classLabels[nc.classificacao]||nc.classificacao}</span>
+          <span style="padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;font-family:'Syne',sans-serif;background:${stColors[nc.status]+'1a'};color:${stCor};">${stLabels[nc.status]||nc.status}</span>
+        </div>
+      </div>
+      <div style="font-size:13px;color:var(--text);background:var(--surface2);border-radius:6px;padding:10px 12px;margin-bottom:10px;">${escHtml(nc.descricao)}</div>
+      ${nc.acaoImediata?`<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">🔧 Ação imediata: ${escHtml(nc.acaoImediata)}</div>`:''}
+      ${nc.acaoCorretiva?`<div style="font-size:12px;color:var(--accent);margin-bottom:8px;">✅ Ação corretiva: ${escHtml(nc.acaoCorretiva)}</div>`:''}
+      ${nc.status!=='encerrada'?`<div style="display:flex;gap:8px;margin-top:4px;">
+        ${nc.status==='aberta'?`<button class="btn btn-secondary" onclick="atualizarStatusNC('${nc.id}','em_analise')" style="font-size:12px;padding:6px 12px;">🔄 Em Análise</button>`:''}
+        <button class="btn" onclick="abrirDetalheNC('${nc.id}')" style="font-size:12px;padding:6px 12px;background:var(--accent);color:#000;">✅ Encerrar NC</button>
+      </div>`:`<div style="font-size:11px;color:var(--muted);">Encerrada em ${fmtDT(nc.encerradoEm||'')} ${nc.encerradoPor?'por '+escHtml(nc.encerradoPor):''}</div>`}
+    </div>`;
+  });
+}
+
+async function atualizarStatusNC(ncId, novoStatus) {
+  const nc = db.naoconformidades.find(n=>n.id===ncId); if(!nc) return;
+  nc.status = novoStatus;
+  renderNaoConformidades();
+  try { await saveItem('naoconformidades', nc); toast('Status atualizado!'); }
+  catch(e) { toast('Erro ao atualizar.','error'); }
+}
+
+function abrirDetalheNC(ncId) {
+  const nc = db.naoconformidades.find(n=>n.id===ncId); if(!nc) return;
+  document.getElementById('ncd-id').value = ncId;
+  document.getElementById('ncd-acao-corretiva').value = nc.acaoCorretiva||'';
+  const classColors = {critica:'var(--danger)',maior:'var(--warn)',menor:'#5599ff',observacao:'var(--muted)'};
+  document.getElementById('ncd-conteudo').innerHTML = `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:16px;font-size:13px;">
+      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:15px;margin-bottom:8px;">${escHtml(nc.titulo)}</div>
+      <div style="color:var(--muted);margin-bottom:6px;">Material: ${escHtml(nc.materialNome)} · NF: ${escHtml(nc.nf)}</div>
+      <div style="color:var(--text);background:var(--bg);border-radius:6px;padding:8px 10px;margin-bottom:6px;">${escHtml(nc.descricao)}</div>
+      ${nc.acaoImediata?`<div style="color:var(--muted);">Ação imediata: ${escHtml(nc.acaoImediata)}</div>`:''}
+    </div>
+  `;
+  abrirModal('modal-nc-detalhe');
+}
+
+async function encerrarNC() {
+  const ncId = document.getElementById('ncd-id').value;
+  const acao = document.getElementById('ncd-acao-corretiva').value.trim();
+  if (!acao) return toast('Informe a ação corretiva.','error');
+  const nc = db.naoconformidades.find(n=>n.id===ncId); if(!nc) return;
+  nc.status = 'encerrada';
+  nc.acaoCorretiva = acao;
+  nc.encerradoEm = new Date().toISOString();
+  nc.encerradoPor = currentUser.nome;
+  fecharModal('modal-nc-detalhe');
+  renderNaoConformidades();
+  await logAudit('qualidade', `NC encerrada: ${nc.titulo}`, `Material: ${nc.materialNome} | Ação: ${acao.slice(0,60)}`);
+  try { await saveItem('naoconformidades', nc); toast('NC encerrada!'); }
+  catch(e) { toast('Erro ao encerrar NC.','error'); }
+}
+
+function exportarNCsPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const now = new Date().toLocaleString('pt-BR');
+  let y = 20;
+  doc.setFont('helvetica','bold'); doc.setFontSize(16);
+  doc.text('StockFlow — Histórico de Não Conformidades', 14, y); y+=8;
+  doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(120);
+  doc.text(`Gerado em: ${now} | Total: ${db.naoconformidades.length} NCs`, 14, y); y+=10;
+  doc.setTextColor(0);
+
+  const rows = [...db.naoconformidades].sort((a,b)=>new Date(b.abertaEm)-new Date(a.abertaEm)).map(nc=>[
+    fmt(nc.abertaEm),
+    nc.nf,
+    nc.materialNome,
+    nc.titulo.slice(0,30),
+    nc.classificacao,
+    nc.status,
+    nc.abertoPor,
+    nc.encerradoPor||'—'
+  ]);
+
+  doc.autoTable({
+    startY: y,
+    head:[['Data','NF','Material','Título','Classif.','Status','Aberta por','Encerrada por']],
+    body: rows,
+    styles:{fontSize:8,cellPadding:2},
+    headStyles:{fillColor:[17,19,24],textColor:[255,149,0],fontStyle:'bold'},
+    alternateRowStyles:{fillColor:[245,245,245]},
+  });
+
+  const finalY = doc.lastAutoTable.finalY + 20;
+  doc.setDrawColor(180);
+  doc.line(14, finalY+15, 100, finalY+15);
+  doc.line(110, finalY+15, 196, finalY+15);
+  doc.setFontSize(9); doc.setTextColor(100);
+  doc.text('Responsável pela Qualidade', 14, finalY+20);
+  doc.text('Responsável pela Área / Fornecedor', 110, finalY+20);
+  doc.setFontSize(8);
+  doc.text('Assinatura / Data', 14, finalY+26);
+  doc.text('Assinatura / Data', 110, finalY+26);
+  doc.save(`nao_conformidades_${new Date().toISOString().slice(0,10)}.pdf`);
+  toast('PDF de NCs gerado!');
+}
+
+// Fim do módulo de recebimento & qualidade
+
+// ===========================
+// FUNÇÕES AUXILIARES DE TESTE
+// ===========================
+
+function _mostrarTesteBoxAdm() {
+  const box = document.getElementById('recv-teste-box');
+  if (box) box.style.display = currentUser && currentUser.role === 'adm' ? 'block' : 'none';
+}
+
+async function excluirRecebimentoTeste(recvId) {
+  const r = db.recebimentos.find(x=>x.id===recvId);
+  if (!r) return;
+  if (!r.teste) return toast('Apenas registros de teste podem ser excluídos aqui.','error');
+  if (!confirm(`Excluir recebimento de teste? NF: ${r.nf} — ${r.materialNome}`)) return;
+  db.recebimentos = db.recebimentos.filter(x=>x.id!==recvId);
+  renderRecebimentos();
+  try {
+    await deleteItem('recebimentos', recvId);
+    await logAudit('recebimento', `Teste excluído: NF ${r.nf}`, `Material: ${r.materialNome} | Excluído por: ${currentUser.nome}`);
+    toast('Registro de teste excluído.');
+  } catch(e) { toast('Erro ao excluir.','error'); }
+}
+
+async function excluirInspeccaoTeste(inspId) {
+  const insp = db.inspecoes.find(x=>x.id===inspId);
+  if (!insp) return;
+  if (!insp.teste) return toast('Apenas inspeções de teste podem ser excluídas aqui.','error');
+  if (!confirm(`Excluir inspeção de teste? Material: ${insp.materialNome} — NF: ${insp.nf}`)) return;
+  db.inspecoes = db.inspecoes.filter(x=>x.id!==inspId);
+  renderQualidade();
+  try {
+    await deleteItem('inspecoes', inspId);
+    await logAudit('qualidade', `Inspeção de teste excluída: ${insp.materialNome}`, `NF: ${insp.nf} | Excluído por: ${currentUser.nome}`);
+    toast('Inspeção de teste excluída.');
+  } catch(e) { toast('Erro ao excluir.','error'); }
+}
+
+
+
 
 </script>
 </body>
