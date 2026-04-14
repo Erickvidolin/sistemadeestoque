@@ -47,7 +47,7 @@ const DEFAULT_ADMIN = {
 // ============================================================
 const COLECOES = ['estoques','materiais','itens','entradas','saidas',
                   'transferencias','requisicoes','notificacoes','auditoria',
-                  'recebimentos','inspecoes'];
+                  'recebimentos','inspecoes','naoconformidades'];
 
 const firebaseApp = initializeApp(firebaseConfig);
 const auth        = getAuth(firebaseApp);
@@ -281,6 +281,20 @@ label{font-size:13px;color:var(--muted);margin-bottom:6px;display:block;font-wei
 .badge-quality{background:rgba(168,85,247,.15);color:#a855f7;}
 .badge-recv{background:rgba(20,184,166,.15);color:#14b8a6;}
 
+/* MODAL DE ALERTA ESTILIZADO */
+.sf-alert-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:9000;align-items:center;justify-content:center;padding:16px;}
+.sf-alert-overlay.open{display:flex;}
+.sf-alert-box{background:var(--surface);border-radius:16px;padding:0;width:100%;max-width:460px;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.7);}
+.sf-alert-header{padding:20px 24px 16px;display:flex;align-items:center;gap:14px;}
+.sf-alert-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
+.sf-alert-title{font-family:'Syne',sans-serif;font-weight:800;font-size:16px;}
+.sf-alert-body{padding:0 24px 20px;font-size:13px;color:var(--muted);line-height:1.7;}
+.sf-alert-body ul{margin:10px 0 0 4px;padding:0;list-style:none;}
+.sf-alert-body ul li{padding:4px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
+.sf-alert-body ul li:last-child{border-bottom:none;}
+.sf-alert-body ul li::before{content:'•';color:var(--danger);font-size:16px;flex-shrink:0;}
+.sf-alert-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;}
+
 /* RECEBIMENTO & QUALIDADE */
 .recv-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:14px;transition:border-color .2s;}
 .recv-card:hover{border-color:rgba(20,184,166,.4);}
@@ -289,6 +303,13 @@ label{font-size:13px;color:var(--muted);margin-bottom:6px;display:block;font-wei
 .insp-card.pendente{border-left:3px solid var(--warn);}
 .insp-card.aprovado{border-left:3px solid var(--accent);}
 .insp-card.reprovado{border-left:3px solid var(--danger);}
+/* Card colapsável de inspeção */
+.insp-card-header{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;padding:16px 18px;border-radius:10px;transition:background .15s;user-select:none;}
+.insp-card-header:hover{background:rgba(255,255,255,.03);}
+.insp-card-body{padding:0 18px 18px;overflow:hidden;transition:max-height .3s ease,opacity .3s ease;}
+.insp-card-body.collapsed{max-height:0!important;opacity:0;padding-bottom:0;}
+.insp-card-chevron{width:20px;height:20px;transition:transform .25s;flex-shrink:0;color:var(--muted);}
+.insp-card-chevron.open{transform:rotate(180deg);}
 .sample-row{display:grid;grid-template-columns:80px 1fr;gap:8px;align-items:start;padding:10px 0;border-bottom:1px solid var(--border);}
 .sample-row:last-child{border-bottom:none;}
 .check-point{display:flex;align-items:center;gap:10px;padding:6px 0;}
@@ -1051,13 +1072,21 @@ tr:hover td{background:rgba(255,255,255,.02);}
               <option value="adm">Administrador — acesso total</option>
             </select>
           </div>
-          <div id="nu-areas-box" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px;">
+          <div id="nu-areas-box" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px;max-height:280px;overflow-y:auto;">
             <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px;">Áreas de Acesso</div>
+            <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="nu-area-check" value="dash"><span style="font-size:13px;">📊 Dashboard</span></label>
             <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="nu-area-check" value="requisicoes"><span style="font-size:13px;">📋 Requisições</span></label>
-            <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="nu-area-check" value="recebimento"><span style="font-size:13px;">📦 Recebimento de Materiais</span></label>
-            <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="nu-area-check" value="qualidade"><span style="font-size:13px;">🔬 Qualidade (inspeção crítica)</span></label>
-            <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="nu-area-check" value="estoque"><span style="font-size:13px;">📦 Estoque (entrada/saída)</span></label>
-            <label class="checkbox-wrap"><input type="checkbox" class="nu-area-check" value="relatorios"><span style="font-size:13px;">📄 Relatórios</span></label>
+            <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="nu-area-check" value="atendimento"><span style="font-size:13px;">✅ Atendimento de Requisições</span></label>
+            <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="nu-area-check" value="estoque"><span style="font-size:13px;">📦 Estoque (entrada/saída/análise)</span></label>
+            <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="nu-area-check" value="transferencia"><span style="font-size:13px;">🔄 Transferência entre Estoques</span></label>
+            <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="nu-area-check" value="recebimento"><span style="font-size:13px;">📥 Recebimento de Materiais</span></label>
+            <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="nu-area-check" value="qualidade"><span style="font-size:13px;">🔬 Qualidade e Inspeção</span></label>
+            <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="nu-area-check" value="historico-recebimentos"><span style="font-size:13px;">📋 Histórico de Recebimentos</span></label>
+            <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="nu-area-check" value="nao-conformidades"><span style="font-size:13px;">⚠️ Não Conformidades</span></label>
+            <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="nu-area-check" value="compras"><span style="font-size:13px;">🛒 Planejamento de Compras</span></label>
+            <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="nu-area-check" value="validade"><span style="font-size:13px;">⏰ Controle de Validade</span></label>
+            <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="nu-area-check" value="relatorios"><span style="font-size:13px;">📄 Relatórios</span></label>
+            <label class="checkbox-wrap"><input type="checkbox" class="nu-area-check" value="auditoria"><span style="font-size:13px;">🔍 Auditoria e Logs</span></label>
           </div>
           <div id="nu-error" style="display:none;color:var(--danger);font-size:13px;margin-bottom:12px;padding:10px;background:rgba(255,59,92,.08);border-radius:8px;"></div>
           <button class="btn btn-primary" onclick="cadastrarUsuario()" style="width:100%;" id="btn-cadastrar-usuario">Cadastrar Usuário</button>
@@ -1077,7 +1106,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
 
     <!-- MODAL: EDITAR ÁREAS DO USUÁRIO -->
     <div id="modal-edit-areas" class="modal">
-      <div class="modal-box" style="max-width:440px;">
+      <div class="modal-box" style="max-width:480px;max-height:92vh;overflow-y:auto;">
         <div class="modal-title">Editar Acesso <button class="modal-close" onclick="fecharModal('modal-edit-areas')">✕</button></div>
         <input type="hidden" id="edit-area-uid">
         <div class="form-group">
@@ -1089,13 +1118,21 @@ tr:hover td{background:rgba(255,255,255,.02);}
             <option value="adm">Administrador</option>
           </select>
         </div>
-        <div id="edit-areas-box" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px;">
+        <div id="edit-areas-box" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px;max-height:280px;overflow-y:auto;">
           <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px;">Áreas de Acesso</div>
+          <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="edit-area-check" value="dash"><span style="font-size:13px;">📊 Dashboard</span></label>
           <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="edit-area-check" value="requisicoes"><span style="font-size:13px;">📋 Requisições</span></label>
-          <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="edit-area-check" value="recebimento"><span style="font-size:13px;">📦 Recebimento de Materiais</span></label>
-          <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="edit-area-check" value="qualidade"><span style="font-size:13px;">🔬 Qualidade</span></label>
-          <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="edit-area-check" value="estoque"><span style="font-size:13px;">📦 Estoque</span></label>
-          <label class="checkbox-wrap"><input type="checkbox" class="edit-area-check" value="relatorios"><span style="font-size:13px;">📄 Relatórios</span></label>
+          <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="edit-area-check" value="atendimento"><span style="font-size:13px;">✅ Atendimento de Requisições</span></label>
+          <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="edit-area-check" value="estoque"><span style="font-size:13px;">📦 Estoque (entrada/saída/análise)</span></label>
+          <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="edit-area-check" value="transferencia"><span style="font-size:13px;">🔄 Transferência entre Estoques</span></label>
+          <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="edit-area-check" value="recebimento"><span style="font-size:13px;">📥 Recebimento de Materiais</span></label>
+          <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="edit-area-check" value="qualidade"><span style="font-size:13px;">🔬 Qualidade e Inspeção</span></label>
+          <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="edit-area-check" value="historico-recebimentos"><span style="font-size:13px;">📋 Histórico de Recebimentos</span></label>
+          <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="edit-area-check" value="nao-conformidades"><span style="font-size:13px;">⚠️ Não Conformidades</span></label>
+          <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="edit-area-check" value="compras"><span style="font-size:13px;">🛒 Planejamento de Compras</span></label>
+          <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="edit-area-check" value="validade"><span style="font-size:13px;">⏰ Controle de Validade</span></label>
+          <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="edit-area-check" value="relatorios"><span style="font-size:13px;">📄 Relatórios</span></label>
+          <label class="checkbox-wrap"><input type="checkbox" class="edit-area-check" value="auditoria"><span style="font-size:13px;">🔍 Auditoria e Logs</span></label>
         </div>
         <div style="display:flex;gap:10px;">
           <button class="btn btn-secondary" onclick="fecharModal('modal-edit-areas')" style="flex:1;">Cancelar</button>
@@ -1393,6 +1430,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
           <div class="form-group"><label>Qtd Pedida *</label><input id="recv-qtd-pedida" type="number" min="1" placeholder="0"></div>
           <div class="form-group"><label>Qtd Recebida *</label><input id="recv-qtd-recebida" type="number" min="0" placeholder="0"></div>
         </div>
+        <div class="form-group"><label>Lote *</label><input id="recv-lote" type="text" placeholder="Ex: LOT-2025-001"></div>
         <div class="form-group"><label>Observação</label><input id="recv-obs" type="text" placeholder="Opcional"></div>
         <div id="recv-teste-box" style="display:none;background:rgba(255,149,0,.08);border:1px solid rgba(255,149,0,.3);border-radius:8px;padding:10px 14px;margin-bottom:12px;">
           <label class="checkbox-wrap"><input type="checkbox" id="recv-teste-sistema"><span style="font-size:13px;color:var(--warn);font-weight:600;">🧪 Marcar como Teste de Sistema</span></label>
@@ -1658,6 +1696,24 @@ tr:hover td{background:rgba(255,255,255,.02);}
 </div>
 
 
+<!-- MODAL DE ALERTA ESTILIZADO (substitui alert/confirm nativo) -->
+<div id="sf-alert-overlay" class="sf-alert-overlay">
+  <div class="sf-alert-box">
+    <div class="sf-alert-header">
+      <div class="sf-alert-icon" id="sf-alert-icon-box">⚠️</div>
+      <div>
+        <div class="sf-alert-title" id="sf-alert-title">Atenção</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px;" id="sf-alert-subtitle"></div>
+      </div>
+    </div>
+    <div class="sf-alert-body" id="sf-alert-body"></div>
+    <div class="sf-alert-footer">
+      <button id="sf-alert-cancel" class="btn btn-secondary" style="display:none;" onclick="sfAlertCancel()">Cancelar</button>
+      <button id="sf-alert-ok" class="btn btn-primary" onclick="sfAlertOk()">OK</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: Abrir Não Conformidade -->
 <div id="modal-nc" class="modal">
   <div class="modal-box" style="max-width:560px;">
@@ -1828,8 +1884,31 @@ function _getRenderFnPorColecao(colecao) {
     saidas:        () => { if(pageId==='saida') renderSaidas(); renderDash(); },
     transferencias:() => { if(pageId==='transferencia') renderTransferencias(); },
     requisicoes:   () => { if(pageId==='requisicoes') renderMinhasReq(); if(pageId==='atendimento') renderAtendimento(); renderDash(); },
-    recebimentos:  () => { if(pageId==='recebimento') renderRecebimentos(); if(pageId==='qualidade') renderQualidade(); },
-    inspecoes:     () => { if(pageId==='qualidade') renderQualidade(); if(pageId==='historico-recebimentos') renderHistoricoRecebimentos(); },
+    recebimentos:  () => {
+      if(pageId==='recebimento') renderRecebimentos();
+      if(pageId==='qualidade') {
+        // Não re-renderizar se há edição ativa
+        if (Object.keys(_inspSaveTimers).length > 0) {
+          _atualizarStatQualidade();
+        } else {
+          renderQualidade();
+        }
+      }
+    },
+    inspecoes:     () => {
+      // Restaurar resultados locais em edição (antes de renderizar)
+      _sincronizarInspResultados();
+      if(pageId==='qualidade') {
+        // Se há timers de debounce ativos (usuário está preenchendo),
+        // NÃO reconstruir a tabela — apenas atualizar os contadores de status
+        if (Object.keys(_inspSaveTimers).length > 0) {
+          _atualizarStatQualidade();
+        } else {
+          renderQualidade();
+        }
+      }
+      if(pageId==='historico-recebimentos') renderHistoricoRecebimentos();
+    },
     naoconformidades:() => { if(pageId==='nao-conformidades') renderNaoConformidades(); },
   };
   return renders[colecao] || (() => {});
@@ -1983,7 +2062,8 @@ async function saveCollection(collName) {
   await saveItemsBatch(collName, db[collName]);
 }
 async function saveDB() {
-  const fields = ['estoques','materiais','itens','entradas','saidas','transferencias','requisicoes'];
+  const fields = ['estoques','materiais','itens','entradas','saidas','transferencias',
+                  'requisicoes','recebimentos','inspecoes','naoconformidades'];
   for (const f of fields) await saveCollection(f);
   updateStorageInfo();
 }
@@ -2146,14 +2226,15 @@ function toggleAreasSel(boxId, roleSelId) {
   if (!box) return;
   if (role === 'adm') { box.style.display='none'; return; }
   box.style.display = 'block';
-  // Preset de áreas conforme role
   const checkboxes = box.querySelectorAll('input[type=checkbox]');
+  // Preset de áreas conforme role selecionado
   if (role === 'quality') {
-    checkboxes.forEach(cb => { cb.checked = cb.value === 'qualidade' || cb.value === 'recebimento'; });
+    const qualAreas = ['qualidade','recebimento','historico-recebimentos','nao-conformidades'];
+    checkboxes.forEach(cb => { cb.checked = qualAreas.includes(cb.value); });
   } else if (role === 'recv') {
     checkboxes.forEach(cb => { cb.checked = cb.value === 'recebimento'; });
   }
-  // user mantém como está
+  // user mantém como está (não altera os checkboxes)
 }
 
 async function abrirEditarAcesso(userId) {
@@ -2184,7 +2265,8 @@ async function salvarAcessoUsuario() {
 }
 
 async function alterarRoleUsuario(uid, novoRole) {
-  if (!confirm(`Alterar perfil para "${novoRole==='adm'?'Administrador':'Usuário Comum'}"?`)) return;
+  const _okRole = await sfConfirm({title:'Alterar Perfil',body:`Alterar perfil para "${novoRole==='adm'?'Administrador':'Usuário Comum'}"?`,type:'warn',okText:'Alterar'});
+  if (!_okRole) return;
   try {
     await window._firebase.setDoc(window._firebase.doc(window._firebase.firestore, 'users', uid),
       { role: novoRole }, { merge: true });
@@ -2307,11 +2389,23 @@ function buildNav() {
     // user com áreas customizadas
     const areas = currentUser.areas || [];
     const custom = [];
-    if (areas.includes('requisicoes')) custom.push({ id:'requisicoes', icon:'clipboard', label:'Requisições' });
-    if (areas.includes('recebimento')) custom.push({ id:'recebimento', icon:'recv', label:'Recebimento' });
-    if (areas.includes('qualidade'))   custom.push({ id:'qualidade', icon:'quality', label:'Qualidade' });
-    if (areas.includes('estoque'))     custom.push({ id:'entrada', icon:'arrow-down', label:'Entrada' }, { id:'saida', icon:'arrow-up', label:'Saída' });
-    if (areas.includes('relatorios'))  custom.push({ id:'relatorios', icon:'document', label:'Relatórios' });
+    if (areas.includes('dash'))                 custom.push({ id:'dash', icon:'grid', label:'Dashboard' });
+    if (areas.includes('compras'))              custom.push({ id:'compras', icon:'cart', label:'Planejamento de Compras' });
+    if (areas.includes('requisicoes'))          custom.push({ id:'requisicoes', icon:'clipboard', label:'Requisições' });
+    if (areas.includes('atendimento'))          custom.push({ id:'atendimento', icon:'check-circle', label:'Atendimento' });
+    if (areas.includes('estoque'))              custom.push(
+      { id:'entrada', icon:'arrow-down', label:'Entrada de Materiais' },
+      { id:'saida', icon:'arrow-up', label:'Saída de Materiais' },
+      { id:'analise', icon:'chart', label:'Análise de Estoques' }
+    );
+    if (areas.includes('transferencia'))        custom.push({ id:'transferencia', icon:'arrows', label:'Transferência' });
+    if (areas.includes('recebimento'))          custom.push({ id:'recebimento', icon:'recv', label:'Recebimento' });
+    if (areas.includes('qualidade'))            custom.push({ id:'qualidade', icon:'quality', label:'Qualidade' });
+    if (areas.includes('historico-recebimentos')) custom.push({ id:'historico-recebimentos', icon:'history', label:'Histórico de Recebimentos' });
+    if (areas.includes('nao-conformidades'))    custom.push({ id:'nao-conformidades', icon:'nc', label:'Não Conformidades' });
+    if (areas.includes('validade'))             custom.push({ id:'validade', icon:'clock', label:'Controle de Validade' });
+    if (areas.includes('relatorios'))           custom.push({ id:'relatorios', icon:'document', label:'Relatórios' });
+    if (areas.includes('auditoria'))            custom.push({ id:'auditoria', icon:'audit', label:'Auditoria & Logs' });
     if (!custom.length) custom.push({ id:'requisicoes', icon:'clipboard', label:'Requisições' });
     items = custom;
   }
@@ -2455,7 +2549,8 @@ function renderEstoques() {
   });
 }
 async function delEstoque(id) {
-  if (!confirm('Remover estoque?')) return;
+  const _okEst = await sfConfirm({title:'Remover Estoque',body:'Deseja remover este estoque? Os itens vinculados também serão removidos.',type:'danger',okText:'Remover'});
+  if (!_okEst) return;
   const _delEst=db.estoques.find(e=>e.id===id);
   await logAudit('estoque', `Estoque removido: ${_delEst?_delEst.nome:'?'}`, `ID: ${id}`);
   const itensDel = db.itens.filter(i => i.estoqueId===id).map(i=>i.id);
@@ -2504,24 +2599,53 @@ function addPontoVerifEdit(tipo) {
   renderPontosList('edit-mat-pontos-lista', _matPontosEdit, true);
 }
 function renderPontosList(containerId, pontos, isEdit) {
-  const c = document.getElementById(containerId); if(!c) return;
-  c.innerHTML = '';
-  // Sincroniza referências globais para uso no oninput
+  const el = document.getElementById(containerId); if(!el) return;
+  el.innerHTML = '';
   if (!isEdit) window._matPontoNovo = pontos;
   else window._matPontoEdit = pontos;
+  const prefix = isEdit ? 'Edit' : 'Novo';
   pontos.forEach((p,i) => {
-    c.innerHTML += `<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <span style="font-size:11px;font-weight:700;color:${p.tipo==='visual'?'#14b8a6':'var(--warn)'};text-transform:uppercase;letter-spacing:.5px;">${p.tipo==='visual'?'👁 Visual':'📏 Medida'} #${i+1}</span>
-        <button type="button" onclick="_rmPonto(${i},'${isEdit?'edit':'new'}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0;">✕</button>
+    const minVal = (p.min !== '' && p.min !== null && p.min !== undefined) ? p.min : '';
+    const maxVal = (p.max !== '' && p.max !== null && p.max !== undefined) ? p.max : '';
+    el.innerHTML += `<div style="background:var(--bg);border:1px solid ${p.tipo==='visual'?'rgba(20,184,166,.3)':'rgba(255,149,0,.3)'};border-radius:8px;padding:12px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <span style="font-size:11px;font-weight:700;color:${p.tipo==='visual'?'#14b8a6':'var(--warn)'};text-transform:uppercase;letter-spacing:.5px;">
+          ${p.tipo==='visual'?'👁 Verificação Visual':'📏 Medida com Range'} #${i+1}
+        </span>
+        <button type="button" onclick="_rmPonto(${i},'${isEdit?'edit':'new'}')"
+          style="background:rgba(255,59,92,.1);border:1px solid rgba(255,59,92,.3);color:var(--danger);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:4px;font-weight:700;">✕ Remover</button>
       </div>
-      <div class="form-group" style="margin-bottom:${p.tipo==='medida'?'8px':'0'};">
-        <input type="text" placeholder="Descrição do ponto de verificação *" value="${escHtml(p.desc||'')}"
-          oninput="window._matPonto${isEdit?'Edit':'Novo'}[${i}].desc=this.value" style="font-size:13px;">
+      <div class="form-group" style="margin-bottom:${p.tipo==='medida'?'10px':'0'};">
+        <label style="font-size:11px;">Descrição *</label>
+        <input type="text" placeholder="Ex: Diâmetro externo, Espessura, Cor..." value="${escHtml(p.desc||'')}"
+          oninput="window._matPonto${prefix}[${i}].desc=this.value" style="font-size:13px;">
       </div>
-      ${p.tipo==='medida'?`<div class="grid-2">
-        <div class="form-group" style="margin-bottom:0;"><input type="number" placeholder="Mín" value="${p.min||''}" oninput="window._matPonto${isEdit?'Edit':'Novo'}[${i}].min=this.value" style="font-size:13px;"></div>
-        <div class="form-group" style="margin-bottom:0;"><input type="number" placeholder="Máx" value="${p.max||''}" oninput="window._matPonto${isEdit?'Edit':'Novo'}[${i}].max=this.value" style="font-size:13px;"></div>
+      ${p.tipo==='medida'?`
+      <div style="background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.2);border-radius:6px;padding:10px;">
+        <div style="font-size:10px;font-weight:700;color:#a855f7;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Range de Aceitação (valores fora = falha)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label style="font-size:11px;color:var(--accent);">Mínimo aceitável</label>
+            <input type="number" step="any" placeholder="Ex: 10.0" value="${minVal}"
+              oninput="window._matPonto${prefix}[${i}].min=this.value===''?'':parseFloat(this.value)||this.value"
+              style="font-size:15px;font-weight:700;text-align:center;border-color:rgba(0,229,160,.4);">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label style="font-size:11px;color:var(--danger);">Máximo aceitável</label>
+            <input type="number" step="any" placeholder="Ex: 20.0" value="${maxVal}"
+              oninput="window._matPonto${prefix}[${i}].max=this.value===''?'':parseFloat(this.value)||this.value"
+              style="font-size:15px;font-weight:700;text-align:center;border-color:rgba(255,59,92,.4);">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label style="font-size:11px;color:var(--muted);">Unidade de medida</label>
+            <input type="text" placeholder="Ex: mm, cm, kg..." value="${escHtml(p.unidade||'')}"
+              oninput="window._matPonto${prefix}[${i}].unidade=this.value"
+              style="font-size:14px;font-weight:600;text-align:center;">
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;text-align:center;">
+          ${(minVal!==''&&maxVal!=='')?`Aceitável: <strong style="color:var(--accent)">${minVal}</strong> a <strong style="color:var(--accent)">${maxVal}</strong>${p.unidade?' '+escHtml(p.unidade):''}`:minVal!==''?`Mínimo: <strong style="color:var(--accent)">${minVal}</strong>${p.unidade?' '+escHtml(p.unidade):''}`:maxVal!==''?`Máximo: <strong style="color:var(--accent)">${maxVal}</strong>${p.unidade?' '+escHtml(p.unidade):'`'}` :'Defina o range para habilitar a verificação automática'}
+        </div>
       </div>`:''}
     </div>`;
   });
@@ -2573,7 +2697,8 @@ function renderMateriais() {
   });
 }
 async function delMaterial(id) {
-  if (!confirm('Remover?')) return;
+  const _okMat = await sfConfirm({title:'Remover Material',body:'Deseja remover este material?',type:'danger',okText:'Remover'});
+  if (!_okMat) return;
   const itensDel = db.itens.filter(i => i.materialId===id).map(i=>i.id);
   const _delMat=db.materiais.find(m=>m.id===id);
   await logAudit('material', `Material removido: ${_delMat?_delMat.nome:'?'}`, `ID: ${id}`);
@@ -3330,7 +3455,14 @@ async function registrarRequisicao(){
 
 function renderMinhasReq(){
   if(!currentUser)return;
-  const minhas=db.requisicoes.filter(r=>r.solicitanteId===currentUser.id);
+  const STATUS_ORDER = {pendente:0, aguardo:1, atendida:2, negada:3};
+  const minhas=db.requisicoes
+    .filter(r=>r.solicitanteId===currentUser.id)
+    .sort((a,b)=>{
+      const sd=(STATUS_ORDER[a.status]??9)-(STATUS_ORDER[b.status]??9);
+      if(sd!==0)return sd;
+      return new Date(b.data)-new Date(a.data);
+    });
   // Desktop table
   const tb=document.getElementById('minhas-req-tbody');
   const em=document.getElementById('minhas-req-empty');
@@ -3376,11 +3508,17 @@ function renderAtendimento(){
   const filtroStatus=document.getElementById('atend-filtro-status')?.value||'';
   const filtroSetor=document.getElementById('atend-filtro-setor')?.value||'';
   const busca=(document.getElementById('atend-busca')?.value||'').trim().toLowerCase();
+  const STATUS_ORD = {pendente:0, aguardo:1, atendida:2, negada:3};
   let reqs=db.requisicoes.filter(r=>{
     if(filtroStatus&&r.status!==filtroStatus)return false;
     if(filtroSetor&&r.setor!==filtroSetor)return false;
     if(busca&&!r.materialNome.toLowerCase().includes(busca)&&!r.solicitanteNome.toLowerCase().includes(busca))return false;
     return true;
+  }).sort((a,b)=>{
+    // Se há filtro de status específico, ordena só por data
+    if(filtroStatus) return new Date(b.data)-new Date(a.data);
+    const sd=(STATUS_ORD[a.status]??9)-(STATUS_ORD[b.status]??9);
+    return sd!==0?sd:new Date(b.data)-new Date(a.data);
   });
   const ctr=document.getElementById('atend-contador');
   if(ctr)ctr.textContent=`${reqs.length} requisição(ões)`;
@@ -3931,16 +4069,17 @@ function exportarBackup(){
   criarSnapshot(false); toast('Backup exportado!');
 }
 function exportarSnapshot(id){const s=loadSnapshots().find(x=>x.id===id);if(!s)return;const blob=new Blob([JSON.stringify({_meta:{versao:'2.0',app:'StockFlow',exportado:s.data},dados:s.dados},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`stockflow_snap_${s.data.slice(0,10)}.json`;a.click();URL.revokeObjectURL(url);}
-async function restaurarSnapshot(id){const s=loadSnapshots().find(x=>x.id===id);if(!s)return;if(!confirm(`Restaurar "${s.nome}"? Os dados atuais serão substituídos.`))return;
+async function restaurarSnapshot(id){const s=loadSnapshots().find(x=>x.id===id);if(!s)return;const _okSnap = await sfConfirm({title:'Restaurar Snapshot',body:`Restaurar "${s.nome}"?\nOs dados atuais serão substituídos.`,type:'warn',okText:'Restaurar'});
+if(!_okSnap)return;
   logAudit('backup', `Snapshot restaurado: ${s.nome}`, `Data: ${fmtDT(s.data)}`);db=JSON.parse(JSON.stringify(s.dados));if(!db.transferencias)db.transferencias=[];if(!db.requisicoes)db.requisicoes=[];if(!db.notificacoes)db.notificacoes=[];renderDash();toast('Restaurando...');try{await saveDB();toast('Restaurado!');}catch(e){toast('Erro ao restaurar.','error');}}
-function deletarSnapshot(id){if(!confirm('Remover snapshot?'))return;saveSnapshots(loadSnapshots().filter(s=>s.id!==id));renderSnapshots();toast('Removido.');}
-function limparSnapshots(){if(!confirm('Remover TODOS os snapshots?'))return;localStorage.removeItem(SNAP_KEY);renderSnapshots();toast('Limpos.');}
+async function deletarSnapshot(id){const _okDS=await sfConfirm({title:'Remover Snapshot',body:'Deseja remover este snapshot?',type:'danger',okText:'Remover'});if(!_okDS)return;saveSnapshots(loadSnapshots().filter(s=>s.id!==id));renderSnapshots();toast('Removido.');}
+async function limparSnapshots(){const _okLS=await sfConfirm({title:'Limpar Snapshots',body:'Remover TODOS os snapshots? Esta ação não pode ser desfeita.',type:'danger',okText:'Limpar Todos'});if(!_okLS)return;localStorage.removeItem(SNAP_KEY);renderSnapshots();toast('Limpos.');}
 function dragOver(e){e.preventDefault();document.getElementById('import-dropzone').style.borderColor='var(--accent)';}
 function dragLeave(){document.getElementById('import-dropzone').style.borderColor='var(--border)';}
 function dropFile(e){e.preventDefault();dragLeave();const file=e.dataTransfer.files[0];if(!file||!file.name.endsWith('.json')){toast('Arquivo .json inválido.','error');return;}lerArquivo(file);}
 function importarBackup(input){const file=input.files[0];if(!file)return;lerArquivo(file);}
 function lerArquivo(file){const reader=new FileReader();reader.onload=e=>{try{const raw=JSON.parse(e.target.result);const dados=raw._meta&&raw.dados?raw.dados:raw;if(!dados.estoques||!dados.materiais)throw new Error('inválido');pendingImport=dados;const kb=(new Blob([JSON.stringify(dados)]).size/1024).toFixed(1);const prev=document.getElementById('import-preview');const btn=document.getElementById('btn-confirmar-import');document.getElementById('import-dropzone').style.borderColor='var(--accent)';document.getElementById('import-dropzone').innerHTML=`<div style="color:var(--accent);font-weight:600;font-size:13px;">✓ ${file.name}</div>`;prev.style.display='block';prev.innerHTML=`<div style="font-size:12px;color:var(--muted);">Estoques: ${(dados.estoques||[]).length} · Materiais: ${(dados.materiais||[]).length} · ${kb} KB<br><span style="color:var(--warn);">⚠️ Os dados atuais serão substituídos.</span></div>`;btn.style.display='block';}catch(err){toast('Arquivo inválido.','error');}};reader.readAsText(file);}
-async function confirmarImport(){if(!pendingImport)return;if(!confirm('Confirmar restauração?'))return;criarSnapshot(false);db=pendingImport;if(!db.transferencias)db.transferencias=[];if(!db.requisicoes)db.requisicoes=[];if(!db.notificacoes)db.notificacoes=[];pendingImport=null;document.getElementById('import-preview').style.display='none';document.getElementById('btn-confirmar-import').style.display='none';renderDash();toast('Sincronizando...');try{await saveDB();toast('Dados restaurados!');}catch(e){toast('Erro ao sincronizar.','error');}}
+async function confirmarImport(){if(!pendingImport)return;const _okCI=await sfConfirm({title:'Confirmar Restauração',body:'Os dados atuais serão substituídos pelos do backup.',type:'warn',okText:'Restaurar'});if(!_okCI)return;criarSnapshot(false);db=pendingImport;if(!db.transferencias)db.transferencias=[];if(!db.requisicoes)db.requisicoes=[];if(!db.notificacoes)db.notificacoes=[];pendingImport=null;document.getElementById('import-preview').style.display='none';document.getElementById('btn-confirmar-import').style.display='none';renderDash();toast('Sincronizando...');try{await saveDB();toast('Dados restaurados!');}catch(e){toast('Erro ao sincronizar.','error');}}
 
 // ===========================
 
@@ -5373,12 +5512,135 @@ function _iniciarRelogioApres() {
   _apresClockInterval = setInterval(update, 1000);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SISTEMA DE MODAL DE ALERTA/CONFIRM ESTILIZADO
+// Substitui os nativos alert() e confirm() em todo o sistema
+// ─────────────────────────────────────────────────────────────────────────────
+let _sfAlertResolve = null;
+
+/**
+ * sfAlert(opts) — exibe modal de alerta estilizado
+ * opts: { title, subtitle, body, items, type:'info'|'warn'|'danger'|'success', okText }
+ * Retorna Promise<void>
+ */
+function sfAlert(opts) {
+  return new Promise(resolve => {
+    _sfAlertSetup({ ...opts, confirm: false });
+    _sfAlertResolve = () => resolve();
+    document.getElementById('sf-alert-overlay').classList.add('open');
+  });
+}
+
+/**
+ * sfConfirm(opts) — exibe modal de confirmação estilizado
+ * Retorna Promise<boolean>
+ */
+function sfConfirm(opts) {
+  return new Promise(resolve => {
+    _sfAlertSetup({ ...opts, confirm: true });
+    _sfAlertResolve = (ok) => resolve(ok);
+    document.getElementById('sf-alert-overlay').classList.add('open');
+  });
+}
+
+function _sfAlertSetup(opts) {
+  const types = {
+    info:    { bg:'rgba(0,102,255,.15)',  color:'#5599ff',        icon:'ℹ️' },
+    warn:    { bg:'rgba(255,149,0,.15)',  color:'var(--warn)',     icon:'⚠️' },
+    danger:  { bg:'rgba(255,59,92,.15)', color:'var(--danger)',   icon:'🚨' },
+    success: { bg:'rgba(0,229,160,.15)', color:'var(--accent)',   icon:'✅' },
+  };
+  const t = types[opts.type||'warn'];
+
+  const iconBox = document.getElementById('sf-alert-icon-box');
+  iconBox.textContent = opts.icon || t.icon;
+  iconBox.style.background = t.bg;
+
+  document.getElementById('sf-alert-title').textContent = opts.title || 'Atenção';
+  document.getElementById('sf-alert-title').style.color = t.color;
+  document.getElementById('sf-alert-subtitle').textContent = opts.subtitle || '';
+
+  // Body: texto livre + lista de itens
+  const bodyEl = document.getElementById('sf-alert-body');
+  let html = opts.body ? `<p style="margin-bottom:${opts.items?.length?'10px':'0'}">${opts.body}</p>` : '';
+  if (opts.items && opts.items.length) {
+    html += `<ul>${opts.items.map(i=>`<li>${escHtml(i)}</li>`).join('')}</ul>`;
+    if (opts.items.length < opts.totalItems) {
+      html += `<p style="color:var(--muted);font-size:11px;margin-top:6px;">... e mais ${opts.totalItems - opts.items.length} ponto(s)</p>`;
+    }
+  }
+  bodyEl.innerHTML = html;
+
+  // Botões
+  const cancelBtn = document.getElementById('sf-alert-cancel');
+  const okBtn = document.getElementById('sf-alert-ok');
+  cancelBtn.style.display = opts.confirm ? 'inline-flex' : 'none';
+  cancelBtn.textContent = opts.cancelText || 'Cancelar';
+  okBtn.textContent = opts.okText || 'OK';
+  okBtn.className = `btn ${opts.type==='danger'?'btn-danger':opts.type==='success'?'btn-primary':'btn-primary'}`;
+  if (opts.confirm && opts.type==='danger') {
+    okBtn.style.background='var(--danger)'; okBtn.style.color='#fff';
+  } else {
+    okBtn.style.background=''; okBtn.style.color='';
+  }
+}
+
+function sfAlertOk() {
+  document.getElementById('sf-alert-overlay').classList.remove('open');
+  if (_sfAlertResolve) { _sfAlertResolve(true); _sfAlertResolve = null; }
+}
+function sfAlertCancel() {
+  document.getElementById('sf-alert-overlay').classList.remove('open');
+  if (_sfAlertResolve) { _sfAlertResolve(false); _sfAlertResolve = null; }
+}
+// Fechar clicando fora
+document.addEventListener('DOMContentLoaded', () => {
+  const ov = document.getElementById('sf-alert-overlay');
+  if (ov) ov.addEventListener('click', e => { if (e.target === ov) sfAlertCancel(); });
+});
+
 // Log inicial de sistema quando app é carregado
 window.addEventListener('load', () => {
   setTimeout(() => {
     if (currentUser) logAudit('sistema', 'Sessão ativa', `Usuário: ${currentUser.nome}`);
   }, 3000);
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PROTEÇÃO DOS RESULTADOS DE INSPEÇÃO EM EDIÇÃO
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Mapa de resultados em edição local — chave: inspId, valor: array de resultados
+// Este mapa é a "fonte da verdade" enquanto o usuário preenche a inspeção.
+// O onSnapshot pode sobrescrever db.inspecoes, mas este mapa persiste.
+const _localInspResultados = {};
+
+/**
+ * Ao receber atualização do Firestore (onSnapshot), mesclamos os resultados
+ * locais (mais recentes, em edição) sobre os dados frescos do servidor.
+ * Isso garante que o usuário não perca o que digitou.
+ */
+function _sincronizarInspResultados() {
+  if (!db.inspecoes) return;
+  db.inspecoes.forEach(insp => {
+    if (insp.status !== 'pendente') return;
+    const local = _localInspResultados[insp.id];
+    if (!local || local.length === 0) return;
+    // Mesclar: preferir resultados locais (mais recentes que o Firestore)
+    // para cada par (a, p) que existe localmente
+    if (!insp.resultados) insp.resultados = [];
+    local.forEach(localEntry => {
+      const idx = insp.resultados.findIndex(
+        r => Number(r.a) === Number(localEntry.a) && Number(r.p) === Number(localEntry.p)
+      );
+      if (idx >= 0) {
+        insp.resultados[idx] = localEntry;
+      } else {
+        insp.resultados.push(localEntry);
+      }
+    });
+  });
+}
 
 // ===========================
 // RECEBIMENTO DE MATERIAIS
@@ -5430,20 +5692,22 @@ async function registrarRecebimento() {
   const forn     = document.getElementById('recv-fornecedor').value.trim();
   const qtdPed   = +document.getElementById('recv-qtd-pedida').value;
   const qtdRec   = +document.getElementById('recv-qtd-recebida').value;
+  const lote     = document.getElementById('recv-lote').value.trim();
   const obs      = document.getElementById('recv-obs').value.trim();
   const isTeste  = currentUser.role === 'adm' && document.getElementById('recv-teste-sistema')?.checked;
 
-  if (!data)   return toast('Informe a data.','error');
-  if (!nf)     return toast('Informe o nº da nota fiscal.','error');
-  if (!matId)  return toast('Selecione o material.','error');
-  if (!forn)   return toast('Informe o fornecedor.','error');
+  if (!data)              return toast('Informe a data.','error');
+  if (!nf)                return toast('Informe o nº da nota fiscal.','error');
+  if (!matId)             return toast('Selecione o material.','error');
+  if (!forn)              return toast('Informe o fornecedor.','error');
   if (!qtdPed||qtdPed<=0) return toast('Informe a quantidade pedida.','error');
   if (isNaN(qtdRec)||qtdRec<0) return toast('Informe a quantidade recebida.','error');
+  if (!lote)              return toast('Informe o lote do material.','error');
 
   const mat = db.materiais.find(m=>m.id===matId);
   const receb = {
     id: uid(), data, nf, materialId: matId, materialNome: mat?mat.nome:'?',
-    fornecedor: forn, qtdPedida: qtdPed, qtdRecebida: qtdRec, obs,
+    fornecedor: forn, qtdPedida: qtdPed, qtdRecebida: qtdRec, lote, obs,
     critico: !!(mat&&mat.critico), status: 'recebido',
     teste: !!isTeste,
     criadoEm: new Date().toISOString(), criadoPor: currentUser.nome
@@ -5456,7 +5720,7 @@ async function registrarRecebimento() {
     const insp = {
       id: uid(), recebimentoId: receb.id, materialId: matId,
       materialNome: mat?mat.nome:'?', fornecedor: forn,
-      nf, data, qtdRecebida: qtdRec,
+      nf, data, qtdRecebida: qtdRec, lote,
       amostras: amost ? amost.amostras : 2,
       tolerancia: amost ? amost.tolerancia : 0,
       pontos: (mat&&mat.pontos)||[],
@@ -5474,7 +5738,7 @@ async function registrarRecebimento() {
   }
 
   db.recebimentos.push(receb);
-  ['recv-nf','recv-fornecedor','recv-qtd-pedida','recv-qtd-recebida','recv-obs'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
+  ['recv-nf','recv-fornecedor','recv-qtd-pedida','recv-qtd-recebida','recv-lote','recv-obs'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';}); 
   document.getElementById('recv-material').value='';
   document.getElementById('recv-critico-aviso').style.display='none';
   document.getElementById('btn-registrar-recv').textContent='Registrar Recebimento';
@@ -5523,11 +5787,18 @@ function renderRecebimentos() {
             ${r.teste?'<span style="font-size:11px;background:rgba(255,149,0,.15);color:var(--warn);padding:2px 8px;border-radius:99px;margin-left:6px;">🧪 TESTE</span>':''}
           </div>
           <div style="font-size:12px;color:var(--muted);margin-top:3px;">NF: ${escHtml(r.nf)} · ${escHtml(r.fornecedor)} · ${fmt(r.data)}</div>
+          ${r.lote?`<div style="font-size:12px;color:var(--muted);margin-top:2px;">Lote: <strong style="color:var(--text);">${escHtml(r.lote)}</strong></div>`:''}
           ${r.entradaEstoque?`<div style="font-size:11px;color:#14b8a6;margin-top:3px;">✓ Entrada realizada em ${fmtDT(r.entradaEstoque.data)} — Lote: ${escHtml(r.entradaEstoque.lote)} · Estoque: ${escHtml(r.entradaEstoque.estoqueNome)}</div>`:''}
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap;">
           <span style="padding:4px 12px;border-radius:99px;font-size:11px;font-weight:700;font-family:'Syne',sans-serif;background:${si.bg};color:${si.color};white-space:nowrap;">${si.label}</span>
-          ${podeEntrar?`<button onclick="abrirModalEntradaRecebimento('${r.id}')" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;display:flex;align-items:center;gap:6px;transition:all .2s;" onmouseover="this.style.background='#00c98a'" onmouseout="this.style.background='var(--accent)'">📥 Dar Entrada no Estoque</button>`:''}
+          ${podeEntrar?`<button onclick="abrirModalEntradaRecebimento('${r.id}')"
+            style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:800;cursor:pointer;font-family:'Syne',sans-serif;display:flex;align-items:center;gap:8px;transition:all .2s;box-shadow:0 0 0 2px rgba(0,229,160,.35);"
+            onmouseover="this.style.background='#00c98a';this.style.boxShadow='0 0 0 3px rgba(0,229,160,.5)'"
+            onmouseout="this.style.background='var(--accent)';this.style.boxShadow='0 0 0 2px rgba(0,229,160,.35)'">
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+            Dar Entrada no Estoque
+          </button>`:''}
           ${(currentUser.role==='adm'&&r.teste)?`<button onclick="excluirRecebimentoTeste('${r.id}')" style="background:rgba(255,59,92,.12);border:1px solid rgba(255,59,92,.3);color:var(--danger);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:700;" title="Excluir registro de teste">🗑 Excluir</button>`:''}
         </div>
       </div>
@@ -5573,6 +5844,16 @@ function _buildFalhasCard(insp, isPendente) {
   }
 }
 
+/** Atualiza apenas os contadores de stat da qualidade sem reconstruir a tabela */
+function _atualizarStatQualidade() {
+  const pend  = db.inspecoes.filter(i=>i.status==='pendente').length;
+  const aprov = db.inspecoes.filter(i=>i.status==='aprovado').length;
+  const pEl = document.getElementById('qual-stat-pend');
+  const aEl = document.getElementById('qual-stat-aprov');
+  if (pEl) pEl.textContent = pend;
+  if (aEl) aEl.textContent = aprov;
+}
+
 function renderQualidade() {
   const lista = document.getElementById('qual-insp-lista'); if(!lista) return;
   const empty = document.getElementById('qual-empty');
@@ -5584,179 +5865,281 @@ function renderQualidade() {
   if (pEl) pEl.textContent = pend;
   if (aEl) aEl.textContent = aprov;
 
-  // Mostrar APENAS pendentes na tela de qualidade; aprovados/reprovados vão para histórico
+  // Apenas pendentes na tela; finalizados vão para histórico
   const sorted = db.inspecoes.filter(i=>i.status==='pendente')
     .sort((a,b)=>new Date(b.criadoEm)-new Date(a.criadoEm));
   if (!sorted.length) { empty.style.display='block'; return; } empty.style.display='none';
 
+  // Qual card está expandido (persiste entre re-renders leves)
+  if (!window._inspExpandidos) window._inspExpandidos = new Set();
+
   sorted.forEach(insp => {
-    const statusColors = { pendente:{ bg:'rgba(255,149,0,.1)', color:'var(--warn)', label:'Pendente' }, aprovado:{ bg:'rgba(0,229,160,.1)', color:'var(--accent)', label:'Aprovado' }, reprovado:{ bg:'rgba(255,59,92,.1)', color:'var(--danger)', label:'Reprovado' } };
-    const sc = statusColors[insp.status] || statusColors.pendente;
-    const isPendente = insp.status === 'pendente';
+    const sc = { bg:'rgba(255,149,0,.1)', color:'var(--warn)', label:'Pendente' };
+    const falhasAtuais = _contarFalhas(insp);
+    const totalCampos = insp.amostras * (insp.pontos||[]).length;
+    const preenchidos = (insp.resultados||[]).filter(r => r.v !== null && r.v !== undefined && r.v !== '').length;
+    const progresso = totalCampos > 0 ? Math.round((preenchidos / totalCampos) * 100) : 0;
+    const isExpanded = window._inspExpandidos.has(insp.id);
 
-    // Gerar linhas de amostras × pontos
-    const amostrasHTML = _buildAmostragemHTML(insp);
+    // ── HEADER compacto ──────────────────────────────────────────────
+    lista.innerHTML += `<div class="insp-card pendente" id="insp-card-${insp.id}" style="padding:0;overflow:hidden;">
 
-    lista.innerHTML += `<div class="insp-card ${insp.status}" id="insp-${insp.id}">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
-        <div>
-          <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:17px;">${escHtml(insp.materialNome)}</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:4px;">
-            NF: ${escHtml(insp.nf)} · Fornecedor: ${escHtml(insp.fornecedor)} · Data: ${fmt(insp.data)}
-            ${insp.ep?` · <strong style="color:#a855f7;">EP: ${escHtml(insp.ep)}</strong>`:''}
+      <!-- Cabeçalho clicável -->
+      <div class="insp-card-header" onclick="toggleInspCard('${insp.id}')" id="insp-hdr-${insp.id}">
+        <div style="display:flex;align-items:center;gap:14px;flex:1;min-width:0;">
+          <!-- Ícone de status -->
+          <div style="width:44px;height:44px;border-radius:10px;background:rgba(255,149,0,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px;">🔬</div>
+          <div style="min-width:0;">
+            <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(insp.materialNome)}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">
+              NF: ${escHtml(insp.nf)} · ${escHtml(insp.fornecedor)} · ${fmt(insp.data)}
+              ${insp.ep?` · <span style="color:#a855f7;font-weight:700;">EP: ${escHtml(insp.ep)}</span>`:''}
+            </div>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-          <span style="padding:5px 14px;border-radius:99px;font-size:12px;font-weight:700;font-family:'Syne',sans-serif;background:${sc.bg};color:${sc.color};">${sc.label}</span>
-          ${insp.teste?'<span style="padding:4px 10px;border-radius:99px;font-size:11px;font-weight:700;background:rgba(255,149,0,.15);color:var(--warn);">🧪 TESTE</span>':''}
-          ${(currentUser.role==='adm'&&insp.teste)?`<button onclick="excluirInspeccaoTeste('${insp.id}')" style="background:rgba(255,59,92,.12);border:1px solid rgba(255,59,92,.3);color:var(--danger);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:700;">🗑 Excluir</button>`:''}
+        <!-- Info resumida + badges -->
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap;">
+          <!-- Progresso de preenchimento -->
+          ${totalCampos > 0 ? `<div style="text-align:center;min-width:60px;">
+            <div style="font-size:18px;font-weight:800;font-family:'Syne',sans-serif;color:${progresso===100?'var(--accent)':'var(--muted)'};">${progresso}%</div>
+            <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">${preenchidos}/${totalCampos}</div>
+          </div>` : ''}
+          <!-- Falhas -->
+          ${falhasAtuais > 0 ? `<div style="background:rgba(255,59,92,.1);border:1px solid rgba(255,59,92,.3);border-radius:8px;padding:6px 12px;text-align:center;">
+            <div style="font-size:16px;font-weight:800;font-family:'Syne',sans-serif;color:var(--danger);">${falhasAtuais}</div>
+            <div style="font-size:9px;color:var(--danger);text-transform:uppercase;letter-spacing:.5px;">falha(s)</div>
+          </div>` : ''}
+          <span style="padding:4px 12px;border-radius:99px;font-size:11px;font-weight:700;font-family:'Syne',sans-serif;background:${sc.bg};color:${sc.color};white-space:nowrap;">⏳ Pendente</span>
+          ${insp.teste?'<span style="padding:3px 8px;border-radius:99px;font-size:11px;font-weight:700;background:rgba(255,149,0,.15);color:var(--warn);">🧪</span>':''}
+          <!-- Chevron -->
+          <svg class="insp-card-chevron ${isExpanded?'open':''}" id="insp-chev-${insp.id}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/>
+          </svg>
         </div>
       </div>
 
-      <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 16px;text-align:center;min-width:90px;">
-          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;">Amostras</div>
-          <div style="font-size:24px;font-weight:800;font-family:'Syne',sans-serif;color:#a855f7;">${insp.amostras}</div>
-        </div>
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 16px;text-align:center;min-width:90px;">
-          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;">Tolerância</div>
-          <div style="font-size:24px;font-weight:800;font-family:'Syne',sans-serif;color:${insp.tolerancia===0?'var(--accent)':'var(--warn)'};">${insp.tolerancia}</div>
-        </div>
-        ${_buildFalhasCard(insp, isPendente)}
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 16px;text-align:center;min-width:90px;">
-          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;">Qtd Recebida</div>
-          <div style="font-size:24px;font-weight:800;font-family:'Syne',sans-serif;color:var(--text);">${insp.qtdRecebida}</div>
-        </div>
-      </div>
+      <!-- Corpo expansível -->
+      <div class="insp-card-body ${isExpanded?'':'collapsed'}" id="insp-body-${insp.id}" style="max-height:${isExpanded?'9999px':'0'};">
+        <div style="border-top:1px solid var(--border);padding-top:16px;">
 
-      ${insp.pontos && insp.pontos.length ? `
-      <div style="font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px;">Inspeção de Amostras</div>
-      ${amostrasHTML}
-      ` : `<div style="color:var(--muted);font-size:13px;margin-bottom:14px;">Nenhum ponto de verificação cadastrado para este material.</div>`}
+          <!-- Stats -->
+          <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 16px;text-align:center;min-width:80px;">
+              <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;">Amostras</div>
+              <div style="font-size:22px;font-weight:800;font-family:'Syne',sans-serif;color:#a855f7;">${insp.amostras}</div>
+            </div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 16px;text-align:center;min-width:80px;">
+              <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;">Tolerância</div>
+              <div style="font-size:22px;font-weight:800;font-family:'Syne',sans-serif;color:${insp.tolerancia===0?'var(--accent)':'var(--warn)'};">${insp.tolerancia}</div>
+            </div>
+            ${_buildFalhasCard(insp, true)}
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 16px;text-align:center;min-width:80px;">
+              <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;">Qtd Recebida</div>
+              <div style="font-size:22px;font-weight:800;font-family:'Syne',sans-serif;color:var(--text);">${insp.qtdRecebida}</div>
+            </div>
+          </div>
 
-      ${isPendente ? `
-      <!-- Banner dinâmico de tolerância — atualizado pelo JS a cada input -->
-      <div id="tol-banner-${insp.id}"
-        style="display:none;align-items:flex-start;gap:12px;padding:12px 16px;border-radius:10px;border:1px solid;margin:14px 0;transition:all .3s;">
+          <!-- Tabela de amostras -->
+          ${insp.pontos && insp.pontos.length
+            ? `<div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px;">Inspeção de Amostras</div>
+               ${_buildAmostragemHTML(insp)}`
+            : `<div style="color:var(--muted);font-size:13px;margin-bottom:14px;">Nenhum ponto de verificação cadastrado para este material.</div>`
+          }
+
+          <!-- Banner tolerância -->
+          <div id="tol-banner-${insp.id}" style="display:none;align-items:flex-start;gap:12px;padding:12px 16px;border-radius:10px;border:1px solid;margin:14px 0;transition:all .3s;"></div>
+
+          <!-- Observações -->
+          <div class="form-group" style="margin-top:8px;">
+            <label>Observações do Inspetor</label>
+            <textarea id="insp-obs-${insp.id}" rows="2" placeholder="Registre observações (obrigatório se tolerância excedida)..." style="resize:vertical;font-size:13px;">${insp.obsInspetor||''}</textarea>
+          </div>
+
+          <!-- Botões de ação -->
+          <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
+            <button id="btn-aprov-${insp.id}" class="btn" onclick="finalizarInspeccao('${insp.id}','aprovado')" style="flex:1;background:var(--accent);color:#000;font-size:13px;transition:all .2s;min-width:120px;">✅ Aprovar Lote</button>
+            <button class="btn btn-danger" onclick="finalizarInspeccao('${insp.id}','reprovado')" style="flex:1;font-size:13px;min-width:120px;">❌ Reprovar Lote</button>
+            <button class="btn" onclick="abrirModalNC('${insp.id}')" style="width:100%;margin-top:4px;background:rgba(255,149,0,.12);border:1px solid rgba(255,149,0,.4);color:var(--warn);font-size:13px;font-family:'Syne',sans-serif;font-weight:700;">⚠️ Abrir Não Conformidade</button>
+          </div>
+          ${(currentUser.role==='adm'&&insp.teste)?`<div style="margin-top:10px;text-align:right;">
+            <button onclick="excluirInspeccaoTeste('${insp.id}')" style="background:rgba(255,59,92,.12);border:1px solid rgba(255,59,92,.3);color:var(--danger);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:700;">🗑 Excluir Teste</button>
+          </div>`:''}
+        </div>
       </div>
-      <div class="form-group" style="margin-top:4px;">
-        <label>Observações do Inspetor</label>
-        <textarea id="insp-obs-${insp.id}" rows="2" placeholder="Registre observações sobre a inspeção..." style="resize:vertical;font-size:13px;">${insp.obsInspetor||''}</textarea>
-      </div>
-      <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
-        <button id="btn-aprov-${insp.id}" class="btn" onclick="finalizarInspeccao('${insp.id}','aprovado')" style="flex:1;background:var(--accent);color:#000;font-size:13px;transition:opacity .2s;">✅ Aprovar Lote</button>
-        <button class="btn btn-danger" onclick="finalizarInspeccao('${insp.id}','reprovado')" style="flex:1;font-size:13px;">❌ Reprovar Lote</button>
-        <button class="btn" onclick="abrirModalNC('${insp.id}')" style="width:100%;margin-top:4px;background:rgba(255,149,0,.12);border:1px solid rgba(255,149,0,.4);color:var(--warn);font-size:13px;font-family:'Syne',sans-serif;font-weight:700;">⚠️ Abrir Não Conformidade</button>
-      </div>` : `
-      <div style="margin-top:10px;font-size:12px;color:var(--muted);">
-        Inspeção concluída em ${fmtDT(insp.finalizadaEm||insp.criadoEm)} por ${escHtml(insp.inspetor||'—')}
-        ${insp.obsInspetor?`<br>Obs: ${escHtml(insp.obsInspetor)}`:''}
-      </div>`}
     </div>`;
   });
+}
+
+/** Expande ou recolhe um card de inspeção */
+function toggleInspCard(inspId) {
+  if (!window._inspExpandidos) window._inspExpandidos = new Set();
+  const body  = document.getElementById(`insp-body-${inspId}`);
+  const chev  = document.getElementById(`insp-chev-${inspId}`);
+  const isOpen = window._inspExpandidos.has(inspId);
+  if (isOpen) {
+    window._inspExpandidos.delete(inspId);
+    body.classList.add('collapsed');
+    body.style.maxHeight = '0';
+    if (chev) chev.classList.remove('open');
+  } else {
+    window._inspExpandidos.add(inspId);
+    body.classList.remove('collapsed');
+    body.style.maxHeight = '9999px';
+    if (chev) chev.classList.add('open');
+    // Recalcular tolerância ao expandir (dados podem ter mudado)
+    setTimeout(() => _atualizarAlertaTolerancia(inspId), 50);
+  }
 }
 
 function _buildAmostragemHTML(insp) {
   const pontos = insp.pontos || [];
   if (!pontos.length) return '';
   const resultados = insp.resultados || [];
-  let html = `<div style="overflow-x:auto;">
-    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px;">
-      <thead>
-        <tr>
-          <th style="padding:8px 10px;background:var(--surface2);border:1px solid var(--border);font-family:'Syne',sans-serif;font-size:10px;letter-spacing:.5px;white-space:nowrap;">AMOSTRA</th>
-          ${pontos.map(p=>{
-            const hasRange = p.tipo==='medida'&&(String(p.min||'')+String(p.max||'')).trim()!=='';
-            const rangeStr = hasRange
-              ? `<br><span style="font-weight:700;color:#a855f7;font-size:12px;">` +
-                `${p.min!==''&&p.min!==undefined&&p.min!==null?p.min:'—'} … ${p.max!==''&&p.max!==undefined&&p.max!==null?p.max:'—'}</span>`
-              : '';
-            return `<th style="padding:8px 10px;background:var(--surface2);border:1px solid var(--border);font-family:'Syne',sans-serif;font-size:10px;letter-spacing:.5px;white-space:nowrap;color:${p.tipo==='visual'?'#14b8a6':'var(--warn)'};">
-              ${p.tipo==='visual'?'👁':'📏'} ${escHtml(p.desc||'Ponto ')}
-              ${rangeStr}
-            </th>`;
-          }).join('')}
-        </tr>
-      </thead>
-      <tbody>`;
+  const isPendente = insp.status === 'pendente';
+  const COLS = 4; // pontos por linha
 
-  for (let a = 0; a < insp.amostras; a++) {
-    html += `<tr>
-      <td style="padding:8px 10px;border:1px solid var(--border);font-family:'Syne',sans-serif;font-weight:700;background:rgba(168,85,247,.06);white-space:nowrap;">Amostra ${a+1}</td>`;
-    pontos.forEach((p, pi) => {
-      const key = `${insp.id}_a${a}_p${pi}`;
-      const r = resultados.find(x=>x.a===a&&x.p===pi);
-      if (insp.status === 'pendente') {
-        if (p.tipo === 'visual') {
-          html += `<td style="padding:6px 8px;border:1px solid var(--border);">
-            <div style="display:flex;gap:8px;align-items:center;justify-content:center;">
-              <label class="checkbox-wrap" style="gap:4px;cursor:pointer;">
-                <input type="radio" name="insp_${key}" value="ok" ${r&&r.v==='ok'?'checked':''} onchange="setInspResult('${insp.id}',${a},${pi},'ok',null)" style="accent-color:var(--accent);"> <span style="font-size:11px;color:var(--accent);">✓</span>
-              </label>
-              <label class="checkbox-wrap" style="gap:4px;cursor:pointer;">
-                <input type="radio" name="insp_${key}" value="nok" ${r&&r.v==='nok'?'checked':''} onchange="setInspResult('${insp.id}',${a},${pi},'nok',null)" style="accent-color:var(--danger);"> <span style="font-size:11px;color:var(--danger);">✗</span>
-              </label>
-            </div>
-          </td>`;
-        } else {
-          const icoNow = _getMedidaIcon(r, p);
-          const clrNow = _getMedidaTextColor(r, p);
-          html += `<td style="padding:6px 8px;border:1px solid var(--border);">
-            <div style="display:flex;align-items:center;gap:4px;justify-content:center;">
-              <input type="number" placeholder="valor"
-                value="${r&&r.v!==null?r.v:''}"
-                data-insp-key="${insp.id}_a${a}_p${pi}"
-                onchange="setInspResult('${insp.id}',${a},${pi},this.value,${JSON.stringify(p)})"
-                style="width:100px;font-size:18px;font-weight:700;text-align:center;padding:6px 8px;background:${_getMedidaBg(r,p)};color:${clrNow};border:1px solid var(--border);border-radius:6px;transition:background .2s,color .2s;outline:none;">
-              <span data-insp-icon="${insp.id}_a${a}_p${pi}" style="color:${clrNow};font-weight:900;font-size:18px;min-width:18px;">${icoNow}</span>
-            </div>
-          </td>`;
-        }
-      } else {
-        // Modo visualização
-        if (p.tipo === 'visual') {
-          const v = r?r.v:'—';
-          html += `<td style="padding:8px 10px;border:1px solid var(--border);text-align:center;color:${v==='ok'?'var(--accent)':v==='nok'?'var(--danger)':'var(--muted)'};">${v==='ok'?'✓':v==='nok'?'✗':'—'}</td>`;
-        } else {
-          const v = r&&r.v!==null?r.v:'—';
-          const statusMed = r ? _checkMedida(r.v, p) : null;
-          const txtC = statusMed==='ok'?'#00e5a0':statusMed==='low'||statusMed==='high'?'#ff3b5c':'var(--muted)';
-          const bgC  = statusMed==='ok'?'rgba(0,229,160,.12)':statusMed==='low'||statusMed==='high'?'rgba(255,59,92,.12)':'transparent';
-          const icoV = statusMed==='low'?' ↓':statusMed==='high'?' ↑':'';
-          const hint = statusMed==='low'?` (abaixo de ${p.min})`:statusMed==='high'?` (acima de ${p.max})`:'';
-          html += `<td style="padding:8px 10px;border:1px solid var(--border);text-align:center;" title="${hint}">
-            <span style="font-weight:700;font-size:17px;color:${txtC};background:${bgC};padding:4px 12px;border-radius:6px;display:inline-flex;align-items:center;gap:4px;">
-              ${v}${icoV?`<span style="font-size:11px;">${icoV}</span>`:''}
-            </span>
-          </td>`;
-        }
-      }
+  // Dividir pontos em grupos de COLS
+  const grupos = [];
+  for (let i = 0; i < pontos.length; i += COLS) grupos.push(pontos.slice(i, i + COLS));
+
+  let html = '<div style="overflow-x:auto;">';
+
+  grupos.forEach((grupo, gIdx) => {
+    const piBase = gIdx * COLS; // índice global do primeiro ponto do grupo
+    html += `<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:${gIdx<grupos.length-1?'2':'8'}px;">
+      <thead><tr>
+        <th style="padding:8px 12px;background:var(--surface2);border:1px solid var(--border);font-family:'Syne',sans-serif;font-size:10px;letter-spacing:.5px;white-space:nowrap;min-width:90px;">AMOSTRA</th>`;
+
+    grupo.forEach((p, localIdx) => {
+      const pi = piBase + localIdx;
+      const hasMin = p.tipo==='medida' && p.min!==''&&p.min!=null&&p.min!==undefined;
+      const hasMax = p.tipo==='medida' && p.max!==''&&p.max!=null&&p.max!==undefined;
+      const hasRange = hasMin || hasMax;
+      const unidStr  = p.unidade ? `<span style="font-size:11px;color:var(--muted);font-weight:400;"> ${escHtml(p.unidade)}</span>` : '';
+      const rangeStr = hasRange
+        ? `<br><span style="font-weight:800;color:#a855f7;font-size:14px;letter-spacing:0;">${hasMin?p.min:'—'} a ${hasMax?p.max:'—'}</span>${unidStr}`
+        : (p.tipo==='medida' ? '<br><span style="font-size:11px;color:var(--muted);">sem range</span>' : '');
+      html += `<th style="padding:10px 12px;background:var(--surface2);border:1px solid var(--border);font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.3px;color:${p.tipo==='visual'?'#14b8a6':'var(--warn)'};">
+        ${p.tipo==='visual'?'👁':'📏'} ${escHtml(p.desc||'Ponto '+(pi+1))}
+        ${rangeStr}
+      </th>`;
     });
-    html += '</tr>';
-  }
-  html += '</tbody></table></div>';
+    html += '</tr></thead><tbody>';
+
+    for (let a = 0; a < insp.amostras; a++) {
+      html += `<tr>
+        <td style="padding:8px 12px;border:1px solid var(--border);font-family:'Syne',sans-serif;font-weight:700;background:rgba(168,85,247,.06);white-space:nowrap;">Amostra ${a+1}</td>`;
+
+      grupo.forEach((p, localIdx) => {
+        const pi = piBase + localIdx;
+        const key = `${insp.id}_a${a}_p${pi}`;
+        const r = resultados.find(x => Number(x.a)===a && Number(x.p)===pi);
+
+        if (isPendente) {
+          if (p.tipo === 'visual') {
+            const checkedOk  = r && r.v==='ok'  ? 'checked' : '';
+            const checkedNok = r && r.v==='nok' ? 'checked' : '';
+            html += `<td style="padding:8px 12px;border:1px solid var(--border);min-width:110px;">
+              <div style="display:flex;gap:12px;align-items:center;justify-content:center;">
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:13px;color:var(--accent);">
+                  <input type="radio" name="insp_${key}" value="ok" ${checkedOk}
+                    onchange="setInspResult('${insp.id}',${a},${pi},'ok',null)"
+                    style="accent-color:var(--accent);width:16px;height:16px;"> ✓
+                </label>
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:13px;color:var(--danger);">
+                  <input type="radio" name="insp_${key}" value="nok" ${checkedNok}
+                    onchange="setInspResult('${insp.id}',${a},${pi},'nok',null)"
+                    style="accent-color:var(--danger);width:16px;height:16px;"> ✗
+                </label>
+              </div>
+            </td>`;
+          } else {
+            const icoNow = _getMedidaIcon(r, p);
+            const clrNow = _getMedidaTextColor(r, p);
+            html += `<td style="padding:6px 10px;border:1px solid var(--border);min-width:130px;">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:2px;justify-content:center;">
+                <div style="display:flex;align-items:center;gap:4px;">
+                  <input type="number" placeholder="valor"
+                    value="${r&&r.v!==null&&r.v!==undefined?r.v:''}"
+                    data-insp-key="${key}"
+                    data-insp-id="${insp.id}"
+                    data-amostra="${a}"
+                    data-ponto="${pi}"
+                    data-min="${p.min!==''&&p.min!=null&&p.min!==undefined?p.min:''}"
+                    data-max="${p.max!==''&&p.max!=null&&p.max!==undefined?p.max:''}"
+                    data-unidade="${p.unidade||''}"
+                    oninput="_onMedidaInput(this)"
+                    style="width:100px;font-size:18px;font-weight:700;text-align:center;padding:6px 8px;background:${_getMedidaBg(r,p)};color:${clrNow};border:1px solid ${clrNow==='#ff3b5c'?'rgba(255,59,92,.6)':clrNow==='#00e5a0'?'rgba(0,229,160,.6)':'var(--border)'};border-radius:6px;transition:background .2s,color .2s,border-color .2s;outline:none;">
+                  <span data-insp-icon="${key}" style="color:${clrNow};font-weight:900;font-size:18px;min-width:18px;">${icoNow}</span>
+                </div>
+                ${p.unidade?`<span style="font-size:10px;color:var(--muted);font-weight:600;">${escHtml(p.unidade)}</span>`:''}
+              </div>
+            </td>`;
+          }
+        } else {
+          // Modo visualização
+          if (p.tipo === 'visual') {
+            const v = r ? r.v : '—';
+            const cor = v==='ok'?'var(--accent)':v==='nok'?'var(--danger)':'var(--muted)';
+            html += `<td style="padding:10px 12px;border:1px solid var(--border);text-align:center;">
+              <span style="font-size:20px;color:${cor};">${v==='ok'?'✓':v==='nok'?'✗':'—'}</span>
+            </td>`;
+          } else {
+            const v = r && r.v !== null ? r.v : '—';
+            const st = r ? _checkMedida(r.v, p) : null;
+            const txtC = st==='ok'?'#00e5a0':st==='low'||st==='high'?'#ff3b5c':'var(--muted)';
+            const bgC  = st==='ok'?'rgba(0,229,160,.12)':st==='low'||st==='high'?'rgba(255,59,92,.12)':'transparent';
+            const icoV = st==='low'?' ↓':st==='high'?' ↑':'';
+            const hint = st==='low'?`(abaixo de ${p.min})`:st==='high'?`(acima de ${p.max})`:'';
+            html += `<td style="padding:10px 12px;border:1px solid var(--border);text-align:center;" title="${hint}">
+              <span style="font-weight:700;font-size:17px;color:${txtC};background:${bgC};padding:4px 12px;border-radius:6px;display:inline-flex;align-items:center;gap:4px;">
+                ${v}${icoV?`<span style="font-size:13px;">${icoV}</span>`:''}
+              </span>
+            </td>`;
+          }
+        }
+      });
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+  });
+
+  html += '</div>';
   return html;
 }
 
 /**
- * _checkMedida(val, p) → 'ok' | 'low' | 'high' | null
- *   ok   = dentro do range
+ * _checkMedida(val, p) — compara valor com o range cadastrado no ponto
+ * Retorna: 'ok' | 'low' | 'high' | null
+ *   ok   = dentro do range definido
  *   low  = abaixo do mínimo
  *   high = acima do máximo
- *   null = sem range definido ou valor vazio
+ *   null = valor vazio, NaN, ou sem range cadastrado
  */
 function _checkMedida(val, p) {
-  const n = parseFloat(val);
-  if (isNaN(n) || val === '' || val === null || val === undefined) return null;
-  const hasMin = p.min !== '' && p.min !== null && p.min !== undefined && String(p.min).trim() !== '';
-  const hasMax = p.max !== '' && p.max !== null && p.max !== undefined && String(p.max).trim() !== '';
-  if (!hasMin && !hasMax) return null;           // sem range = sem julgamento
-  if (hasMin && n < parseFloat(p.min)) return 'low';
-  if (hasMax && n > parseFloat(p.max)) return 'high';
+  // Tratar valor vazio
+  if (val === null || val === undefined || val === '') return null;
+  const n = (typeof val === 'number') ? val : parseFloat(String(val));
+  if (isNaN(n)) return null;
+
+  // Range do ponto — salvo como string pelo oninput do cadastro
+  const minRaw = p ? p.min : undefined;
+  const maxRaw = p ? p.max : undefined;
+  const hasMin = minRaw !== '' && minRaw !== null && minRaw !== undefined && String(minRaw).trim() !== '';
+  const hasMax = maxRaw !== '' && maxRaw !== null && maxRaw !== undefined && String(maxRaw).trim() !== '';
+
+  // Sem range = sem julgamento de cor
+  if (!hasMin && !hasMax) return null;
+
+  const minVal = hasMin ? parseFloat(String(minRaw)) : -Infinity;
+  const maxVal = hasMax ? parseFloat(String(maxRaw)) :  Infinity;
+
+  if (hasMin && !isNaN(minVal) && n < minVal) return 'low';
+  if (hasMax && !isNaN(maxVal) && n > maxVal) return 'high';
   return 'ok';
 }
 
-/* retorna true/false/null para compatibilidade com código legado */
+/* Compatibilidade legada */
 function _checkMedidaBool(val, p) {
   const r = _checkMedida(val, p);
   if (r === null) return null;
@@ -5787,12 +6170,100 @@ function _getMedidaIcon(r, p) {
 }
 function _getMedidaColor(r, p) { return _getMedidaBg(r, p); }
 
+/**
+ * Handler oninput de TODOS os inputs de medida na inspeção.
+ * Lê min/max dos data-attributes (sem JSON.stringify), aplica cor imediatamente
+ * e persiste o valor via setInspResult com debounce.
+ */
+function _onMedidaInput(el) {
+  const inspId  = el.dataset.inspId;
+  const amostra = Number(el.dataset.amostra);
+  const ponto   = Number(el.dataset.ponto);
+  const minRaw  = el.dataset.min;   // string ou ''
+  const maxRaw  = el.dataset.max;   // string ou ''
+  const valor   = el.value;
+
+  // Calcular estado do valor contra o range
+  const n = valor === '' ? NaN : parseFloat(valor);
+  let estado = null; // null | 'ok' | 'low' | 'high'
+  if (!isNaN(n)) {
+    const hasMin = minRaw !== '' && minRaw !== undefined;
+    const hasMax = maxRaw !== '' && maxRaw !== undefined;
+    if (hasMin || hasMax) {
+      const minV = hasMin ? parseFloat(minRaw) : -Infinity;
+      const maxV = hasMax ? parseFloat(maxRaw) :  Infinity;
+      if (hasMin && n < minV)      estado = 'low';
+      else if (hasMax && n > maxV) estado = 'high';
+      else                         estado = 'ok';
+    }
+  }
+
+  // Cores por estado
+  const BG  = { ok:'rgba(0,229,160,.18)',  low:'rgba(255,59,92,.18)',  high:'rgba(255,59,92,.18)',  null:'var(--surface2)' };
+  const CLR = { ok:'#00e5a0',              low:'#ff3b5c',              high:'#ff3b5c',              null:'var(--text)' };
+  const ICO = { ok:'',                     low:' ↓',                   high:' ↑',                   null:'' };
+  const BRD = { ok:'rgba(0,229,160,.6)',   low:'rgba(255,59,92,.6)',   high:'rgba(255,59,92,.6)',   null:'var(--border)' };
+
+  const key = estado !== null ? estado : 'null';
+  el.style.background  = BG[key];
+  el.style.color       = CLR[key];
+  el.style.fontWeight  = isNaN(n) ? '400' : '700';
+  el.style.borderColor = BRD[key];
+
+  const iconSpan = document.querySelector(`[data-insp-icon="${inspId}_a${amostra}_p${ponto}"]`);
+  if (iconSpan) {
+    iconSpan.textContent = ICO[key];
+    iconSpan.style.color = CLR[key];
+    iconSpan.style.fontWeight = '900';
+    iconSpan.style.fontSize = '16px';
+  }
+
+  // Persistir em memória + Firestore (debounce interno do setInspResult)
+  const pontoObj = { tipo:'medida', min:minRaw, max:maxRaw };
+  setInspResult(inspId, amostra, ponto, valor, pontoObj);
+}
+
+// Debounce map para salvar inspeções no Firestore
+const _inspSaveTimers = {};
+
 function setInspResult(inspId, amostra, ponto, valor, pontoObj) {
   const insp = db.inspecoes.find(i=>i.id===inspId); if(!insp) return;
   if (!insp.resultados) insp.resultados = [];
-  const idx = insp.resultados.findIndex(r=>r.a===amostra&&r.p===ponto);
-  const entry = { a:amostra, p:ponto, v: valor===''?null:(pontoObj&&pontoObj.tipo==='medida'?parseFloat(valor):valor) };
+
+  // Garantir comparação por número (Firestore pode retornar strings)
+  const aNum = Number(amostra);
+  const pNum = Number(ponto);
+  const idx = insp.resultados.findIndex(r => Number(r.a) === aNum && Number(r.p) === pNum);
+
+  // Parse do valor — 0 é válido para medidas
+  let parsedVal;
+  if (pontoObj && pontoObj.tipo === 'medida') {
+    if (valor === '' || valor === null || valor === undefined) {
+      parsedVal = null;
+    } else {
+      const n = parseFloat(String(valor));
+      parsedVal = isNaN(n) ? null : n;
+    }
+  } else {
+    // Visual: 'ok', 'nok', ou null
+    parsedVal = (valor === 'ok' || valor === 'nok') ? valor : (valor || null);
+  }
+
+  const entry = { a:aNum, p:pNum, v: parsedVal };
   if (idx>=0) insp.resultados[idx] = entry; else insp.resultados.push(entry);
+
+  // ── Manter cópia local segura contra sobrescrita do onSnapshot ──────
+  _localInspResultados[inspId] = insp.resultados.slice();
+
+  // ── Persistir no Firestore com debounce (600ms após última interação) ──
+  clearTimeout(_inspSaveTimers[inspId]);
+  _inspSaveTimers[inspId] = setTimeout(async () => {
+    try {
+      await saveItem('inspecoes', insp);
+    } catch(e) {
+      console.warn('Erro ao salvar inspeção:', e);
+    }
+  }, 600);
 
   // ── Atualizar visual do input em tempo real ─────────────────────
   if (pontoObj && pontoObj.tipo === 'medida') {
@@ -5803,17 +6274,54 @@ function setInspResult(inspId, amostra, ponto, valor, pontoObj) {
       const ico = _getMedidaIcon(entry, pontoObj);
       inp.style.background = bg;
       inp.style.color      = clr;
-      inp.style.fontWeight = (entry.v !== null && entry.v !== undefined) ? '700' : '400';
-      // Mostrar ícone direcional no span ao lado
+      inp.style.fontWeight = (parsedVal !== null) ? '700' : '400';
+      // Borda colorida para reforçar o estado
+      inp.style.borderColor = parsedVal === null ? 'var(--border)'
+        : clr === '#00e5a0' ? 'rgba(0,229,160,.6)' : 'rgba(255,59,92,.6)';
+      // Ícone direcional
       const span = document.querySelector(`[data-insp-icon="${inspId}_a${amostra}_p${ponto}"]`);
       if (span) {
         span.textContent = ico;
         span.style.color = clr;
-        span.style.fontWeight = '700';
-        span.style.fontSize = '13px';
+        span.style.fontWeight = '900';
+        span.style.fontSize = '18px';
       }
     }
   }
+
+  // ── Recolorir TODOS os inputs de medida desta inspeção ─────────
+  document.querySelectorAll(`[data-insp-id="${inspId}"]`).forEach(inp2 => {
+    const a2   = Number(inp2.dataset.amostra);
+    const pi2  = Number(inp2.dataset.ponto);
+    const min2 = inp2.dataset.min;
+    const max2 = inp2.dataset.max;
+    const r2   = (insp.resultados||[]).find(x => Number(x.a)===a2 && Number(x.p)===pi2);
+    const v2   = (r2 && r2.v !== null && r2.v !== undefined) ? r2.v : null;
+    const n2   = v2 !== null ? parseFloat(String(v2)) : NaN;
+
+    let est2 = null;
+    if (!isNaN(n2)) {
+      const hasMin2 = min2 !== '' && min2 !== undefined;
+      const hasMax2 = max2 !== '' && max2 !== undefined;
+      if (hasMin2 || hasMax2) {
+        const minV2 = hasMin2 ? parseFloat(min2) : -Infinity;
+        const maxV2 = hasMax2 ? parseFloat(max2) :  Infinity;
+        est2 = (hasMin2 && n2 < minV2) ? 'low' : (hasMax2 && n2 > maxV2) ? 'high' : 'ok';
+      }
+    }
+    const BG2  = {ok:'rgba(0,229,160,.18)',low:'rgba(255,59,92,.18)',high:'rgba(255,59,92,.18)',null:'var(--surface2)'};
+    const CLR2 = {ok:'#00e5a0',low:'#ff3b5c',high:'#ff3b5c',null:'var(--text)'};
+    const ICO2 = {ok:'',low:' ↓',high:' ↑',null:''};
+    const BRD2 = {ok:'rgba(0,229,160,.6)',low:'rgba(255,59,92,.6)',high:'rgba(255,59,92,.6)',null:'var(--border)'};
+    const k2 = est2 !== null ? est2 : 'null';
+    inp2.style.background  = BG2[k2];
+    inp2.style.color       = CLR2[k2];
+    inp2.style.fontWeight  = isNaN(n2) ? '400' : '700';
+    inp2.style.borderColor = BRD2[k2];
+    const key2  = `${inspId}_a${a2}_p${pi2}`;
+    const span2 = document.querySelector(`[data-insp-icon="${key2}"]`);
+    if (span2) { span2.textContent=ICO2[k2]; span2.style.color=CLR2[k2]; }
+  });
 
   // ── Alerta dinâmico de tolerância ──────────────────────────────
   _atualizarAlertaTolerancia(inspId);
@@ -5846,7 +6354,13 @@ function _atualizarAlertaTolerancia(inspId) {
 
   if (falhas === 0) {
     banner.style.display = 'none';
-    if (btnAprov) { btnAprov.style.opacity='1'; btnAprov.disabled=false; }
+    if (btnAprov) {
+      btnAprov.disabled = false;
+      btnAprov.style.opacity = '1';
+      btnAprov.style.background = 'var(--accent)';
+      btnAprov.style.color = '#000';
+      btnAprov.title = '';
+    }
     return;
   }
 
@@ -5875,23 +6389,73 @@ function _atualizarAlertaTolerancia(inspId) {
   banner.style.borderColor = excedeu ? 'rgba(255,59,92,.35)' : 'rgba(255,149,0,.35)';
   banner.style.color       = excedeu ? 'var(--danger)' : 'var(--warn)';
 
-  // Desabilita aprovação quando excedeu tolerância (pode forçar clicando)
+  // Não desabilita o botão — apenas muda o visual para sinalizar
   if (btnAprov) {
-    btnAprov.disabled  = excedeu;
-    btnAprov.style.opacity = excedeu ? '0.4' : '1';
-    btnAprov.title = excedeu ? 'Tolerância excedida — aprove apenas se tiver certeza' : '';
+    btnAprov.disabled = false;
+    btnAprov.style.opacity = '1';
+    if (excedeu) {
+      btnAprov.style.background = 'rgba(255,149,0,.8)';
+      btnAprov.style.color = '#000';
+      btnAprov.title = 'Tolerância excedida — justificativa obrigatória ao aprovar';
+    } else {
+      btnAprov.style.background = 'var(--accent)';
+      btnAprov.style.color = '#000';
+      btnAprov.title = '';
+    }
   }
 }
 
-/** Conta total de falhas visuais + medidas fora do range */
+/** Conta total de falhas visuais + medidas fora do range em TODAS as amostras */
 function _contarFalhas(insp) {
-  return (insp.resultados||[]).filter(r => {
-    const p = (insp.pontos||[])[r.p];
-    if (!p) return false;
-    if (p.tipo === 'visual') return r.v === 'nok';
-    if (p.tipo === 'medida') return _checkMedida(r.v, p) !== 'ok' && _checkMedida(r.v, p) !== null;
-    return false;
-  }).length;
+  const pontos = insp.pontos || [];
+  if (!pontos.length) return 0;
+  let falhas = 0;
+  for (let a = 0; a < insp.amostras; a++) {
+    for (let pi = 0; pi < pontos.length; pi++) {
+      const p = pontos[pi];
+      // Number() garante comparação correta com tipos mistos do Firestore
+      const r = (insp.resultados||[]).find(x => Number(x.a) === a && Number(x.p) === pi);
+      const v = r ? r.v : null;
+      if (p.tipo === 'visual') {
+        if (v === 'nok') falhas++;
+      } else if (p.tipo === 'medida') {
+        const st = _checkMedida(v, p);
+        if (st === 'low' || st === 'high') falhas++;
+      }
+    }
+  }
+  return falhas;
+}
+
+/** Verifica se todos os pontos de todas as amostras estão preenchidos */
+function _verificarInspeccaoCompleta(insp) {
+  const pontos = insp.pontos || [];
+  if (!pontos.length) return { ok: true, faltando: [] };
+  const res = insp.resultados || [];
+  const faltando = [];
+  for (let a = 0; a < insp.amostras; a++) {
+    for (let pi = 0; pi < pontos.length; pi++) {
+      // Usar Number() para comparar corretamente mesmo com tipos mistos (string/number)
+      const r = res.find(x => Number(x.a) === a && Number(x.p) === pi);
+      const p = pontos[pi];
+      let vazio;
+      if (p.tipo === 'visual') {
+        vazio = !r || (r.v !== 'ok' && r.v !== 'nok');
+      } else {
+        // Medida: 0 é válido; NaN, null, undefined, '' são vazios
+        if (!r || r.v === null || r.v === undefined || r.v === '') {
+          vazio = true;
+        } else {
+          const n = Number(r.v);
+          vazio = isNaN(n);
+        }
+      }
+      if (vazio) {
+        faltando.push(`Amostra ${a+1} / ${p.tipo === 'visual' ? '👁' : '📏'} "${p.desc||'Ponto '+(pi+1)}"`);
+      }
+    }
+  }
+  return { ok: faltando.length === 0, faltando };
 }
 
 async function finalizarInspeccao(inspId, resultado) {
@@ -5902,20 +6466,43 @@ async function finalizarInspeccao(inspId, resultado) {
   const falhas = _contarFalhas(insp);
   const excedeuTol = falhas > insp.tolerancia;
 
+  // Justificativa obrigatória ao aprovar com tolerância excedida
+  let justificativaExcesso = '';
   if (resultado === 'aprovado' && excedeuTol) {
-    const ok = confirm(
-      `🚨 TOLERÂNCIA EXCEDIDA!\n\n` +
-      `Foram detectadas ${falhas} falha(s) e a tolerância máxima é ${insp.tolerancia}.\n\n` +
-      `Confirmar APROVAÇÃO mesmo com falhas acima da tolerância?\nEsta ação ficará registrada na auditoria.`
-    );
+    justificativaExcesso = (obs || '').trim();
+    if (!justificativaExcesso) {
+      await sfAlert({
+        title:'Justificativa Obrigatória',
+        subtitle:'Tolerância excedida: ' + falhas + ' falha(s) / tol. ' + insp.tolerancia,
+        body:'Para aprovar um lote com falhas acima da tolerância, preencha o campo "Observações do Inspetor" com a justificativa antes de aprovar.',
+        type:'danger', icon:'🚨'
+      });
+      // Focar no campo de obs
+      const obsEl = document.getElementById(`insp-obs-${inspId}`);
+      if (obsEl) { obsEl.focus(); obsEl.style.borderColor='var(--danger)'; setTimeout(()=>{obsEl.style.borderColor='';},2000); }
+      return;
+    }
+    const ok = await sfConfirm({
+      title:'Aprovar com Falhas Acima da Tolerância?',
+      subtitle:`${falhas} falha(s) — tolerância máxima: ${insp.tolerancia}`,
+      body:`Justificativa registrada: "${justificativaExcesso.slice(0,120)}"
+
+Esta aprovação ficará registrada na auditoria.`,
+      type:'warn', icon:'⚠️', okText:'Confirmar Aprovação'
+    });
     if (!ok) return;
   }
 
   insp.status = resultado;
   insp.obsInspetor = obs;
+  insp.justificativaExcesso = justificativaExcesso || '';
   insp.inspetor = currentUser.nome;
   insp.finalizadaEm = new Date().toISOString();
   insp.falhas = falhas;
+
+  // Limpar cache local e cancelar debounce pendente
+  delete _localInspResultados[inspId];
+  if (_inspSaveTimers[inspId]) { clearTimeout(_inspSaveTimers[inspId]); delete _inspSaveTimers[inspId]; }
 
   // Atualizar status do recebimento
   const recv = db.recebimentos.find(r=>r.id===insp.recebimentoId);
@@ -6052,6 +6639,183 @@ async function confirmarEntradaRecebimento() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// EXPORT PDF INDIVIDUAL DE RECEBIMENTO
+// ─────────────────────────────────────────────────────────────────────────────
+function exportarRecebimentoPDF(recvId) {
+  const r = db.recebimentos.find(x=>x.id===recvId);
+  if (!r) return toast('Recebimento não encontrado.','error');
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const now = new Date().toLocaleString('pt-BR');
+  const insp = db.inspecoes.find(i=>i.recebimentoId===recvId);
+  const ncs  = db.naoconformidades.filter(n=>n.recebimentoId===recvId);
+  let y = 18;
+
+  // ── Cabeçalho ────────────────────────────────────────────────────────────
+  doc.setFillColor(17,19,24);
+  doc.rect(0,0,210,30,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(0,229,160);
+  doc.text('StockFlow', 14, 14);
+  doc.setFontSize(11); doc.setTextColor(255,255,255);
+  doc.text('Registro de Recebimento de Material', 14, 22);
+  doc.setFontSize(8); doc.setTextColor(150,150,150);
+  doc.text(`Gerado em: ${now}`, 210-14, 22, {align:'right'});
+  y = 38;
+
+  // ── Dados do recebimento ─────────────────────────────────────────────────
+  const stLabel = {recebido:'Recebido',aguardando_inspecao:'Aguardando Inspeção',
+    aprovado:'Aprovado QLD',reprovado:'Reprovado QLD',entrada_realizada:'No Estoque'};
+  const stFinal = (r.status==='aprovado'&&r.entradaEstoque)?'entrada_realizada':r.status;
+
+  doc.setDrawColor(220,220,220);
+  doc.setFillColor(245,247,250);
+  doc.roundedRect(12,y-4,186,50,2,2,'FD');
+  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(30,30,30);
+  doc.text(r.materialNome + (r.critico?' [CRÍTICO]':''), 18, y+4);
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(80,80,80);
+
+  const col1 = 18, col2 = 80, col3 = 145;
+  const row1 = y+14, row2 = y+22, row3 = y+30, row4 = y+38;
+
+  doc.setFont('helvetica','bold'); doc.text('Nota Fiscal:', col1, row1);
+  doc.setFont('helvetica','normal'); doc.text(r.nf||'—', col1+26, row1);
+  doc.setFont('helvetica','bold'); doc.text('Data:', col2, row1);
+  doc.setFont('helvetica','normal'); doc.text(fmt(r.data), col2+14, row1);
+  doc.setFont('helvetica','bold'); doc.text('Status:', col3, row1);
+  doc.setFont('helvetica','normal'); doc.text(stLabel[stFinal]||r.status, col3+16, row1);
+
+  doc.setFont('helvetica','bold'); doc.text('Fornecedor:', col1, row2);
+  doc.setFont('helvetica','normal'); doc.text(r.fornecedor||'—', col1+26, row2);
+  doc.setFont('helvetica','bold'); doc.text('Lote:', col2, row2);
+  doc.setFont('helvetica','normal'); doc.text(r.lote||'—', col2+14, row2);
+
+  doc.setFont('helvetica','bold'); doc.text('Qtd Pedida:', col1, row3);
+  doc.setFont('helvetica','normal'); doc.text(String(r.qtdPedida), col1+26, row3);
+  doc.setFont('helvetica','bold'); doc.text('Qtd Recebida:', col2, row3);
+  doc.setFont('helvetica','normal'); doc.text(String(r.qtdRecebida), col2+32, row3);
+
+  if (r.obs) {
+    doc.setFont('helvetica','bold'); doc.text('Obs:', col1, row4);
+    doc.setFont('helvetica','normal'); doc.text(r.obs, col1+12, row4);
+  }
+  doc.setFont('helvetica','bold'); doc.text('Recebido por:', col3, row3);
+  doc.setFont('helvetica','normal'); doc.text(r.criadoPor||'—', col3+30, row3);
+
+  y += 56;
+
+  // ── Entrada no estoque ───────────────────────────────────────────────────
+  if (r.entradaEstoque) {
+    const ee = r.entradaEstoque;
+    doc.setFillColor(232,250,244); doc.setDrawColor(0,180,130);
+    doc.roundedRect(12,y,186,22,2,2,'FD');
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(0,120,90);
+    doc.text('✓ Entrada no Estoque Realizada', 18, y+8);
+    doc.setFont('helvetica','normal'); doc.setTextColor(50,100,80);
+    doc.text(`Estoque: ${ee.estoqueNome}  |  Lote: ${ee.lote}  |  Qtd: ${ee.qtd}  |  Em: ${fmtDT(ee.data)}  |  Por: ${ee.por||'—'}`, 18, y+16);
+    y += 28;
+  }
+
+  // ── Inspeção de qualidade ────────────────────────────────────────────────
+  if (insp) {
+    y += 4;
+    doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(30,30,30);
+    doc.text('Inspeção de Qualidade', 14, y); y += 6;
+    doc.setDrawColor(200,200,200); doc.line(14,y,196,y); y += 6;
+
+    doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(60,60,60);
+    const stInsp = {pendente:'Pendente',aprovado:'Aprovado',reprovado:'Reprovado'};
+    doc.text(`Inspetor: ${insp.inspetor||'Pendente'}   |   Status: ${stInsp[insp.status]||insp.status}   |   Amostras: ${insp.amostras}   |   Tolerância: ${insp.tolerancia}   |   Falhas: ${insp.falhas||0}   |   EP: ${insp.ep||'—'}`, 14, y); y+=6;
+    if (insp.obsInspetor) { doc.text(`Observações: ${insp.obsInspetor}`, 14, y); y+=6; }
+    if (insp.finalizadaEm) { doc.text(`Finalizada em: ${fmtDT(insp.finalizadaEm)}`, 14, y); y+=6; }
+
+    // Tabela de resultados se houver pontos
+    if (insp.pontos && insp.pontos.length && insp.resultados && insp.resultados.length) {
+      y += 2;
+      const COLS = 4;
+      const grupos = [];
+      for (let i=0; i<insp.pontos.length; i+=COLS) grupos.push(insp.pontos.slice(i,i+COLS));
+
+      grupos.forEach((grupo, gIdx) => {
+        const piBase = gIdx * COLS;
+        const head = ['Amostra', ...grupo.map((p,li)=>{
+          const pi=piBase+li;
+          const hasMin = p.min!==''&&p.min!=null&&p.min!==undefined;
+          const hasMax = p.max!==''&&p.max!=null&&p.max!==undefined;
+          const range = (hasMin||hasMax) ? `\n${hasMin?p.min:'—'} a ${hasMax?p.max:'—'}${p.unidade?' '+p.unidade:''}` : '';
+          return (p.tipo==='visual'?'👁 ':'📏 ')+(p.desc||'P'+(pi+1))+range;
+        })];
+        const body = [];
+        for (let a=0; a<insp.amostras; a++) {
+          const row = [`Amostra ${a+1}`];
+          grupo.forEach((p,li)=>{
+            const pi=piBase+li;
+            const res = (insp.resultados||[]).find(x=>Number(x.a)===a&&Number(x.p)===pi);
+            if (!res||res.v===null||res.v===undefined) { row.push('—'); return; }
+            if (p.tipo==='visual') { row.push(res.v==='ok'?'✓':'✗'); return; }
+            const st = _checkMedida(res.v,p);
+            const suf = st==='low'?' ↓':st==='high'?' ↑':'';
+            row.push(String(res.v)+suf);
+          });
+          body.push(row);
+        }
+        if (y > 240) { doc.addPage(); y=18; }
+        doc.autoTable({
+          startY:y, head:[head], body,
+          styles:{fontSize:8,cellPadding:3},
+          headStyles:{fillColor:[40,40,60],textColor:[0,229,160],fontStyle:'bold',fontSize:8,minCellHeight:10},
+          didParseCell: (data) => {
+            if (data.section==='body' && data.column.index>0) {
+              const val = data.cell.raw;
+              if (val==='✓') { data.cell.styles.textColor=[0,180,80]; data.cell.styles.fontStyle='bold'; }
+              else if (val==='✗'||String(val).includes('↓')||String(val).includes('↑')) {
+                data.cell.styles.textColor=[200,0,0]; data.cell.styles.fontStyle='bold';
+              }
+            }
+          }
+        });
+        y = doc.lastAutoTable.finalY + 4;
+      });
+    }
+  }
+
+  // ── Não Conformidades ────────────────────────────────────────────────────
+  if (ncs.length) {
+    if (y > 240) { doc.addPage(); y=18; }
+    y += 4;
+    doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(30,30,30);
+    doc.text(`Não Conformidades (${ncs.length})`, 14, y); y += 6;
+    doc.setDrawColor(200,200,200); doc.line(14,y,196,y); y += 6;
+    const classLabel = {critica:'Crítica',maior:'Maior',menor:'Menor',observacao:'Obs.'};
+    const stLabel2 = {aberta:'Aberta',em_analise:'Em Análise',encerrada:'Encerrada'};
+    const ncRows = ncs.map(n=>[n.titulo,classLabel[n.classificacao]||n.classificacao,stLabel2[n.status]||n.status,n.descricao.slice(0,60),n.acaoImediata?n.acaoImediata.slice(0,50):'—',n.acaoCorretiva?n.acaoCorretiva.slice(0,50):'—']);
+    doc.autoTable({
+      startY:y, head:[['Título','Classif.','Status','Descrição','Ação Imediata','Ação Corretiva']],
+      body:ncRows,
+      styles:{fontSize:7,cellPadding:2},
+      headStyles:{fillColor:[120,50,0],textColor:[255,200,0],fontStyle:'bold'},
+    });
+    y = doc.lastAutoTable.finalY + 8;
+  }
+
+  // ── Campo de assinaturas ─────────────────────────────────────────────────
+  const pageH = doc.internal.pageSize.getHeight();
+  const sigY = Math.max(y+10, pageH-45);
+  if (sigY+40 > pageH) { doc.addPage(); }
+  const sY = Math.min(sigY, doc.internal.pageSize.getHeight()-38);
+  doc.setDrawColor(160,160,160);
+  doc.line(14, sY+18, 90, sY+18);
+  doc.line(100, sY+18, 196, sY+18);
+  doc.setFontSize(8); doc.setTextColor(100,100,100);
+  doc.text('Responsável pelo Recebimento', 14, sY+23);
+  doc.text('Responsável pela Qualidade', 100, sY+23);
+  doc.text('Assinatura / Data', 14, sY+29);
+  doc.text('Assinatura / Data', 100, sY+29);
+
+  doc.save(`recebimento_${r.nf}_${(r.lote||'').replace(/[^a-zA-Z0-9]/g,'_')}.pdf`);
+  toast('PDF gerado!');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // HISTÓRICO DE RECEBIMENTOS
 // ─────────────────────────────────────────────────────────────────────────────
 function limparFiltrosHistorico() {
@@ -6125,15 +6889,24 @@ function renderHistoricoRecebimentos() {
             ${r.teste?'<span style="font-size:11px;background:rgba(255,149,0,.15);color:var(--warn);padding:2px 8px;border-radius:99px;margin-left:6px;">🧪 TESTE</span>':''}
           </div>
           <div style="font-size:12px;color:var(--muted);margin-top:3px;">NF: ${escHtml(r.nf)} · ${escHtml(r.fornecedor)} · ${fmt(r.data)} · Criado por: ${escHtml(r.criadoPor||'—')}</div>
+          ${r.lote?`<div style="font-size:12px;color:var(--muted);margin-top:2px;">Lote: <strong style="color:var(--text);">${escHtml(r.lote)}</strong></div>`:''}
           ${r.entradaEstoque?`<div style="font-size:11px;color:#14b8a6;margin-top:3px;">✓ Estoque: ${escHtml(r.entradaEstoque.lote)} → ${escHtml(r.entradaEstoque.estoqueNome)}</div>`:''}
           ${insp?`<div style="font-size:11px;color:var(--muted);margin-top:3px;">Inspetor: ${escHtml(insp.inspetor||'—')} · Falhas: ${insp.falhas||0}/${insp.tolerancia}</div>`:''}
           ${ncCount?`<div style="font-size:11px;color:var(--warn);margin-top:3px;">⚠️ ${ncCount} NC(s) vinculada(s)</div>`:''}
         </div>
-        <span style="padding:4px 12px;border-radius:99px;font-size:11px;font-weight:700;font-family:'Syne',sans-serif;background:${si.bg};color:${si.color};white-space:nowrap;">${si.label}</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="padding:4px 12px;border-radius:99px;font-size:11px;font-weight:700;font-family:'Syne',sans-serif;background:${si.bg};color:${si.color};white-space:nowrap;">${si.label}</span>
+          <button onclick="exportarRecebimentoPDF('${r.id}')" title="Exportar PDF deste recebimento"
+            style="background:rgba(0,229,160,.1);border:1px solid rgba(0,229,160,.3);color:var(--accent);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:4px;">
+            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            PDF
+          </button>
+        </div>
       </div>
       <div style="display:flex;gap:20px;font-size:13px;flex-wrap:wrap;">
         <span style="color:var(--muted);">Pedido: <strong style="color:var(--text);">${r.qtdPedida}</strong></span>
         <span style="color:var(--muted);">Recebido: <strong style="color:${r.qtdRecebida<r.qtdPedida?'var(--warn)':'var(--accent)'};">${r.qtdRecebida}</strong></span>
+        ${r.lote?`<span style="color:var(--muted);">Lote: <strong style="color:var(--text);">${escHtml(r.lote)}</strong></span>`:''}
         ${r.obs?`<span style="color:var(--muted);">Obs: ${escHtml(r.obs)}</span>`:''}
       </div>
     </div>`;
@@ -6200,7 +6973,7 @@ function exportarHistoricoPDF() {
 // ─────────────────────────────────────────────────────────────────────────────
 // NÃO CONFORMIDADES
 // ─────────────────────────────────────────────────────────────────────────────
-function abrirModalNC(inspId) {
+async function abrirModalNC(inspId) {
   const insp = db.inspecoes.find(i=>i.id===inspId); if(!insp) return;
   const r = db.recebimentos.find(x=>x.id===insp.recebimentoId);
   document.getElementById('nc-insp-id').value = inspId;
@@ -6410,7 +7183,8 @@ async function excluirRecebimentoTeste(recvId) {
   const r = db.recebimentos.find(x=>x.id===recvId);
   if (!r) return;
   if (!r.teste) return toast('Apenas registros de teste podem ser excluídos aqui.','error');
-  if (!confirm(`Excluir recebimento de teste? NF: ${r.nf} — ${r.materialNome}`)) return;
+  const _okRT = await sfConfirm({title:'Excluir Teste',body:`Excluir recebimento de teste?\nNF: ${r.nf} — ${r.materialNome}`,type:'danger',okText:'Excluir'});
+  if (!_okRT) return;
   db.recebimentos = db.recebimentos.filter(x=>x.id!==recvId);
   renderRecebimentos();
   try {
@@ -6424,7 +7198,8 @@ async function excluirInspeccaoTeste(inspId) {
   const insp = db.inspecoes.find(x=>x.id===inspId);
   if (!insp) return;
   if (!insp.teste) return toast('Apenas inspeções de teste podem ser excluídas aqui.','error');
-  if (!confirm(`Excluir inspeção de teste? Material: ${insp.materialNome} — NF: ${insp.nf}`)) return;
+  const _okIT = await sfConfirm({title:'Excluir Inspeção de Teste',body:`Excluir inspeção de teste?\nMaterial: ${insp.materialNome} — NF: ${insp.nf}`,type:'danger',okText:'Excluir'});
+  if (!_okIT) return;
   db.inspecoes = db.inspecoes.filter(x=>x.id!==inspId);
   renderQualidade();
   try {
