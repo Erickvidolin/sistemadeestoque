@@ -2218,7 +2218,8 @@ async function renderUsuarios() {
     const roleLabels = {adm:'<span class="badge badge-ok">Administrador</span>', quality:'<span class="badge badge-quality">Qualidade</span>', recv:'<span class="badge badge-recv">Recebimento</span>', user:'<span class="badge badge-waiting">Usuário</span>'};
     users.forEach(u => {
       const isMe = u.id === currentUser.uid;
-      const areasStr = (u.areas && u.areas.length) ? u.areas.join(', ') : (u.role==='adm'?'Total':u.role==='quality'?'Qualidade+Receb.':u.role==='recv'?'Recebimento':'Requisições');
+      const areasStr = u.role==='adm' ? 'Acesso Total' :
+        (u.areas && u.areas.length) ? u.areas.join(', ') : '(nenhuma área definida)';
       tb.innerHTML += `<tr>
         <td><strong>${u.nome||'—'}</strong></td>
         <td style="color:var(--muted);font-size:12px;">${u.email||'—'}</td>
@@ -2231,21 +2232,31 @@ async function renderUsuarios() {
   } catch(e) { if(ld) ld.style.display='none'; toast('Erro ao carregar usuários.','error'); }
 }
 
-function toggleAreasSel(boxId, roleSelId) {
+/**
+ * toggleAreasSel — controla visibilidade e preset do box de áreas.
+ * Parâmetros extras:
+ *   applyPreset (bool, default true): se true, aplica preset ao trocar role.
+ *   Ao EDITAR usuário existente, chame com applyPreset=false para preservar
+ *   as áreas já salvas.
+ */
+function toggleAreasSel(boxId, roleSelId, applyPreset = true) {
   const role = document.getElementById(roleSelId).value;
   const box = document.getElementById(boxId);
   if (!box) return;
+  // Apenas adm não tem box de áreas (tem acesso total)
   if (role === 'adm') { box.style.display='none'; return; }
   box.style.display = 'block';
+  // Preset só aplicado ao criar novo usuário ou ao o admin trocar manualmente o role
+  if (!applyPreset) return;
   const checkboxes = box.querySelectorAll('input[type=checkbox]');
-  // Preset de áreas conforme role selecionado
   if (role === 'quality') {
     const qualAreas = ['qualidade','recebimento','historico-recebimentos','nao-conformidades'];
     checkboxes.forEach(cb => { cb.checked = qualAreas.includes(cb.value); });
   } else if (role === 'recv') {
     checkboxes.forEach(cb => { cb.checked = cb.value === 'recebimento'; });
+  } else {
+    // user: não altera checkboxes (mantém o que estava)
   }
-  // user mantém como está (não altera os checkboxes)
 }
 
 async function abrirEditarAcesso(userId) {
@@ -2256,7 +2267,8 @@ async function abrirEditarAcesso(userId) {
   document.getElementById('edit-area-role').value = u.role || 'user';
   const areas = u.areas || [];
   document.querySelectorAll('.edit-area-check').forEach(cb => { cb.checked = areas.includes(cb.value); });
-  toggleAreasSel('edit-areas-box','edit-area-role');
+  // applyPreset=false: preservar as áreas salvas, não sobrescrever com preset do role
+  toggleAreasSel('edit-areas-box','edit-area-role', false);
   abrirModal('modal-edit-areas');
 }
 
@@ -2303,26 +2315,25 @@ function iniciarApp() {
   iniciarListenerRequisicoes();
   updateStorageInfo();
   // Navigate to first page
-  if (currentUser.role === 'adm') navigateTo('dash');
-  else if (currentUser.role === 'quality') navigateTo('qualidade');
-  else if (currentUser.role === 'recv') navigateTo('recebimento');
-  else {
-    // user: navegar para a primeira área disponível em ordem de prioridade
+  if (currentUser.role === 'adm') {
+    navigateTo('dash');
+  } else {
+    // Todos os roles não-adm: navegar para a primeira área disponível
     const areas = currentUser.areas || [];
     const prioridade = [
-      {area:'dash',               page:'dash'},
-      {area:'recebimento',        page:'recebimento'},
-      {area:'qualidade',          page:'qualidade'},
-      {area:'estoque',            page:'entrada'},
-      {area:'atendimento',        page:'atendimento'},
-      {area:'transferencia',      page:'transferencia'},
+      {area:'dash',                   page:'dash'},
+      {area:'qualidade',              page:'qualidade'},
+      {area:'recebimento',            page:'recebimento'},
       {area:'historico-recebimentos', page:'historico-recebimentos'},
-      {area:'nao-conformidades',  page:'nao-conformidades'},
-      {area:'compras',            page:'compras'},
-      {area:'validade',           page:'validade'},
-      {area:'relatorios',         page:'relatorios'},
-      {area:'auditoria',          page:'auditoria'},
-      {area:'requisicoes',        page:'requisicoes'},
+      {area:'nao-conformidades',      page:'nao-conformidades'},
+      {area:'estoque',                page:'entrada'},
+      {area:'atendimento',            page:'atendimento'},
+      {area:'transferencia',          page:'transferencia'},
+      {area:'compras',                page:'compras'},
+      {area:'validade',               page:'validade'},
+      {area:'relatorios',             page:'relatorios'},
+      {area:'auditoria',              page:'auditoria'},
+      {area:'requisicoes',            page:'requisicoes'},
     ];
     const primeira = prioridade.find(({area}) => areas.includes(area));
     navigateTo(primeira ? primeira.page : 'requisicoes');
@@ -2405,31 +2416,28 @@ function buildNav() {
   let items;
   if (currentUser.role === 'adm') {
     items = NAV_ADM;
-  } else if (currentUser.role === 'quality') {
-    items = NAV_QUALITY;
-  } else if (currentUser.role === 'recv') {
-    items = NAV_RECV;
   } else {
-    // user com áreas customizadas
+    // Todos os roles não-adm usam áreas customizadas
+    // quality e recv têm áreas pré-definidas no cadastro, mas podem ser personalizadas
     const areas = currentUser.areas || [];
     const custom = [];
-    if (areas.includes('dash'))                 custom.push({ id:'dash', icon:'grid', label:'Dashboard' });
-    if (areas.includes('compras'))              custom.push({ id:'compras', icon:'cart', label:'Planejamento de Compras' });
-    if (areas.includes('requisicoes'))          custom.push({ id:'requisicoes', icon:'clipboard', label:'Requisições' });
-    if (areas.includes('atendimento'))          custom.push({ id:'atendimento', icon:'check-circle', label:'Atendimento' });
-    if (areas.includes('estoque'))              custom.push(
+    if (areas.includes('dash'))                   custom.push({ id:'dash', icon:'grid', label:'Dashboard' });
+    if (areas.includes('compras'))                custom.push({ id:'compras', icon:'cart', label:'Planejamento de Compras' });
+    if (areas.includes('requisicoes'))            custom.push({ id:'requisicoes', icon:'clipboard', label:'Requisições' });
+    if (areas.includes('atendimento'))            custom.push({ id:'atendimento', icon:'check-circle', label:'Atendimento' });
+    if (areas.includes('estoque'))                custom.push(
       { id:'entrada', icon:'arrow-down', label:'Entrada de Materiais' },
       { id:'saida', icon:'arrow-up', label:'Saída de Materiais' },
       { id:'analise', icon:'chart', label:'Análise de Estoques' }
     );
-    if (areas.includes('transferencia'))        custom.push({ id:'transferencia', icon:'arrows', label:'Transferência' });
-    if (areas.includes('recebimento'))          custom.push({ id:'recebimento', icon:'recv', label:'Recebimento' });
-    if (areas.includes('qualidade'))            custom.push({ id:'qualidade', icon:'quality', label:'Qualidade' });
+    if (areas.includes('transferencia'))          custom.push({ id:'transferencia', icon:'arrows', label:'Transferência' });
+    if (areas.includes('recebimento'))            custom.push({ id:'recebimento', icon:'recv', label:'Recebimento' });
+    if (areas.includes('qualidade'))              custom.push({ id:'qualidade', icon:'quality', label:'Qualidade' });
     if (areas.includes('historico-recebimentos')) custom.push({ id:'historico-recebimentos', icon:'history', label:'Histórico de Recebimentos' });
-    if (areas.includes('nao-conformidades'))    custom.push({ id:'nao-conformidades', icon:'nc', label:'Não Conformidades' });
-    if (areas.includes('validade'))             custom.push({ id:'validade', icon:'clock', label:'Controle de Validade' });
-    if (areas.includes('relatorios'))           custom.push({ id:'relatorios', icon:'document', label:'Relatórios' });
-    if (areas.includes('auditoria'))            custom.push({ id:'auditoria', icon:'audit', label:'Auditoria & Logs' });
+    if (areas.includes('nao-conformidades'))      custom.push({ id:'nao-conformidades', icon:'nc', label:'Não Conformidades' });
+    if (areas.includes('validade'))               custom.push({ id:'validade', icon:'clock', label:'Controle de Validade' });
+    if (areas.includes('relatorios'))             custom.push({ id:'relatorios', icon:'document', label:'Relatórios' });
+    if (areas.includes('auditoria'))              custom.push({ id:'auditoria', icon:'audit', label:'Auditoria & Logs' });
     if (!custom.length) custom.push({ id:'requisicoes', icon:'clipboard', label:'Requisições' });
     items = custom;
   }
@@ -2449,37 +2457,28 @@ function _podeAcessarPagina(page) {
   const role = currentUser.role;
   // adm acessa tudo
   if (role === 'adm') return true;
-  // quality tem acesso fixo às suas páginas
-  if (role === 'quality') {
-    return ['qualidade','recebimento','historico-recebimentos','nao-conformidades','dash'].includes(page);
-  }
-  // recv tem acesso fixo ao recebimento
-  if (role === 'recv') {
-    return ['recebimento','dash'].includes(page);
-  }
-  // user: verificar areas customizadas
+  // Todos os outros roles: verificar áreas customizadas
   const areas = currentUser.areas || [];
   const AREA_MAP = {
-    'dash':                    ['dash'],
-    'compras':                 ['compras'],
-    'requisicoes':             ['requisicoes'],
-    'atendimento':             ['atendimento'],
-    'entrada':                 ['estoque'],
-    'saida':                   ['estoque'],
-    'analise':                 ['estoque'],
-    'transferencia':           ['transferencia'],
-    'recebimento':             ['recebimento'],
-    'qualidade':               ['qualidade'],
-    'historico-recebimentos':  ['historico-recebimentos'],
-    'nao-conformidades':       ['nao-conformidades'],
-    'validade':                ['validade'],
-    'relatorios':              ['relatorios'],
-    'auditoria':               ['auditoria'],
+    'dash':                    'dash',
+    'compras':                 'compras',
+    'requisicoes':             'requisicoes',
+    'atendimento':             'atendimento',
+    'entrada':                 'estoque',
+    'saida':                   'estoque',
+    'analise':                 'estoque',
+    'transferencia':           'transferencia',
+    'recebimento':             'recebimento',
+    'qualidade':               'qualidade',
+    'historico-recebimentos':  'historico-recebimentos',
+    'nao-conformidades':       'nao-conformidades',
+    'validade':                'validade',
+    'relatorios':              'relatorios',
+    'auditoria':               'auditoria',
   };
-  const pagesForUser = Object.entries(AREA_MAP)
-    .filter(([, reqs]) => reqs.some(a => areas.includes(a)))
-    .map(([p]) => p);
-  return pagesForUser.includes(page);
+  const areaNeeded = AREA_MAP[page];
+  if (!areaNeeded) return false;
+  return areas.includes(areaNeeded);
 }
 
 function navigateTo(page) {
@@ -6852,84 +6851,114 @@ function exportarRecebimentoPDF(recvId) {
     if (insp.obsInspetor) { doc.text(`Observações: ${insp.obsInspetor}`, 14, y); y+=6; }
     if (insp.finalizadaEm) { doc.text(`Finalizada em: ${fmtDT(insp.finalizadaEm)}`, 14, y); y+=6; }
 
-    // Tabela de resultados se houver pontos
-    if (insp.pontos && insp.pontos.length && insp.resultados && insp.resultados.length) {
+    // ── Tabela de resultados — mesmo padrão da tela: por amostra com grupos ──
+    if (insp.pontos && insp.pontos.length) {
       y += 2;
       const COLS = 4;
       const grupos = [];
       for (let i=0; i<insp.pontos.length; i+=COLS) grupos.push(insp.pontos.slice(i,i+COLS));
+      const numGrupos = grupos.length;
 
-      grupos.forEach((grupo, gIdx) => {
-        const piBase = gIdx * COLS;
-        // Cabeçalho: sem emoji, apenas descrição e range
-        const head = ['Amostra', ...grupo.map((p,li)=>{
-          const pi = piBase+li;
-          const hasMin = p.min!==''&&p.min!=null&&p.min!==undefined;
-          const hasMax = p.max!==''&&p.max!=null&&p.max!==undefined;
-          const tipo = p.tipo==='visual' ? '[Visual]' : '[Medida]';
-          const range = (hasMin||hasMax)
-            ? `\n${hasMin?p.min:'—'} a ${hasMax?p.max:'—'}${p.unidade?' '+p.unidade:''}`
-            : '';
-          return `${p.desc||'Ponto '+(pi+1)} ${tipo}${range}`;
-        })];
+      // Para cada amostra: uma tabela com pares de linhas (título + dados) por grupo.
+      // A coluna 0 de cada tabela é a célula da amostra com rowspan=numGrupos*2.
+      for (let a=0; a<insp.amostras; a++) {
+        if (y > 245) { doc.addPage(); y=18; }
 
-        // Construir linhas — célula tem valor e estado para colorir
-        const body = [];
-        for (let a=0; a<insp.amostras; a++) {
-          const row = [`Amostra ${a+1}`];
-          grupo.forEach((p,li)=>{
-            const pi = piBase+li;
+        // Construir head e body para o autoTable desta amostra.
+        // Cada grupo gera: 1 linha de cabeçalho + 1 linha de dados.
+        // A célula da amostra ficará na coluna 0 via rowSpan.
+        const headRows = [];
+        const bodyRows = [];
+
+        grupos.forEach((grupo, g) => {
+          const piBase = g * COLS;
+
+          // Linha de título do grupo (head)
+          const headRow = grupo.map((p, li) => {
+            const pi = piBase + li;
+            const hasMin = p.min!==''&&p.min!=null&&p.min!==undefined;
+            const hasMax = p.max!==''&&p.max!=null&&p.max!==undefined;
+            const tipo = p.tipo==='visual' ? '[V]' : '[M]';
+            const range = (hasMin||hasMax)
+              ? `
+${hasMin?p.min:'—'} a ${hasMax?p.max:'—'}${p.unidade?' '+p.unidade:''}`
+              : '';
+            return { content: `${p.desc||'P'+(pi+1)} ${tipo}${range}`, styles: {
+              fillColor:[28,32,44], textColor:[255,255,255],
+              fontStyle:'bold', fontSize:7, halign:'center', minCellHeight:8
+            }};
+          });
+
+          // Linha de dados do grupo (body)
+          const dataRow = grupo.map((p, li) => {
+            const pi = piBase + li;
             const res = (insp.resultados||[]).find(x=>Number(x.a)===a&&Number(x.p)===pi);
-            if (!res||res.v===null||res.v===undefined) { row.push('—'); return; }
+            if (!res||res.v===null||res.v===undefined) return { content:'—', styles:{halign:'center',textColor:[150,150,150]} };
             if (p.tipo==='visual') {
-              // "OK" ou "Divergente" — sem emoji para evitar codificação
-              row.push(res.v==='ok' ? 'OK' : 'Divergente');
-              return;
+              const ok = res.v==='ok';
+              return { content: ok?'OK':'Divergente', styles:{
+                halign:'center', fontStyle:'bold',
+                textColor: ok?[0,120,60]:[160,0,0],
+                fillColor: ok?[220,255,235]:[255,220,220]
+              }};
             }
-            // Medida: valor + indicador de direção
             const n = Number(res.v);
             const minV = (p.min!==''&&p.min!=null) ? parseFloat(p.min) : null;
             const maxV = (p.max!==''&&p.max!=null) ? parseFloat(p.max) : null;
-            let suf = '';
-            if (minV!==null && n<minV) suf=' (BAIXO)';
-            else if (maxV!==null && n>maxV) suf=' (ALTO)';
-            row.push(String(res.v)+suf);
+            const fora = (minV!==null&&n<minV)||(maxV!==null&&n>maxV);
+            const suf = (minV!==null&&n<minV)?' (B)':(maxV!==null&&n>maxV)?' (A)':'';
+            return { content: String(res.v)+suf, styles:{
+              halign:'center', fontStyle:'bold',
+              textColor: fora?[160,0,0]:[0,120,60],
+              fillColor: fora?[255,220,220]:[220,255,235]
+            }};
           });
-          body.push(row);
-        }
 
-        if (y > 240) { doc.addPage(); y=18; }
-        doc.autoTable({
-          startY:y, head:[head], body,
-          styles:{fontSize:8,cellPadding:3,halign:'center'},
-          headStyles:{fillColor:[40,40,60],textColor:[0,229,160],fontStyle:'bold',fontSize:8,minCellHeight:10,halign:'center'},
-          columnStyles:{ 0:{halign:'left',fontStyle:'bold',fillColor:[245,246,250]} },
-          didParseCell: (data) => {
-            if (data.section==='body' && data.column.index>0) {
-              const val = String(data.cell.raw);
-              if (val==='OK') {
-                data.cell.styles.textColor=[0,130,60];
-                data.cell.styles.fillColor=[220,255,235];
-                data.cell.styles.fontStyle='bold';
-              } else if (val==='Divergente') {
-                data.cell.styles.textColor=[180,0,0];
-                data.cell.styles.fillColor=[255,220,220];
-                data.cell.styles.fontStyle='bold';
-              } else if (val.includes('(BAIXO)') || val.includes('(ALTO)')) {
-                data.cell.styles.textColor=[180,0,0];
-                data.cell.styles.fillColor=[255,220,220];
-                data.cell.styles.fontStyle='bold';
-              } else if (val !== '—') {
-                // Medida dentro do range
-                data.cell.styles.textColor=[0,130,60];
-                data.cell.styles.fillColor=[220,255,235];
-                data.cell.styles.fontStyle='bold';
-              }
-            }
-          }
+          headRows.push(headRow);
+          bodyRows.push(dataRow);
         });
-        y = doc.lastAutoTable.finalY + 4;
-      });
+
+        // Montar head e body intercalados, com célula da amostra na coluna 0
+        // autoTable não suporta rowspan nativo, mas podemos simular intercalando
+        // a célula da amostra só na primeira linha e deixando vazio nas demais.
+        const allRows = [];
+        headRows.forEach((hr, g) => {
+          const dr = bodyRows[g];
+          const isFirst = g === 0;
+          // Linha de título
+          const titleRow = [
+            isFirst
+              ? { content: `Amostra
+${a+1}`, rowSpan: numGrupos * 2, styles:{
+                  fillColor:[40,20,70], textColor:[200,160,255],
+                  fontStyle:'bold', fontSize:11, halign:'center',
+                  valign:'middle', minCellWidth:20
+                }}
+              : null,
+            ...hr
+          ].filter(x => x !== null || isFirst).map(x => x);
+          // Linha de dados
+          const dataRow2 = [...dr];
+
+          if (isFirst) {
+            allRows.push(titleRow);
+          } else {
+            allRows.push(hr); // linha de título sem célula de amostra
+          }
+          allRows.push(isFirst ? dataRow2 : dr);
+        });
+
+        doc.autoTable({
+          startY: y,
+          body: allRows,
+          styles: { fontSize:8, cellPadding:2 },
+          columnStyles: { 0: { cellWidth:18 } },
+          theme: 'grid',
+          tableLineColor: [200,200,200],
+          tableLineWidth: 0.1,
+        });
+        y = doc.lastAutoTable.finalY + 3;
+      }
     }
   }
 
@@ -6947,7 +6976,7 @@ function exportarRecebimentoPDF(recvId) {
       startY:y, head:[['Título','Classif.','Status','Descrição','Ação Imediata','Ação Corretiva']],
       body:ncRows,
       styles:{fontSize:7,cellPadding:2},
-      headStyles:{fillColor:[120,50,0],textColor:[255,200,0],fontStyle:'bold'},
+      headStyles:{fillColor:[60,20,0],textColor:[255,255,255],fontStyle:'bold'},
     });
     y = doc.lastAutoTable.finalY + 8;
   }
