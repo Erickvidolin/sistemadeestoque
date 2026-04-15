@@ -1959,12 +1959,23 @@ function iniciarListenersDB() {
       }
     }, (err) => {
       console.warn(`[DB] Erro no listener de ${colecao}:`, err.message);
-      // Fallback: carrega uma vez via getDocs
+      // Fallback: carrega uma vez via getDocs (ex: sem permissão de onSnapshot)
       window._firebase.getDocs(colRef).then(snap => {
         db[colecao] = snap.docs.map(d => ({id:d.id,...d.data()})).filter(d=>!d._placeholder);
+      }).catch(() => {
+        db[colecao] = []; // sem permissão — mantém array vazio
+      }).finally(() => {
         _colsCarregadas++;
-        if (_colsCarregadas >= _totalCols) updateStorageInfo();
-      }).catch(() => { db[colecao] = []; _colsCarregadas++; });
+        if (_colsCarregadas >= _totalCols) {
+          updateStorageInfo();
+          _getRenderFnPorColecao(colecao)();
+          _piscarIndicadorSync();
+          // Garante que iniciarApp foi chamado mesmo com coleções restritas
+          if (document.getElementById('app') && !document.getElementById('app').classList.contains('logged')) {
+            iniciarApp();
+          }
+        }
+      });
     });
   });
 
@@ -6406,25 +6417,31 @@ function _atualizarAlertaTolerancia(inspId) {
 }
 
 /** Conta total de falhas visuais + medidas fora do range em TODAS as amostras */
+/**
+ * Conta amostras reprovadas (não pontos individualmente).
+ * Uma amostra é reprovada se QUALQUER um dos seus pontos estiver fora do padrão.
+ * Tolerância = número máximo de AMOSTRAS reprovadas permitidas.
+ */
 function _contarFalhas(insp) {
   const pontos = insp.pontos || [];
   if (!pontos.length) return 0;
-  let falhas = 0;
+  let amostrasFalhadas = 0;
   for (let a = 0; a < insp.amostras; a++) {
+    let amostraReprovada = false;
     for (let pi = 0; pi < pontos.length; pi++) {
       const p = pontos[pi];
-      // Number() garante comparação correta com tipos mistos do Firestore
       const r = (insp.resultados||[]).find(x => Number(x.a) === a && Number(x.p) === pi);
       const v = r ? r.v : null;
-      if (p.tipo === 'visual') {
-        if (v === 'nok') falhas++;
+      if (p.tipo === 'visual' && v === 'nok') {
+        amostraReprovada = true; break;
       } else if (p.tipo === 'medida') {
         const st = _checkMedida(v, p);
-        if (st === 'low' || st === 'high') falhas++;
+        if (st === 'low' || st === 'high') { amostraReprovada = true; break; }
       }
     }
+    if (amostraReprovada) amostrasFalhadas++;
   }
-  return falhas;
+  return amostrasFalhadas;
 }
 
 /** Verifica se todos os pontos de todas as amostras estão preenchidos */
@@ -6737,38 +6754,69 @@ function exportarRecebimentoPDF(recvId) {
 
       grupos.forEach((grupo, gIdx) => {
         const piBase = gIdx * COLS;
+        // Cabeçalho: sem emoji, apenas descrição e range
         const head = ['Amostra', ...grupo.map((p,li)=>{
-          const pi=piBase+li;
+          const pi = piBase+li;
           const hasMin = p.min!==''&&p.min!=null&&p.min!==undefined;
           const hasMax = p.max!==''&&p.max!=null&&p.max!==undefined;
-          const range = (hasMin||hasMax) ? `\n${hasMin?p.min:'—'} a ${hasMax?p.max:'—'}${p.unidade?' '+p.unidade:''}` : '';
-          return (p.tipo==='visual'?'👁 ':'📏 ')+(p.desc||'P'+(pi+1))+range;
+          const tipo = p.tipo==='visual' ? '[Visual]' : '[Medida]';
+          const range = (hasMin||hasMax)
+            ? `\n${hasMin?p.min:'—'} a ${hasMax?p.max:'—'}${p.unidade?' '+p.unidade:''}`
+            : '';
+          return `${p.desc||'Ponto '+(pi+1)} ${tipo}${range}`;
         })];
+
+        // Construir linhas — célula tem valor e estado para colorir
         const body = [];
         for (let a=0; a<insp.amostras; a++) {
           const row = [`Amostra ${a+1}`];
           grupo.forEach((p,li)=>{
-            const pi=piBase+li;
+            const pi = piBase+li;
             const res = (insp.resultados||[]).find(x=>Number(x.a)===a&&Number(x.p)===pi);
             if (!res||res.v===null||res.v===undefined) { row.push('—'); return; }
-            if (p.tipo==='visual') { row.push(res.v==='ok'?'✓':'✗'); return; }
-            const st = _checkMedida(res.v,p);
-            const suf = st==='low'?' ↓':st==='high'?' ↑':'';
+            if (p.tipo==='visual') {
+              // "OK" ou "Divergente" — sem emoji para evitar codificação
+              row.push(res.v==='ok' ? 'OK' : 'Divergente');
+              return;
+            }
+            // Medida: valor + indicador de direção
+            const n = Number(res.v);
+            const minV = (p.min!==''&&p.min!=null) ? parseFloat(p.min) : null;
+            const maxV = (p.max!==''&&p.max!=null) ? parseFloat(p.max) : null;
+            let suf = '';
+            if (minV!==null && n<minV) suf=' (BAIXO)';
+            else if (maxV!==null && n>maxV) suf=' (ALTO)';
             row.push(String(res.v)+suf);
           });
           body.push(row);
         }
+
         if (y > 240) { doc.addPage(); y=18; }
         doc.autoTable({
           startY:y, head:[head], body,
-          styles:{fontSize:8,cellPadding:3},
-          headStyles:{fillColor:[40,40,60],textColor:[0,229,160],fontStyle:'bold',fontSize:8,minCellHeight:10},
+          styles:{fontSize:8,cellPadding:3,halign:'center'},
+          headStyles:{fillColor:[40,40,60],textColor:[0,229,160],fontStyle:'bold',fontSize:8,minCellHeight:10,halign:'center'},
+          columnStyles:{ 0:{halign:'left',fontStyle:'bold',fillColor:[245,246,250]} },
           didParseCell: (data) => {
             if (data.section==='body' && data.column.index>0) {
-              const val = data.cell.raw;
-              if (val==='✓') { data.cell.styles.textColor=[0,180,80]; data.cell.styles.fontStyle='bold'; }
-              else if (val==='✗'||String(val).includes('↓')||String(val).includes('↑')) {
-                data.cell.styles.textColor=[200,0,0]; data.cell.styles.fontStyle='bold';
+              const val = String(data.cell.raw);
+              if (val==='OK') {
+                data.cell.styles.textColor=[0,130,60];
+                data.cell.styles.fillColor=[220,255,235];
+                data.cell.styles.fontStyle='bold';
+              } else if (val==='Divergente') {
+                data.cell.styles.textColor=[180,0,0];
+                data.cell.styles.fillColor=[255,220,220];
+                data.cell.styles.fontStyle='bold';
+              } else if (val.includes('(BAIXO)') || val.includes('(ALTO)')) {
+                data.cell.styles.textColor=[180,0,0];
+                data.cell.styles.fillColor=[255,220,220];
+                data.cell.styles.fontStyle='bold';
+              } else if (val !== '—') {
+                // Medida dentro do range
+                data.cell.styles.textColor=[0,130,60];
+                data.cell.styles.fillColor=[220,255,235];
+                data.cell.styles.fontStyle='bold';
               }
             }
           }
