@@ -2307,12 +2307,25 @@ function iniciarApp() {
   else if (currentUser.role === 'quality') navigateTo('qualidade');
   else if (currentUser.role === 'recv') navigateTo('recebimento');
   else {
-    // usuário comum — vai para primeira área permitida
+    // user: navegar para a primeira área disponível em ordem de prioridade
     const areas = currentUser.areas || [];
-    if (areas.includes('recebimento')) navigateTo('recebimento');
-    else if (areas.includes('qualidade')) navigateTo('qualidade');
-    else if (areas.includes('estoque')) navigateTo('entrada');
-    else navigateTo('requisicoes');
+    const prioridade = [
+      {area:'dash',               page:'dash'},
+      {area:'recebimento',        page:'recebimento'},
+      {area:'qualidade',          page:'qualidade'},
+      {area:'estoque',            page:'entrada'},
+      {area:'atendimento',        page:'atendimento'},
+      {area:'transferencia',      page:'transferencia'},
+      {area:'historico-recebimentos', page:'historico-recebimentos'},
+      {area:'nao-conformidades',  page:'nao-conformidades'},
+      {area:'compras',            page:'compras'},
+      {area:'validade',           page:'validade'},
+      {area:'relatorios',         page:'relatorios'},
+      {area:'auditoria',          page:'auditoria'},
+      {area:'requisicoes',        page:'requisicoes'},
+    ];
+    const primeira = prioridade.find(({area}) => areas.includes(area));
+    navigateTo(primeira ? primeira.page : 'requisicoes');
   }
 }
 
@@ -2430,7 +2443,51 @@ function buildNav() {
   });
 }
 
+/** Verifica se o usuário atual tem permissão para acessar a página */
+function _podeAcessarPagina(page) {
+  if (!currentUser) return false;
+  const role = currentUser.role;
+  // adm acessa tudo
+  if (role === 'adm') return true;
+  // quality tem acesso fixo às suas páginas
+  if (role === 'quality') {
+    return ['qualidade','recebimento','historico-recebimentos','nao-conformidades','dash'].includes(page);
+  }
+  // recv tem acesso fixo ao recebimento
+  if (role === 'recv') {
+    return ['recebimento','dash'].includes(page);
+  }
+  // user: verificar areas customizadas
+  const areas = currentUser.areas || [];
+  const AREA_MAP = {
+    'dash':                    ['dash'],
+    'compras':                 ['compras'],
+    'requisicoes':             ['requisicoes'],
+    'atendimento':             ['atendimento'],
+    'entrada':                 ['estoque'],
+    'saida':                   ['estoque'],
+    'analise':                 ['estoque'],
+    'transferencia':           ['transferencia'],
+    'recebimento':             ['recebimento'],
+    'qualidade':               ['qualidade'],
+    'historico-recebimentos':  ['historico-recebimentos'],
+    'nao-conformidades':       ['nao-conformidades'],
+    'validade':                ['validade'],
+    'relatorios':              ['relatorios'],
+    'auditoria':               ['auditoria'],
+  };
+  const pagesForUser = Object.entries(AREA_MAP)
+    .filter(([, reqs]) => reqs.some(a => areas.includes(a)))
+    .map(([p]) => p);
+  return pagesForUser.includes(page);
+}
+
 function navigateTo(page) {
+  // Verificar acesso antes de navegar
+  if (!_podeAcessarPagina(page)) {
+    console.warn('[StockFlow] Acesso negado à página:', page);
+    return;
+  }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const pg = document.getElementById('page-' + page);
@@ -6007,113 +6064,163 @@ function _buildAmostragemHTML(insp) {
   if (!pontos.length) return '';
   const resultados = insp.resultados || [];
   const isPendente = insp.status === 'pendente';
-  const COLS = 4; // pontos por linha
+  const COLS = 4; // pontos por linha dentro de cada bloco de amostra
 
-  // Dividir pontos em grupos de COLS
+  // Dividir pontos em grupos de COLS para as linhas do cabeçalho e corpo
   const grupos = [];
   for (let i = 0; i < pontos.length; i += COLS) grupos.push(pontos.slice(i, i + COLS));
+  const numGrupos = grupos.length;
 
-  let html = '<div style="overflow-x:auto;">';
+  // ── Função auxiliar: célula de ponto (medida ou visual) ────────────────
+  function _celulaPonto(p, pi, a, isPend, res) {
+    const r = res;
+    if (isPend) {
+      if (p.tipo === 'visual') {
+        const key = `${insp.id}_a${a}_p${pi}`;
+        const checkedOk  = r && r.v==='ok'  ? 'checked' : '';
+        const checkedNok = r && r.v==='nok' ? 'checked' : '';
+        return `<td style="padding:8px 12px;border:1px solid var(--border);min-width:110px;">
+          <div style="display:flex;gap:12px;align-items:center;justify-content:center;">
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:13px;color:var(--accent);">
+              <input type="radio" name="insp_${key}" value="ok" ${checkedOk}
+                onchange="setInspResult('${insp.id}',${a},${pi},'ok',null)"
+                style="accent-color:var(--accent);width:16px;height:16px;"> ✓
+            </label>
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:13px;color:var(--danger);">
+              <input type="radio" name="insp_${key}" value="nok" ${checkedNok}
+                onchange="setInspResult('${insp.id}',${a},${pi},'nok',null)"
+                style="accent-color:var(--danger);width:16px;height:16px;"> ✗
+            </label>
+          </div>
+        </td>`;
+      } else {
+        const key = `${insp.id}_a${a}_p${pi}`;
+        const icoNow = _getMedidaIcon(r, p);
+        const clrNow = _getMedidaTextColor(r, p);
+        const bdrNow = clrNow==='#ff3b5c'?'rgba(255,59,92,.6)':clrNow==='#00e5a0'?'rgba(0,229,160,.6)':'var(--border)';
+        return `<td style="padding:6px 10px;border:1px solid var(--border);min-width:120px;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <div style="display:flex;align-items:center;gap:4px;">
+              <input type="number" placeholder="valor"
+                value="${r&&r.v!==null&&r.v!==undefined?r.v:''}"
+                data-insp-key="${key}"
+                data-insp-id="${insp.id}"
+                data-amostra="${a}"
+                data-ponto="${pi}"
+                data-min="${p.min!==''&&p.min!=null&&p.min!==undefined?p.min:''}"
+                data-max="${p.max!==''&&p.max!=null&&p.max!==undefined?p.max:''}"
+                data-unidade="${p.unidade||''}"
+                oninput="_onMedidaInput(this)"
+                style="width:94px;font-size:17px;font-weight:700;text-align:center;padding:5px 6px;background:${_getMedidaBg(r,p)};color:${clrNow};border:1px solid ${bdrNow};border-radius:6px;transition:background .2s,color .2s,border-color .2s;outline:none;">
+              <span data-insp-icon="${key}" style="color:${clrNow};font-weight:900;font-size:16px;min-width:16px;">${icoNow}</span>
+            </div>
+            ${p.unidade?`<span style="font-size:9px;color:var(--muted);font-weight:600;">${escHtml(p.unidade)}</span>`:''}
+          </div>
+        </td>`;
+      }
+    } else {
+      // Modo visualização
+      if (p.tipo === 'visual') {
+        const v = r ? r.v : '—';
+        const cor = v==='ok'?'var(--accent)':v==='nok'?'var(--danger)':'var(--muted)';
+        return `<td style="padding:10px 12px;border:1px solid var(--border);text-align:center;">
+          <span style="font-size:18px;color:${cor};">${v==='ok'?'✓':v==='nok'?'✗':'—'}</span>
+        </td>`;
+      } else {
+        const v = r && r.v !== null && r.v !== undefined ? r.v : '—';
+        const st = r ? _checkMedida(r.v, p) : null;
+        const txtC = st==='ok'?'#00e5a0':st==='low'||st==='high'?'#ff3b5c':'var(--muted)';
+        const bgC  = st==='ok'?'rgba(0,229,160,.12)':st==='low'||st==='high'?'rgba(255,59,92,.12)':'transparent';
+        const icoV = st==='low'?' ↓':st==='high'?' ↑':'';
+        return `<td style="padding:8px 12px;border:1px solid var(--border);text-align:center;">
+          <span style="font-weight:700;font-size:15px;color:${txtC};background:${bgC};padding:3px 10px;border-radius:6px;display:inline-flex;align-items:center;gap:3px;">
+            ${v}${icoV?`<span style="font-size:11px;">${icoV}</span>`:''}
+          </span>
+        </td>`;
+      }
+    }
+  }
 
-  grupos.forEach((grupo, gIdx) => {
-    const piBase = gIdx * COLS; // índice global do primeiro ponto do grupo
-    html += `<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:${gIdx<grupos.length-1?'2':'8'}px;">
-      <thead><tr>
-        <th style="padding:8px 12px;background:var(--surface2);border:1px solid var(--border);font-family:'Syne',sans-serif;font-size:10px;letter-spacing:.5px;white-space:nowrap;min-width:90px;">AMOSTRA</th>`;
-
-    grupo.forEach((p, localIdx) => {
-      const pi = piBase + localIdx;
+  // ── Cabeçalho de cada grupo de pontos ────────────────────────────────────
+  function _headerGrupo(grupo, piBase) {
+    return grupo.map((p, li) => {
+      const pi = piBase + li;
       const hasMin = p.tipo==='medida' && p.min!==''&&p.min!=null&&p.min!==undefined;
       const hasMax = p.tipo==='medida' && p.max!==''&&p.max!=null&&p.max!==undefined;
       const hasRange = hasMin || hasMax;
-      const unidStr  = p.unidade ? `<span style="font-size:11px;color:var(--muted);font-weight:400;"> ${escHtml(p.unidade)}</span>` : '';
+      const unidStr = p.unidade ? `<span style="font-size:10px;color:var(--muted);font-weight:400;"> ${escHtml(p.unidade)}</span>` : '';
       const rangeStr = hasRange
-        ? `<br><span style="font-weight:800;color:#a855f7;font-size:14px;letter-spacing:0;">${hasMin?p.min:'—'} a ${hasMax?p.max:'—'}</span>${unidStr}`
-        : (p.tipo==='medida' ? '<br><span style="font-size:11px;color:var(--muted);">sem range</span>' : '');
-      html += `<th style="padding:10px 12px;background:var(--surface2);border:1px solid var(--border);font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.3px;color:${p.tipo==='visual'?'#14b8a6':'var(--warn)'};">
-        ${p.tipo==='visual'?'👁':'📏'} ${escHtml(p.desc||'Ponto '+(pi+1))}
-        ${rangeStr}
+        ? `<br><span style="font-weight:800;color:#a855f7;font-size:13px;">${hasMin?p.min:'—'} a ${hasMax?p.max:'—'}</span>${unidStr}`
+        : (p.tipo==='medida' ? '<br><span style="font-size:10px;color:var(--muted);">sem range</span>' : '');
+      return `<th style="padding:8px 12px;background:var(--surface2);border:1px solid var(--border);font-family:'Syne',sans-serif;font-size:10px;letter-spacing:.3px;color:${p.tipo==='visual'?'#14b8a6':'var(--warn)'};">
+        ${p.tipo==='visual'?'👁':'📏'} ${escHtml(p.desc||'Ponto '+(pi+1))}${rangeStr}
       </th>`;
-    });
-    html += '</tr></thead><tbody>';
+    }).join('');
+  }
 
-    for (let a = 0; a < insp.amostras; a++) {
-      html += `<tr>
-        <td style="padding:8px 12px;border:1px solid var(--border);font-family:'Syne',sans-serif;font-weight:700;background:rgba(168,85,247,.06);white-space:nowrap;">Amostra ${a+1}</td>`;
+  // ── Estrutura: uma tabela por amostra ────────────────────────────────────
+  // Cada amostra é uma mini-tabela independente:
+  //   - cabeçalho com linha por grupo (títulos acima dos pontos)
+  //   - corpo com uma linha por grupo (inputs dos pontos)
+  //   - célula "Amostra N" com rowspan abraçando todas as linhas
+  //
+  // Isso garante que os títulos de cada grupo ficam ACIMA dos seus inputs,
+  // alinhados verticalmente, sem mistura entre grupos.
 
-      grupo.forEach((p, localIdx) => {
-        const pi = piBase + localIdx;
-        const key = `${insp.id}_a${a}_p${pi}`;
-        const r = resultados.find(x => Number(x.a)===a && Number(x.p)===pi);
+  // Cada amostra = uma tabela sem thead/tbody separados.
+  // rowspan da célula "Amostra N" cobre numGrupos*2 linhas
+  // (1 linha de título + 1 linha de inputs, por grupo).
+  const rowspanTotal = numGrupos * 2;
 
-        if (isPendente) {
-          if (p.tipo === 'visual') {
-            const checkedOk  = r && r.v==='ok'  ? 'checked' : '';
-            const checkedNok = r && r.v==='nok' ? 'checked' : '';
-            html += `<td style="padding:8px 12px;border:1px solid var(--border);min-width:110px;">
-              <div style="display:flex;gap:12px;align-items:center;justify-content:center;">
-                <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:13px;color:var(--accent);">
-                  <input type="radio" name="insp_${key}" value="ok" ${checkedOk}
-                    onchange="setInspResult('${insp.id}',${a},${pi},'ok',null)"
-                    style="accent-color:var(--accent);width:16px;height:16px;"> ✓
-                </label>
-                <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:13px;color:var(--danger);">
-                  <input type="radio" name="insp_${key}" value="nok" ${checkedNok}
-                    onchange="setInspResult('${insp.id}',${a},${pi},'nok',null)"
-                    style="accent-color:var(--danger);width:16px;height:16px;"> ✗
-                </label>
-              </div>
-            </td>`;
-          } else {
-            const icoNow = _getMedidaIcon(r, p);
-            const clrNow = _getMedidaTextColor(r, p);
-            html += `<td style="padding:6px 10px;border:1px solid var(--border);min-width:130px;">
-              <div style="display:flex;flex-direction:column;align-items:center;gap:2px;justify-content:center;">
-                <div style="display:flex;align-items:center;gap:4px;">
-                  <input type="number" placeholder="valor"
-                    value="${r&&r.v!==null&&r.v!==undefined?r.v:''}"
-                    data-insp-key="${key}"
-                    data-insp-id="${insp.id}"
-                    data-amostra="${a}"
-                    data-ponto="${pi}"
-                    data-min="${p.min!==''&&p.min!=null&&p.min!==undefined?p.min:''}"
-                    data-max="${p.max!==''&&p.max!=null&&p.max!==undefined?p.max:''}"
-                    data-unidade="${p.unidade||''}"
-                    oninput="_onMedidaInput(this)"
-                    style="width:100px;font-size:18px;font-weight:700;text-align:center;padding:6px 8px;background:${_getMedidaBg(r,p)};color:${clrNow};border:1px solid ${clrNow==='#ff3b5c'?'rgba(255,59,92,.6)':clrNow==='#00e5a0'?'rgba(0,229,160,.6)':'var(--border)'};border-radius:6px;transition:background .2s,color .2s,border-color .2s;outline:none;">
-                  <span data-insp-icon="${key}" style="color:${clrNow};font-weight:900;font-size:18px;min-width:18px;">${icoNow}</span>
-                </div>
-                ${p.unidade?`<span style="font-size:10px;color:var(--muted);font-weight:600;">${escHtml(p.unidade)}</span>`:''}
-              </div>
-            </td>`;
-          }
-        } else {
-          // Modo visualização
-          if (p.tipo === 'visual') {
-            const v = r ? r.v : '—';
-            const cor = v==='ok'?'var(--accent)':v==='nok'?'var(--danger)':'var(--muted)';
-            html += `<td style="padding:10px 12px;border:1px solid var(--border);text-align:center;">
-              <span style="font-size:20px;color:${cor};">${v==='ok'?'✓':v==='nok'?'✗':'—'}</span>
-            </td>`;
-          } else {
-            const v = r && r.v !== null ? r.v : '—';
-            const st = r ? _checkMedida(r.v, p) : null;
-            const txtC = st==='ok'?'#00e5a0':st==='low'||st==='high'?'#ff3b5c':'var(--muted)';
-            const bgC  = st==='ok'?'rgba(0,229,160,.12)':st==='low'||st==='high'?'rgba(255,59,92,.12)':'transparent';
-            const icoV = st==='low'?' ↓':st==='high'?' ↑':'';
-            const hint = st==='low'?`(abaixo de ${p.min})`:st==='high'?`(acima de ${p.max})`:'';
-            html += `<td style="padding:10px 12px;border:1px solid var(--border);text-align:center;" title="${hint}">
-              <span style="font-weight:700;font-size:17px;color:${txtC};background:${bgC};padding:4px 12px;border-radius:6px;display:inline-flex;align-items:center;gap:4px;">
-                ${v}${icoV?`<span style="font-size:13px;">${icoV}</span>`:''}
-              </span>
-            </td>`;
-          }
-        }
+  // Estilos base reutilizáveis
+  const sTH  = 'padding:7px 10px;background:var(--surface2);border:1px solid var(--border);font-family:\'Syne\',sans-serif;font-size:10px;letter-spacing:.3px;font-weight:700;';
+  const sTDAm = 'padding:6px 10px;border:1px solid var(--border);font-family:\'Syne\',sans-serif;font-weight:800;font-size:13px;background:rgba(168,85,247,.1);white-space:nowrap;vertical-align:middle;text-align:center;min-width:80px;';
+
+  let html = '<div>';
+
+  for (let a = 0; a < insp.amostras; a++) {
+    if (a > 0) html += '<div style="height:8px;"></div>';
+
+    // Uma tabela por amostra — sem thead/tbody, tudo em tr simples
+    // A célula da amostra fica na coluna 0 com rowspan abrangendo todos os grupos
+    html += '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+
+    grupos.forEach((grupo, g) => {
+      const piBase = g * COLS;
+      const isFirst = g === 0;
+
+      // ── Linha de título do grupo ─────────────────────────────────────
+      html += '<tr>';
+      if (isFirst) {
+        // Célula da amostra: rowspan = numGrupos*2 (título + dados para cada grupo)
+        html += `<td style="${sTDAm}" rowspan="${rowspanTotal}">Amostra<br><span style="font-size:20px;font-family:\'Syne\',sans-serif;color:#a855f7;">${a+1}</span></td>`;
+      }
+      // Títulos dos pontos deste grupo
+      grupo.forEach((p, li) => {
+        const pi = piBase + li;
+        const hasMin = p.tipo==='medida' && p.min!==''&&p.min!=null&&p.min!==undefined;
+        const hasMax = p.tipo==='medida' && p.max!==''&&p.max!=null&&p.max!==undefined;
+        const rangeStr = (hasMin||hasMax)
+          ? `<br><span style="font-weight:800;color:#a855f7;font-size:12px;">${hasMin?p.min:'—'} a ${hasMax?p.max:'—'}${p.unidade?' '+escHtml(p.unidade):''}</span>`
+          : (p.tipo==='medida' ? '<br><span style="font-size:9px;color:var(--muted);">sem range</span>' : '');
+        html += `<th style="${sTH}color:${p.tipo==='visual'?'#14b8a6':'var(--warn)'};">
+          ${p.tipo==='visual'?'👁':'📏'} ${escHtml(p.desc||'Ponto '+(pi+1))}${rangeStr}
+        </th>`;
       });
       html += '</tr>';
-    }
-    html += '</tbody></table>';
-  });
+
+      // ── Linha de dados (inputs) do grupo ─────────────────────────────
+      html += '<tr>';
+      grupo.forEach((p, li) => {
+        const pi = piBase + li;
+        const r = resultados.find(x => Number(x.a)===a && Number(x.p)===pi);
+        html += _celulaPonto(p, pi, a, isPendente, r);
+      });
+      html += '</tr>';
+    });
+
+    html += '</table>';
+  }
 
   html += '</div>';
   return html;
