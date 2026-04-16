@@ -796,7 +796,20 @@ tr:hover td{background:rgba(255,255,255,.02);}
           <button class="btn btn-primary" onclick="salvarMaterial()" style="width:100%;margin-top:16px;">Cadastrar Material</button>
         </div>
         <div class="card">
-          <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:14px;">Materiais Cadastrados</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+            <div style="font-family:'Syne',sans-serif;font-weight:700;">Materiais Cadastrados</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <div style="position:relative;">
+                <svg style="position:absolute;left:9px;top:50%;transform:translateY(-50%);pointer-events:none;" width="14" height="14" fill="none" stroke="var(--muted)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                <input id="mat-busca" type="text" placeholder="Buscar nome, categoria..." oninput="renderMateriais()" style="padding:8px 12px 8px 30px;font-size:13px;width:220px;">
+              </div>
+              <select id="mat-filtro-critico" onchange="renderMateriais()" style="padding:8px 12px;font-size:13px;">
+                <option value="">Todos</option>
+                <option value="critico">Somente Críticos</option>
+                <option value="normal">Somente Normais</option>
+              </select>
+            </div>
+          </div>
           <div class="table-scroll-wrap"><table><thead><tr><th>Nome</th><th>Cat.</th><th>Unid.</th><th>Mín</th><th>Máx</th><th>Dias</th><th>Crítico</th><th></th></tr></thead><tbody id="materiais-tbody"></tbody></table></div>
           <div class="data-cards" id="materiais-cards"></div>
           <div id="materiais-empty" style="text-align:center;color:var(--muted);padding:28px;display:none;">Nenhum material cadastrado.</div>
@@ -822,6 +835,10 @@ tr:hover td{background:rgba(255,255,255,.02);}
             <div class="form-group"><label>Validade</label><input id="ent-val" type="date"></div>
           </div>
           <div class="form-group"><label>Observação</label><input id="ent-obs" type="text" placeholder="Opcional"></div>
+          <div id="ent-teste-box" style="display:none;background:rgba(255,149,0,.06);border:1px solid rgba(255,149,0,.25);border-radius:8px;padding:10px 14px;margin-bottom:12px;">
+            <label class="checkbox-wrap"><input type="checkbox" id="ent-teste-sistema"><span style="font-size:13px;color:var(--warn);font-weight:600;">🧪 Registrar como Teste de Sistema</span></label>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;">Entradas de teste não afetam o estoque real e podem ser excluídas.</div>
+          </div>
           <button class="btn btn-primary" onclick="registrarEntrada()" style="width:100%;">Registrar Entrada</button>
         </div>
         <div class="card">
@@ -845,6 +862,10 @@ tr:hover td{background:rgba(255,255,255,.02);}
           <div class="form-group"><label>Quantidade *</label><input id="sai-qtd" type="number" placeholder="0" min="1"></div>
           <div class="form-group"><label>Motivo</label><input id="sai-motivo" type="text" placeholder="Ex: Consumo, Vencimento..."></div>
           <div class="form-group"><label>Responsável</label><input id="sai-resp" type="text" placeholder="Nome do responsável"></div>
+          <div id="sai-teste-box" style="display:none;background:rgba(255,149,0,.06);border:1px solid rgba(255,149,0,.25);border-radius:8px;padding:10px 14px;margin-bottom:12px;">
+            <label class="checkbox-wrap"><input type="checkbox" id="sai-teste-sistema"><span style="font-size:13px;color:var(--warn);font-weight:600;">🧪 Registrar como Teste de Sistema</span></label>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;">Saídas de teste podem ser excluídas e não afetam o estoque real.</div>
+          </div>
           <button class="btn btn-danger" onclick="registrarSaida()" style="width:100%;">Registrar Saída</button>
         </div>
         <div class="card">
@@ -960,6 +981,10 @@ tr:hover td{background:rgba(255,255,255,.02);}
           </div>
           <div class="form-group"><label>Motivo</label><input id="trf-motivo" type="text" placeholder="Ex: Redistribuição..."></div>
           <div class="form-group"><label>Responsável</label><input id="trf-resp" type="text"></div>
+          <div id="trf-teste-box" style="display:none;background:rgba(255,149,0,.06);border:1px solid rgba(255,149,0,.25);border-radius:8px;padding:10px 14px;margin-bottom:12px;">
+            <label class="checkbox-wrap"><input type="checkbox" id="trf-teste-sistema"><span style="font-size:13px;color:var(--warn);font-weight:600;">🧪 Registrar como Teste de Sistema</span></label>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;">Transferências de teste podem ser excluídas e não afetam o estoque real.</div>
+          </div>
           <button class="btn btn-primary" onclick="registrarTransferencia()" style="width:100%;">Registrar Transferência</button>
         </div>
         <div class="card">
@@ -1006,6 +1031,10 @@ tr:hover td{background:rgba(255,255,255,.02);}
             <button class="btn btn-secondary" onclick="adicionarItemRequisicao()" style="width:100%;margin-top:10px;border-color:rgba(0,229,160,.3);color:var(--accent);">+ Adicionar à Lista</button>
           </div>
 
+          <div id="req-teste-box" style="display:none;background:rgba(255,149,0,.06);border:1px solid rgba(255,149,0,.25);border-radius:8px;padding:10px 14px;margin-bottom:12px;">
+            <label class="checkbox-wrap"><input type="checkbox" id="req-teste-sistema"><span style="font-size:13px;color:var(--warn);font-weight:600;">🧪 Registrar como Teste de Sistema</span></label>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;">Requisições de teste podem ser excluídas e não afetam o estoque real.</div>
+          </div>
           <button class="btn btn-primary" onclick="registrarRequisicao()" style="width:100%;" id="btn-enviar-req">Enviar Requisição</button>
         </div>
         <div>
@@ -1568,11 +1597,12 @@ tr:hover td{background:rgba(255,255,255,.02);}
     <div class="section-sub">Gerencie os dispositivos sujeitos à calibração periódica</div>
 
     <!-- Stats -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:20px;" id="calib-stats-area">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px;margin-bottom:20px;" id="calib-stats-area">
       <div class="stat-card"><div style="color:var(--muted);font-size:10px;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:.5px;text-transform:uppercase;">Total</div><div id="calib-stat-total" style="font-size:28px;font-family:'Syne',sans-serif;font-weight:800;margin-top:4px;">0</div></div>
       <div class="stat-card" style="border-color:rgba(0,229,160,.3);"><div style="color:var(--muted);font-size:10px;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:.5px;text-transform:uppercase;">Válidos</div><div id="calib-stat-ok" style="font-size:28px;font-family:'Syne',sans-serif;font-weight:800;margin-top:4px;color:var(--accent);">0</div></div>
       <div class="stat-card warn" style="border-color:rgba(255,149,0,.4);"><div style="color:var(--muted);font-size:10px;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:.5px;text-transform:uppercase;">A Vencer (30d)</div><div id="calib-stat-prox" style="font-size:28px;font-family:'Syne',sans-serif;font-weight:800;margin-top:4px;color:var(--warn);">0</div></div>
       <div class="stat-card" style="border-color:rgba(255,59,92,.4);"><div style="color:var(--muted);font-size:10px;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:.5px;text-transform:uppercase;">Vencidos</div><div id="calib-stat-venc" style="font-size:28px;font-family:'Syne',sans-serif;font-weight:800;margin-top:4px;color:var(--danger);">0</div></div>
+      <div class="stat-card" style="border-color:rgba(100,149,237,.4);"><div style="color:var(--muted);font-size:10px;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:.5px;text-transform:uppercase;">Em Calibração</div><div id="calib-stat-em" style="font-size:28px;font-family:'Syne',sans-serif;font-weight:800;margin-top:4px;color:#6495ed;">0</div></div>
     </div>
 
     <div class="form-table-layout" style="display:grid;grid-template-columns:400px 1fr;gap:24px;align-items:start;">
@@ -1620,7 +1650,13 @@ tr:hover td{background:rgba(255,255,255,.02);}
           <label>Observações</label>
           <textarea id="calib-obs" rows="2" placeholder="Observações adicionais..." style="resize:vertical;font-size:13px;"></textarea>
         </div>
-        <div style="display:flex;gap:10px;">
+        <div class="form-group">
+          <label class="checkbox-wrap"><input type="checkbox" id="calib-em-calib">
+            <span style="font-size:13px;color:#6495ed;font-weight:600;">🔧 Equipamento em calibração no momento</span>
+          </label>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Marque quando o equipamento estiver fora para calibração.</div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <button class="btn btn-secondary" id="calib-btn-cancelar" onclick="_calibCancelarEdicao()" style="display:none;flex:1;">Cancelar</button>
           <button class="btn btn-primary" onclick="salvarDispositivo()" style="flex:2;" id="calib-btn-salvar">Cadastrar Dispositivo</button>
         </div>
@@ -1630,7 +1666,13 @@ tr:hover td{background:rgba(255,255,255,.02);}
       <div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
           <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:15px;">Dispositivos Cadastrados</div>
-          <input id="calib-busca" type="text" placeholder="Buscar tag, nome ou setor..." oninput="renderCalibracao()" style="padding:8px 12px;font-size:13px;width:220px;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <input id="calib-busca" type="text" placeholder="Buscar tag, nome ou setor..." oninput="renderCalibracao()" style="padding:8px 12px;font-size:13px;width:200px;">
+            <button onclick="exportarCalibracaoPDFGeral()" style="background:rgba(255,59,92,.1);border:1px solid rgba(255,59,92,.3);color:var(--danger);border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:6px;white-space:nowrap;">
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              PDF Geral
+            </button>
+          </div>
         </div>
         <div id="calib-lista"></div>
         <div id="calib-empty" style="text-align:center;color:var(--muted);padding:60px;display:none;">
@@ -2599,13 +2641,13 @@ function navigateTo(page) {
 
   if (page === 'dash') renderDash();
   if (page === 'compras') renderCompras();
-  if (page === 'entrada') { populateSel('ent-material', db.materiais); populateSel('ent-estoque', db.estoques); renderEntradas(); }
-  if (page === 'saida') { populateSel('sai-estoque', db.estoques); renderSaidas(); setTimeout(()=>{const r=document.getElementById('sai-resp');if(r&&!r.value&&currentUser)r.value=currentUser.nome;},50); }
+  if (page === 'entrada') { populateSel('ent-material', db.materiais); populateSel('ent-estoque', db.estoques); renderEntradas(); _mostrarTesteBoxAdm(); }
+  if (page === 'saida') { populateSel('sai-estoque', db.estoques); renderSaidas(); _mostrarTesteBoxAdm(); setTimeout(()=>{const r=document.getElementById('sai-resp');if(r&&!r.value&&currentUser)r.value=currentUser.nome;},50); }
   if (page === 'analise') { populateSel('analise-estoque', db.estoques); }
-  if (page === 'transferencia') { iniciarTransferencia(); renderTransferencias(); }
+  if (page === 'transferencia') { iniciarTransferencia(); renderTransferencias(); _mostrarTesteBoxAdm(); }
   if (page === 'backup') { atualizarPreviewBackup(); renderSnapshots(); }
   if (page === 'usuarios') renderUsuarios();
-  if (page === 'requisicoes') { popularSelectEstoqueReq(); renderMinhasReq(); }
+  if (page === 'requisicoes') { popularSelectEstoqueReq(); renderMinhasReq(); _mostrarTesteBoxAdm(); }
   if (page === 'atendimento') renderAtendimento();
   if (page === 'cadastrar-material') renderMateriais();
   if (page === 'cadastrar-estoque') renderEstoques();
@@ -2847,8 +2889,20 @@ function renderMateriais() {
   const tb = document.getElementById('materiais-tbody');
   const em = document.getElementById('materiais-empty');
   if (!tb) return; tb.innerHTML = '';
-  if (!db.materiais.length) { em.style.display='block'; return; } em.style.display='none';
-  db.materiais.forEach(m => {
+  const busca  = (document.getElementById('mat-busca')?.value || '').trim().toLowerCase();
+  const filtro = document.getElementById('mat-filtro-critico')?.value || '';
+  const lista = db.materiais.filter(m => {
+    if (busca && !(
+      (m.nome||'').toLowerCase().includes(busca) ||
+      (m.cat||'').toLowerCase().includes(busca) ||
+      (m.unidade||'').toLowerCase().includes(busca)
+    )) return false;
+    if (filtro === 'critico' && !m.critico) return false;
+    if (filtro === 'normal'  &&  m.critico) return false;
+    return true;
+  });
+  if (!lista.length) { em.style.display='block'; return; } em.style.display='none';
+  lista.forEach(m => {
     tb.innerHTML += `<tr>
       <td><strong>${m.nome}</strong></td>
       <td style="color:var(--muted)">${m.cat||'—'}</td>
@@ -2960,12 +3014,14 @@ async function registrarEntrada() {
   const mesclou=!!item;
   if (item) { item.qtd+=qtd; if(val)item.validade=val; }
   else { item={id:uid(),materialId:matId,estoqueId:estId,lote:loteVal,qtd,validade:val,obs}; db.itens.push(item); }
+  const isTeste = currentUser.role === 'adm' && document.getElementById('ent-teste-sistema')?.checked;
   const mat=db.materiais.find(m=>m.id===matId);
   const est=db.estoques.find(e=>e.id===estId);
-  const entrada={id:uid(),materialId:matId,estoqueId:estId,materialNome:mat.nome,estoqueNome:est.nome,lote:loteVal,qtd,validade:val,obs,data:new Date().toISOString()};
+  const entrada={id:uid(),materialId:matId,estoqueId:estId,materialNome:mat.nome,estoqueNome:est.nome,lote:loteVal,qtd,validade:val,obs,teste:!!isTeste,data:new Date().toISOString()};
   db.entradas.unshift(entrada);
   ['ent-qtd','ent-val','ent-lote','ent-obs'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('ent-semlote').checked=false; toggleLote(); renderEntradas();
+  const ets=document.getElementById('ent-teste-sistema'); if(ets) ets.checked=false;
   toast(mesclou?`Lote "${loteVal}" somado! Total: ${item.qtd}`:`Entrada de ${qtd} ${mat.nome} registrada!`);
   await logAudit('entrada', mesclou?`Lote "${loteVal}" somado (+${qtd})`:`Entrada de ${qtd}x ${mat.nome}`, `Lote: ${loteVal} | Estoque: ${est.nome} | Qtd: +${qtd}`);
   try {
@@ -2979,14 +3035,17 @@ function renderEntradas() {
   if(!tb)return; tb.innerHTML='';
   if(!db.entradas.length){em.style.display='block';return;} em.style.display='none';
   db.entradas.slice(0,20).forEach(e=>{
-    tb.innerHTML+=`<tr>
-      <td><strong>${e.materialNome}</strong></td>
+    tb.innerHTML+=`<tr${e.teste?' style="opacity:.7;background:rgba(255,149,0,.04)"':''}>
+      <td><strong>${e.materialNome}</strong>${e.teste?'<span style="margin-left:6px;font-size:10px;background:rgba(255,149,0,.15);color:var(--warn);padding:1px 6px;border-radius:3px;">🧪 TESTE</span>':''}</td>
       <td style="color:var(--muted)">${e.estoqueNome}</td>
       <td><span style="font-size:11px;background:rgba(0,229,160,.1);color:var(--accent);padding:2px 7px;border-radius:4px;">${e.lote}</span></td>
       <td><strong style="color:var(--accent)">+${e.qtd}</strong></td>
       <td style="color:var(--muted)">${fmt(e.validade)}</td>
       <td style="color:var(--muted);font-size:11px;">${fmt(e.data)}</td>
-      <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px;" onclick="abrirEditarEntrada('${e.id}')">Editar</button></td>
+      <td style="display:flex;gap:4px;">
+        <button class="btn btn-secondary" style="padding:3px 8px;font-size:11px;" onclick="abrirEditarEntrada('${e.id}')">Editar</button>
+        ${currentUser&&currentUser.role==='adm'?`<button class="btn btn-danger" style="padding:3px 7px;font-size:11px;" onclick="excluirRegistroTeste('entradas','${e.id}')" title="${e.teste?'Excluir teste':'Excluir'}">✕</button>`:''}
+      </td>
     </tr>`;
   });
 }
@@ -3016,12 +3075,14 @@ async function registrarSaida() {
   const item=db.itens.find(i=>i.id===itemId); if(!item)return;
   if(qtd>item.qtd)return toast(`Insuficiente. Disponível: ${item.qtd}`,'error');
   item.qtd-=qtd;
+  const isTeste = currentUser.role === 'adm' && document.getElementById('sai-teste-sistema')?.checked;
   const mat=db.materiais.find(m=>m.id===item.materialId);
   const est=db.estoques.find(e=>e.id===estId);
-  const saida={id:uid(),materialNome:mat?mat.nome:'?',estoqueNome:est?est.nome:'?',lote:item.lote,qtd,motivo,resp,data:new Date().toISOString()};
+  const saida={id:uid(),materialNome:mat?mat.nome:'?',estoqueNome:est?est.nome:'?',lote:item.lote,qtd,motivo,resp,teste:!!isTeste,data:new Date().toISOString()};
   db.saidas.unshift(saida);
-  ['sai-qtd','sai-motivo','sai-resp'].forEach(i=>document.getElementById(i).value='');
+  ['sai-qtd','sai-motivo'].forEach(i=>document.getElementById(i).value='');
   if(currentUser){const sr=document.getElementById('sai-resp');if(sr)sr.value=currentUser.nome;}
+  const sts=document.getElementById('sai-teste-sistema'); if(sts) sts.checked=false;
   carregarItensSaida(); renderSaidas();
   await logAudit('saida', `Saída de ${qtd}x ${mat?mat.nome:'?'}`, `Lote: ${item.lote} | Estoque: ${est?est.nome:'?'} | Qtd: -${qtd}${motivo?' | Motivo: '+motivo:''}${resp?' | Resp: '+resp:''}`);
   toast(`Saída de ${qtd} registrada!`);
@@ -3036,13 +3097,14 @@ function renderSaidas() {
   if(!tb)return; tb.innerHTML='';
   if(!db.saidas.length){em.style.display='block';return;} em.style.display='none';
   db.saidas.slice(0,20).forEach(s=>{
-    tb.innerHTML+=`<tr>
-      <td><strong>${s.materialNome}</strong></td>
+    tb.innerHTML+=`<tr${s.teste?' style="opacity:.7;background:rgba(255,149,0,.04)"':''}>
+      <td><strong>${s.materialNome}</strong>${s.teste?'<span style="margin-left:6px;font-size:10px;background:rgba(255,149,0,.15);color:var(--warn);padding:1px 6px;border-radius:3px;">🧪 TESTE</span>':''}</td>
       <td style="color:var(--muted)">${s.estoqueNome}</td>
       <td><span style="font-size:11px;background:rgba(255,59,92,.1);color:var(--danger);padding:2px 7px;border-radius:4px;">${s.lote}</span></td>
       <td><strong style="color:var(--danger)">-${s.qtd}</strong></td>
       <td style="color:var(--muted)">${s.motivo||'—'}</td>
       <td style="color:var(--muted);font-size:11px;">${fmt(s.data)}</td>
+      <td>${currentUser&&currentUser.role==='adm'?`<button class="btn btn-danger" style="padding:3px 7px;font-size:11px;" onclick="excluirRegistroTeste('saidas','${s.id}')" title="Excluir">✕</button>`:''}</td>
     </tr>`;
   });
 }
@@ -3411,7 +3473,8 @@ async function registrarTransferencia(){
   if(itemDest){itemDest.qtd+=qtd;if(itemOrig.validade)itemDest.validade=itemOrig.validade;}
   else{itemDest={id:uid(),materialId:itemOrig.materialId,estoqueId:estDestId,lote:loteDest,qtd,validade:itemOrig.validade,obs:itemOrig.obs};db.itens.push(itemDest);}
   if(!db.transferencias)db.transferencias=[];
-  const trf={id:uid(),materialNome:mat?mat.nome:'?',loteOrigem:itemOrig.lote,loteDestino:loteDest,estOrigNome:estOrig?estOrig.nome:'?',estDestNome:estDest?estDest.nome:'?',qtd,motivo,resp,data:new Date().toISOString()};
+  const isTrfTeste = currentUser.role === 'adm' && document.getElementById('trf-teste-sistema')?.checked;
+  const trf={id:uid(),materialNome:mat?mat.nome:'?',loteOrigem:itemOrig.lote,loteDestino:loteDest,estOrigNome:estOrig?estOrig.nome:'?',estDestNome:estDest?estDest.nome:'?',qtd,motivo,resp,teste:!!isTrfTeste,data:new Date().toISOString()};
   db.transferencias.unshift(trf);
   renderTransferencias(); carregarItensTransf();
   document.getElementById('trf-info-item').style.display='none';
@@ -3432,13 +3495,14 @@ function renderTransferencias(){
   if(!db.transferencias.length){em.style.display='block';return;} em.style.display='none';
   db.transferencias.slice(0,30).forEach(t=>{
     const mesmoLote=t.loteOrigem===t.loteDestino;
-    tb.innerHTML+=`<tr>
-      <td><strong>${t.materialNome}</strong><br><span style="font-size:11px;color:var(--muted)">${mesmoLote?t.loteOrigem:t.loteOrigem+' → '+t.loteDestino}</span></td>
+    tb.innerHTML+=`<tr${t.teste?' style="opacity:.7;background:rgba(255,149,0,.04)"':''}>
+      <td><strong>${t.materialNome}</strong>${t.teste?'<span style="margin-left:5px;font-size:10px;background:rgba(255,149,0,.15);color:var(--warn);padding:1px 5px;border-radius:3px;">🧪</span>':''}<br><span style="font-size:11px;color:var(--muted)">${mesmoLote?t.loteOrigem:t.loteOrigem+' → '+t.loteDestino}</span></td>
       <td style="color:var(--muted)">${t.estOrigNome}</td>
       <td style="color:var(--accent);font-weight:600;">${t.estDestNome}</td>
       <td><strong style="color:var(--accent)">⇄ ${t.qtd}</strong></td>
       <td style="color:var(--muted);font-size:12px;">${t.resp||'—'}</td>
       <td style="color:var(--muted);font-size:11px;">${fmt(t.data)}</td>
+      <td>${currentUser&&currentUser.role==='adm'?`<button class="btn btn-danger" style="padding:3px 7px;font-size:11px;" onclick="excluirRegistroTeste('transferencias','${t.id}')" title="Excluir">✕</button>`:''}</td>
     </tr>`;
   });
 }
@@ -3597,6 +3661,7 @@ async function registrarRequisicao(){
     setor, justif, status:'pendente', motivo:'',
     solicitanteId: currentUser.id,
     solicitanteNome: currentUser.nome,
+    teste: !!(currentUser.role === 'adm' && document.getElementById('req-teste-sistema')?.checked),
     data: new Date().toISOString()
   };
 
@@ -3604,6 +3669,7 @@ async function registrarRequisicao(){
   window._reqItensTemp = [];
   _renderReqItensTmp();
   ['req-qtd','req-justif'].forEach(i=>document.getElementById(i).value='');
+  const rts = document.getElementById('req-teste-sistema'); if(rts) rts.checked = false;
   document.getElementById('req-material').value='';
   document.getElementById('req-lote').innerHTML='<option value="">Selecione o material primeiro...</option>';
   document.getElementById('req-setor').value='';
@@ -6045,8 +6111,22 @@ function renderQualidade() {
   sorted.forEach(insp => {
     const sc = { bg:'rgba(255,149,0,.1)', color:'var(--warn)', label:'Pendente' };
     const falhasAtuais = _contarFalhas(insp);
-    const totalCampos = insp.amostras * (insp.pontos||[]).length;
-    const preenchidos = (insp.resultados||[]).filter(r => r.v !== null && r.v !== undefined && r.v !== '').length;
+    const pontos = insp.pontos || [];
+    const totalCampos = insp.amostras * pontos.length;
+    // Contar pares únicos (amostra, ponto) com valor válido
+    // Usar _localInspResultados se disponível (dados em edição local)
+    const resLocal = (_localInspResultados && _localInspResultados[insp.id])
+      ? _localInspResultados[insp.id]
+      : (insp.resultados || []);
+    let preenchidos = 0;
+    for (let a = 0; a < insp.amostras; a++) {
+      for (let pi = 0; pi < pontos.length; pi++) {
+        const r = resLocal.find(x => Number(x.a) === a && Number(x.p) === pi);
+        if (!r || r.v === null || r.v === undefined || r.v === '') continue;
+        if (pontos[pi].tipo === 'visual' && r.v !== 'ok' && r.v !== 'nok') continue;
+        preenchidos++;
+      }
+    }
     const progresso = totalCampos > 0 ? Math.round((preenchidos / totalCampos) * 100) : 0;
     const isExpanded = window._inspExpandidos.has(insp.id);
 
@@ -6982,12 +7062,12 @@ function exportarRecebimentoPDF(recvId) {
             const hasMax = p.max!==''&&p.max!=null&&p.max!==undefined;
             const tipo = p.tipo==='visual' ? '[V]' : '[M]';
             const range = (hasMin||hasMax)
-              ? `
-${hasMin?p.min:'—'} a ${hasMax?p.max:'—'}${p.unidade?' '+p.unidade:''}`
+              ? `\n${hasMin?p.min:'—'} a ${hasMax?p.max:'—'}${p.unidade?' '+p.unidade:''}`
               : '';
             return { content: `${p.desc||'P'+(pi+1)} ${tipo}${range}`, styles: {
               fillColor:[28,32,44], textColor:[255,255,255],
-              fontStyle:'bold', fontSize:7, halign:'center', minCellHeight:8
+              fontStyle:'bold', fontSize:7, halign:'center',
+              overflow:'linebreak', cellWidth:'auto', minCellHeight:8
             }};
           });
 
@@ -7053,11 +7133,18 @@ ${a+1}`, rowSpan: numGrupos * 2, styles:{
         doc.autoTable({
           startY: y,
           body: allRows,
-          styles: { fontSize:8, cellPadding:2 },
-          columnStyles: { 0: { cellWidth:18 } },
+          styles: {
+            fontSize:7.5,
+            cellPadding:2,
+            overflow:'linebreak',
+            cellWidth:'auto',
+            lineColor:[200,200,200],
+            lineWidth:0.1,
+          },
+          columnStyles: { 0: { cellWidth:16, fontStyle:'bold', halign:'center', valign:'middle' } },
           theme: 'grid',
-          tableLineColor: [200,200,200],
-          tableLineWidth: 0.1,
+          tableWidth: 'auto',
+          margin: { left:14, right:14 },
         });
         y = doc.lastAutoTable.finalY + 3;
       }
@@ -7501,8 +7588,12 @@ function exportarNCsPDF() {
 // ===========================
 
 function _mostrarTesteBoxAdm() {
-  const box = document.getElementById('recv-teste-box');
-  if (box) box.style.display = currentUser && currentUser.role === 'adm' ? 'block' : 'none';
+  const isAdm = !!(currentUser && currentUser.role === 'adm');
+  const boxes = ['recv-teste-box','ent-teste-box','sai-teste-box','trf-teste-box','req-teste-box'];
+  boxes.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = isAdm ? 'block' : 'none';
+  });
 }
 
 async function excluirRecebimentoTeste(recvId) {
@@ -7576,6 +7667,8 @@ function _calibLimparForm() {
   ['calib-edit-id','calib-tag','calib-desc','calib-setor',
    'calib-data-calib','calib-data-validade','calib-responsavel','calib-obs']
     .forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  const emCalibEl = document.getElementById('calib-em-calib');
+  if (emCalibEl) emCalibEl.checked = false;
   _calibArquivoPendente = null;
   const nomEl = document.getElementById('calib-file-nome');
   if (nomEl) { nomEl.textContent = ''; nomEl.style.display = 'none'; }
@@ -7594,23 +7687,25 @@ function _calibCancelarEdicao() {
 }
 
 function _calibStatusInfo(d) {
+  if (d.emCalibracao) return { label:'Em Calibração', color:'#6495ed', bg:'rgba(100,149,237,.12)', icon:'🔧', dias: 9999 };
   const hoje = new Date(); hoje.setHours(0,0,0,0);
   const val  = new Date(d.dataValidade + 'T00:00:00');
-  const diff = Math.ceil((val - hoje) / 86400000); // dias restantes
-  if (diff < 0)  return { label:'Vencido',        color:'var(--danger)',  bg:'rgba(255,59,92,.1)',  icon:'🔴', dias: diff };
-  if (diff <= 30) return { label:`Vence em ${diff}d`, color:'var(--warn)', bg:'rgba(255,149,0,.1)', icon:'🟡', dias: diff };
-  return           { label:`Válido (${diff}d)`,   color:'var(--accent)',  bg:'rgba(0,229,160,.1)', icon:'🟢', dias: diff };
+  const diff = Math.ceil((val - hoje) / 86400000);
+  if (diff < 0)   return { label:'Vencido',           color:'var(--danger)', bg:'rgba(255,59,92,.1)',  icon:'🔴', dias: diff };
+  if (diff <= 30) return { label:`Vence em ${diff}d`, color:'var(--warn)',   bg:'rgba(255,149,0,.1)', icon:'🟡', dias: diff };
+  return           { label:`Válido (${diff}d)`,       color:'var(--accent)', bg:'rgba(0,229,160,.1)', icon:'🟢', dias: diff };
 }
 
 async function salvarDispositivo() {
-  const editId   = document.getElementById('calib-edit-id').value.trim();
-  const tag      = document.getElementById('calib-tag').value.trim();
-  const desc     = document.getElementById('calib-desc').value.trim();
-  const setor    = document.getElementById('calib-setor').value.trim();
-  const dataCalib= document.getElementById('calib-data-calib').value;
-  const dataVal  = document.getElementById('calib-data-validade').value;
-  const resp     = document.getElementById('calib-responsavel').value.trim();
-  const obs      = document.getElementById('calib-obs').value.trim();
+  const editId    = document.getElementById('calib-edit-id').value.trim();
+  const tag       = document.getElementById('calib-tag').value.trim();
+  const desc      = document.getElementById('calib-desc').value.trim();
+  const setor     = document.getElementById('calib-setor').value.trim();
+  const dataCalib = document.getElementById('calib-data-calib').value;
+  const dataVal   = document.getElementById('calib-data-validade').value;
+  const resp      = document.getElementById('calib-responsavel').value.trim();
+  const obs       = document.getElementById('calib-obs').value.trim();
+  const emCalibracao = document.getElementById('calib-em-calib')?.checked || false;
 
   if (!tag)      return toast('Informe a TAG do dispositivo.','error');
   if (!desc)     return toast('Informe a descrição/nome.','error');
@@ -7631,6 +7726,7 @@ async function salvarDispositivo() {
       dispositivo.tag = tag; dispositivo.desc = desc; dispositivo.setor = setor;
       dispositivo.dataCalib = dataCalib; dispositivo.dataValidade = dataVal;
       dispositivo.responsavel = resp; dispositivo.obs = obs;
+      dispositivo.emCalibracao = emCalibracao;
       dispositivo.atualizadoEm = new Date().toISOString();
       dispositivo.atualizadoPor = currentUser.nome;
       if (_calibArquivoPendente) dispositivo.arquivo = _calibArquivoPendente;
@@ -7638,7 +7734,7 @@ async function salvarDispositivo() {
     } else {
       dispositivo = {
         id: uid(), tag, desc, setor, dataCalib, dataValidade: dataVal,
-        responsavel: resp, obs,
+        responsavel: resp, obs, emCalibracao,
         arquivo: _calibArquivoPendente || null,
         criadoEm: new Date().toISOString(), criadoPor: currentUser.nome
       };
@@ -7672,6 +7768,8 @@ function _calibEditarDispositivo(id) {
   document.getElementById('calib-data-validade').value = d.dataValidade || '';
   document.getElementById('calib-responsavel').value= d.responsavel || '';
   document.getElementById('calib-obs').value        = d.obs || '';
+  const emCalibChk = document.getElementById('calib-em-calib');
+  if (emCalibChk) emCalibChk.checked = !!d.emCalibracao;
   _calibArquivoPendente = null;
 
   if (d.arquivo) {
@@ -7804,10 +7902,38 @@ function renderCalibracao() {
   if (!dados.length) { empty.style.display='block'; lista.innerHTML=''; return; }
   empty.style.display='none';
 
+  // Atualizar stat Em Calibração
+  const emCalibCount = todos.filter(d => d.emCalibracao).length;
+  const stEm = document.getElementById('calib-stat-em');
+  if (stEm) stEm.textContent = emCalibCount;
+
   lista.innerHTML = dados.map(d => {
     const st = _calibStatusInfo(d);
     const temArq = !!(d.arquivo && d.arquivo.base64);
-    return `<div class="card" style="margin-bottom:12px;border-left:3px solid ${st.color};padding:14px 18px;">
+    // Banner de alerta: só para vencido ou a vencer (não para em calibração ou válido)
+    const alertaBanner = (() => {
+      if (d.emCalibracao) return '';
+      if (st.dias < 0) return `
+        <div style="display:flex;align-items:center;gap:10px;background:rgba(255,59,92,.1);border:1px solid rgba(255,59,92,.4);border-radius:8px;padding:10px 14px;margin-bottom:12px;">
+          <span style="font-size:28px;flex-shrink:0;">🔴</span>
+          <div>
+            <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:13px;color:var(--danger);">CALIBRAÇÃO VENCIDA</div>
+            <div style="font-size:12px;color:var(--danger);margin-top:2px;">Venceu há <strong>${Math.abs(st.dias)} dia(s)</strong> · Enviar para calibração imediatamente.</div>
+          </div>
+        </div>`;
+      if (st.dias <= 30) return `
+        <div style="display:flex;align-items:center;gap:10px;background:rgba(255,149,0,.1);border:1px solid rgba(255,149,0,.4);border-radius:8px;padding:10px 14px;margin-bottom:12px;">
+          <span style="font-size:28px;flex-shrink:0;">🟡</span>
+          <div>
+            <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:13px;color:var(--warn);">CALIBRAÇÃO A VENCER</div>
+            <div style="font-size:12px;color:var(--warn);margin-top:2px;">Vence em <strong>${st.dias} dia(s)</strong> · Agendar calibração em breve.</div>
+          </div>
+        </div>`;
+      return '';
+    })();
+
+    return `<div class="card" style="margin-bottom:12px;border-left:4px solid ${st.color};padding:14px 18px;${d.emCalibracao?'background:rgba(100,149,237,.04);':st.dias<0?'background:rgba(255,59,92,.02);':st.dias<=30?'background:rgba(255,149,0,.02);':''}">
+      ${alertaBanner}
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
         <div style="flex:1;min-width:0;">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
@@ -7823,18 +7949,25 @@ function renderCalibracao() {
           </div>
           ${d.obs?`<div style="font-size:12px;color:var(--muted);margin-top:6px;">Obs: ${escHtml(d.obs)}</div>`:''}
         </div>
-        <div style="display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;align-items:center;">
-          ${temArq ? `<button onclick="_calibVisualizarArquivo('${d.id}')"
-            style="background:rgba(0,229,160,.1);border:1px solid rgba(0,229,160,.3);color:var(--accent);border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:5px;">
-            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
-            Certificado
+        <div style="display:flex;gap:7px;flex-shrink:0;flex-wrap:wrap;align-items:center;">
+          ${temArq ? `<button onclick="_calibVisualizarArquivo('${d.id}')" title="Visualizar certificado"
+            style="background:rgba(0,229,160,.1);border:1px solid rgba(0,229,160,.3);color:var(--accent);border-radius:6px;padding:5px 11px;font-size:11px;cursor:pointer;font-weight:700;">
+            📎 Certificado
           </button>` : `<span style="font-size:11px;color:var(--muted);font-style:italic;">Sem certificado</span>`}
+          <button onclick="_calibNovaCalibração('${d.id}')" title="Registrar nova calibração / substituir laudo"
+            style="background:rgba(100,149,237,.12);border:1px solid rgba(100,149,237,.35);color:#6495ed;border-radius:6px;padding:5px 11px;font-size:11px;cursor:pointer;font-weight:700;">
+            🔄 Recalibrar
+          </button>
+          <button onclick="exportarCalibracaoPDFUnico('${d.id}')" title="Gerar PDF deste dispositivo"
+            style="background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.3);color:#a855f7;border-radius:6px;padding:5px 11px;font-size:11px;cursor:pointer;font-weight:700;">
+            📄 PDF
+          </button>
           <button onclick="_calibEditarDispositivo('${d.id}')"
-            style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;">
+            style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;">
             ✏️ Editar
           </button>
           <button onclick="_calibExcluirDispositivo('${d.id}')"
-            style="background:rgba(255,59,92,.08);border:1px solid rgba(255,59,92,.3);color:var(--danger);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;">
+            style="background:rgba(255,59,92,.08);border:1px solid rgba(255,59,92,.3);color:var(--danger);border-radius:6px;padding:5px 9px;font-size:11px;cursor:pointer;">
             ✕
           </button>
         </div>
@@ -7842,8 +7975,300 @@ function renderCalibracao() {
     </div>`;
   }).join('');
 
-  // Verificar alertas sempre que renderizar
   _calibVerificarAlertas();
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODAL DE RECALIBRAÇÃO (substituir laudo + atualizar datas)
+// ─────────────────────────────────────────────────────────────────────────────
+function _calibNovaCalibração(id) {
+  const d = db.calibracao.find(x => x.id === id); if(!d) return;
+  // Preencher o form de edição com foco nos campos de recalibração
+  _calibEditarDispositivo(id);
+  // Destacar os campos de data para o usuário
+  setTimeout(() => {
+    const dataCalEl = document.getElementById('calib-data-calib');
+    const dataValEl = document.getElementById('calib-data-validade');
+    const uploadEl  = document.getElementById('calib-upload-area');
+    if (dataCalEl) {
+      dataCalEl.value = '';
+      dataCalEl.style.borderColor = '#6495ed';
+      dataCalEl.focus();
+      setTimeout(() => { dataCalEl.style.borderColor = ''; }, 2500);
+    }
+    if (dataValEl) { dataValEl.value = ''; dataValEl.style.borderColor = '#6495ed'; setTimeout(() => dataValEl.style.borderColor='', 2500); }
+    if (uploadEl)  { uploadEl.style.borderColor = '#6495ed'; setTimeout(() => uploadEl.style.borderColor='var(--border)', 2500); }
+    toast('Preencha a nova data de calibração, validade e substitua o certificado.');
+  }, 150);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PDF INDIVIDUAL — um dispositivo
+// ─────────────────────────────────────────────────────────────────────────────
+function exportarCalibracaoPDFUnico(id) {
+  const d = db.calibracao.find(x => x.id === id);
+  if (!d) return toast('Dispositivo não encontrado.','error');
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const now = new Date().toLocaleString('pt-BR');
+  let y = 18;
+
+  // Cabeçalho
+  doc.setFillColor(17,19,24);
+  doc.rect(0,0,210,30,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(0,229,160);
+  doc.text('StockFlow', 14, 14);
+  doc.setFontSize(11); doc.setTextColor(255,255,255);
+  doc.text('Registro de Calibração de Dispositivo', 14, 22);
+  doc.setFontSize(8); doc.setTextColor(150,150,150);
+  doc.text(`Gerado em: ${now}`, 196, 22, {align:'right'});
+  y = 38;
+
+  // Status
+  const st = _calibStatusInfo(d);
+  const stColors = {
+    'Vencido':        [200,40,40],
+    'Em Calibração':  [60,100,200],
+    'Válido':         [0,160,100],
+  };
+  const stKey = Object.keys(stColors).find(k => st.label.startsWith(k)) || 'Válido';
+
+  // Box dados
+  doc.setFillColor(245,247,250); doc.setDrawColor(220,220,220);
+  doc.roundedRect(12,y-4,186,56,2,2,'FD');
+  doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(30,30,30);
+  doc.text(`${d.tag} — ${d.desc}`, 18, y+5);
+  doc.setFontSize(9);
+  doc.setFillColor(...(stColors[stKey]||[0,160,100]));
+  doc.roundedRect(18, y+9, 46, 8, 1, 1, 'F');
+  doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
+  doc.text(st.label, 41, y+15, {align:'center'});
+
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(70,70,70);
+  const c1=18,c2=80,c3=145;
+  const r1=y+24,r2=y+32,r3=y+40,r4=y+48;
+  doc.setFont('helvetica','bold'); doc.text('Setor/Local:', c1, r1);
+  doc.setFont('helvetica','normal'); doc.text(d.setor||'—', c1+26, r1);
+  doc.setFont('helvetica','bold'); doc.text('Responsável:', c2, r1);
+  doc.setFont('helvetica','normal'); doc.text(d.responsavel||'—', c2+28, r1);
+
+  doc.setFont('helvetica','bold'); doc.text('Data Calibração:', c1, r2);
+  doc.setFont('helvetica','normal'); doc.text(fmt(d.dataCalib), c1+34, r2);
+  doc.setFont('helvetica','bold'); doc.text('Validade:', c2, r2);
+  doc.setFont('helvetica','normal'); doc.text(fmt(d.dataValidade), c2+18, r2);
+
+  doc.setFont('helvetica','bold'); doc.text('Cadastrado por:', c1, r3);
+  doc.setFont('helvetica','normal'); doc.text(d.criadoPor||'—', c1+32, r3);
+  if (d.atualizadoEm) {
+    doc.setFont('helvetica','bold'); doc.text('Atualizado:', c2, r3);
+    doc.setFont('helvetica','normal'); doc.text(fmtDT(d.atualizadoEm), c2+22, r3);
+  }
+  if (d.obs) {
+    doc.setFont('helvetica','bold'); doc.text('Obs:', c1, r4);
+    doc.setFont('helvetica','normal'); doc.text(d.obs.slice(0,100), c1+12, r4);
+  }
+  y += 62;
+
+  // Certificado — se for imagem, inserir no PDF
+  if (d.arquivo && d.arquivo.base64) {
+    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(30,30,30);
+    doc.text('Certificado / Laudo de Calibração', 14, y); y += 5;
+    doc.setDrawColor(200,200,200); doc.line(14,y,196,y); y += 4;
+    if (d.arquivo.tipo && d.arquivo.tipo.startsWith('image/')) {
+      try {
+        const imgH = 80;
+        doc.addImage(d.arquivo.base64, 'JPEG', 14, y, 182, imgH);
+        y += imgH + 6;
+      } catch(e) {
+        doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(120,120,120);
+        doc.text(`Arquivo: ${d.arquivo.nome} (visualize na plataforma)`, 14, y+6);
+        y += 12;
+      }
+    } else {
+      doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(80,80,80);
+      doc.text(`Arquivo PDF anexado: ${d.arquivo.nome}`, 14, y+6);
+      doc.text('(Abra o certificado diretamente na plataforma para visualização completa)', 14, y+13);
+      y += 20;
+    }
+  }
+
+  // Assinatura da Qualidade
+  const pageH = doc.internal.pageSize.getHeight();
+  if (y + 35 > pageH) { doc.addPage(); y = 18; }
+  const sY = Math.max(y+10, pageH-35);
+  doc.setDrawColor(140,140,140);
+  doc.line(14, sY+16, 100, sY+16);
+  doc.line(110, sY+16, 196, sY+16);
+  doc.setFontSize(8); doc.setTextColor(80,80,80);
+  doc.setFont('helvetica','normal');
+  doc.text('Responsável pela Qualidade', 14, sY+21);
+  doc.text('Assinatura / Data', 14, sY+27);
+  doc.text('Aprovação / Liberação', 110, sY+21);
+  doc.text('Assinatura / Data', 110, sY+27);
+
+  doc.save(`calibracao_${(d.tag||'dispositivo').replace(/[^a-zA-Z0-9]/g,'_')}.pdf`);
+  toast('PDF gerado!');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PDF GERAL — todos os dispositivos
+// ─────────────────────────────────────────────────────────────────────────────
+function exportarCalibracaoPDFGeral() {
+  const todos = [...(db.calibracao||[])].sort((a,b) => {
+    const sa = _calibStatusInfo(a).dias;
+    const sb = _calibStatusInfo(b).dias;
+    return sa - sb;
+  });
+  if (!todos.length) return toast('Nenhum dispositivo cadastrado.','error');
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const now = new Date().toLocaleString('pt-BR');
+  let y = 18;
+
+  // Cabeçalho
+  doc.setFillColor(17,19,24);
+  doc.rect(0,0,210,30,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(0,229,160);
+  doc.text('StockFlow', 14, 14);
+  doc.setFontSize(11); doc.setTextColor(255,255,255);
+  doc.text('Relatório Geral — Calibração de Dispositivos', 14, 22);
+  doc.setFontSize(8); doc.setTextColor(150,150,150);
+  doc.text(`Gerado em: ${now}   |   Total: ${todos.length} dispositivos`, 196, 22, {align:'right'});
+  y = 38;
+
+  // Resumo estatístico
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const lim30 = new Date(hoje); lim30.setDate(lim30.getDate()+30);
+  const nVenc  = todos.filter(d=>!d.emCalibracao && new Date(d.dataValidade+'T00:00:00')<hoje).length;
+  const nProx  = todos.filter(d=>!d.emCalibracao && new Date(d.dataValidade+'T00:00:00')>=hoje && new Date(d.dataValidade+'T00:00:00')<=lim30).length;
+  const nOk    = todos.filter(d=>!d.emCalibracao && new Date(d.dataValidade+'T00:00:00')>lim30).length;
+  const nEmCal = todos.filter(d=>d.emCalibracao).length;
+
+  doc.setFillColor(240,242,246); doc.setDrawColor(200,200,200);
+  doc.roundedRect(12,y-2,186,18,2,2,'FD');
+  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(60,60,60);
+  doc.text(`Válidos: ${nOk}`, 20, y+8);
+  doc.setTextColor(200,130,0);   doc.text(`A Vencer: ${nProx}`, 60, y+8);
+  doc.setTextColor(200,40,40);   doc.text(`Vencidos: ${nVenc}`, 100, y+8);
+  doc.setTextColor(60,100,200);  doc.text(`Em Calibração: ${nEmCal}`, 140, y+8);
+  y += 24;
+
+  // Tabela de dispositivos
+  const stColorMap = (st) => {
+    if (st.label === 'Em Calibração') return [60,100,200];
+    if (st.label === 'Vencido')       return [200,40,40];
+    if (st.label.startsWith('Vence')) return [200,130,0];
+    return [0,140,80];
+  };
+
+  const rows = todos.map(d => {
+    const st = _calibStatusInfo(d);
+    return [
+      d.tag||'—',
+      d.desc||'—',
+      d.setor||'—',
+      fmt(d.dataCalib),
+      fmt(d.dataValidade),
+      d.responsavel||'—',
+      st.label,
+      d.arquivo ? '✓' : '—',
+    ];
+  });
+
+  doc.autoTable({
+    startY: y,
+    head: [['TAG','Descrição','Setor','Calibrado em','Validade','Responsável','Status','Laudo']],
+    body: rows,
+    styles: { fontSize:7.5, cellPadding:2.5 },
+    headStyles: { fillColor:[40,40,60], textColor:[0,229,160], fontStyle:'bold', fontSize:8 },
+    columnStyles: {
+      0: { fontStyle:'bold', cellWidth:22 },
+      6: { halign:'center', cellWidth:28 },
+      7: { halign:'center', cellWidth:12 },
+    },
+    didParseCell: (data) => {
+      if (data.section==='body' && data.column.index===6) {
+        const d2 = todos[data.row.index];
+        if (d2) {
+          const st2 = _calibStatusInfo(d2);
+          const [r,g,b] = stColorMap(st2);
+          data.cell.styles.textColor = [r,g,b];
+          data.cell.styles.fontStyle = 'bold';
+        }
+      }
+      if (data.section==='body' && data.column.index===7 && data.cell.raw==='✓') {
+        data.cell.styles.textColor = [0,150,80];
+        data.cell.styles.fontStyle = 'bold';
+      }
+    }
+  });
+  y = doc.lastAutoTable.finalY + 10;
+
+  // Assinatura da Qualidade
+  const pageH = doc.internal.pageSize.getHeight();
+  if (y + 35 > pageH) { doc.addPage(); y = 18; }
+  const sY = Math.max(y+8, pageH-35);
+  doc.setDrawColor(140,140,140);
+  doc.line(14, sY+16, 100, sY+16);
+  doc.line(110, sY+16, 196, sY+16);
+  doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(80,80,80);
+  doc.text('Responsável pela Qualidade', 14, sY+21);
+  doc.text('Assinatura / Data', 14, sY+27);
+  doc.text('Aprovação do Relatório', 110, sY+21);
+  doc.text('Assinatura / Data', 110, sY+27);
+
+  doc.save(`calibracao_relatorio_geral_${new Date().toISOString().slice(0,10)}.pdf`);
+  toast('PDF geral gerado!');
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EXCLUSÃO UNIVERSAL DE REGISTROS DE TESTE (adm apenas)
+// ─────────────────────────────────────────────────────────────────────────────
+async function excluirRegistroTeste(colecao, id) {
+  if (!currentUser || currentUser.role !== 'adm') return toast('Apenas administradores podem excluir.','error');
+  const item = (db[colecao]||[]).find(x => x.id === id);
+  if (!item) return toast('Registro não encontrado.','error');
+
+  const nomes = {
+    entradas:'entrada', saidas:'saída', transferencias:'transferência',
+    requisicoes:'requisição', recebimentos:'recebimento', inspecoes:'inspeção'
+  };
+  const tipoNome = nomes[colecao] || colecao;
+  const desc = item.materialNome || item.nf || item.tag || id;
+  const isTeste = !!item.teste;
+
+  const ok = await sfConfirm({
+    title: isTeste ? `Excluir ${tipoNome} de teste` : `Excluir ${tipoNome}`,
+    body: isTeste
+      ? `Excluir o registro de teste "${desc}"?
+Este registro não afeta o estoque real.`
+      : `⚠️ ATENÇÃO: Este não é um registro de teste!
+
+Excluir o ${tipoNome} "${desc}" mesmo assim?
+Esta ação é irreversível.`,
+    type: isTeste ? 'warn' : 'danger',
+    okText: 'Excluir'
+  });
+  if (!ok) return;
+
+  db[colecao] = (db[colecao]||[]).filter(x => x.id !== id);
+
+  // Renderizar a lista correspondente
+  const renders = {
+    entradas: renderEntradas, saidas: renderSaidas,
+    transferencias: renderTransferencias, requisicoes: renderMinhasReq,
+    recebimentos: renderRecebimentos, inspecoes: renderQualidade
+  };
+  if (renders[colecao]) renders[colecao]();
+
+  try {
+    await deleteItem(colecao, id);
+    await logAudit(colecao, `${tipoNome} excluída: ${desc}`, `ID: ${id} | Por: ${currentUser.nome} | Teste: ${isTeste}`);
+    toast(`${tipoNome.charAt(0).toUpperCase()+tipoNome.slice(1)} excluída.`);
+  } catch(e) { toast('Erro ao excluir.','error'); }
 }
 
 
