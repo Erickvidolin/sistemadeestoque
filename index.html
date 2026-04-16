@@ -47,7 +47,7 @@ const DEFAULT_ADMIN = {
 // ============================================================
 const COLECOES = ['estoques','materiais','itens','entradas','saidas',
                   'transferencias','requisicoes','notificacoes','auditoria',
-                  'recebimentos','inspecoes','naoconformidades'];
+                  'recebimentos','inspecoes','naoconformidades','calibracao'];
 
 const firebaseApp = initializeApp(firebaseConfig);
 const auth        = getAuth(firebaseApp);
@@ -1086,7 +1086,8 @@ tr:hover td{background:rgba(255,255,255,.02);}
             <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="nu-area-check" value="compras"><span style="font-size:13px;">🛒 Planejamento de Compras</span></label>
             <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="nu-area-check" value="validade"><span style="font-size:13px;">⏰ Controle de Validade</span></label>
             <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="nu-area-check" value="relatorios"><span style="font-size:13px;">📄 Relatórios</span></label>
-            <label class="checkbox-wrap"><input type="checkbox" class="nu-area-check" value="auditoria"><span style="font-size:13px;">🔍 Auditoria e Logs</span></label>
+            <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="nu-area-check" value="calibracao"><span style="font-size:13px;">📡 Calibração de Dispositivos</span></label>
+          <label class="checkbox-wrap"><input type="checkbox" class="nu-area-check" value="auditoria"><span style="font-size:13px;">🔍 Auditoria e Logs</span></label>
           </div>
           <div id="nu-error" style="display:none;color:var(--danger);font-size:13px;margin-bottom:12px;padding:10px;background:rgba(255,59,92,.08);border-radius:8px;"></div>
           <button class="btn btn-primary" onclick="cadastrarUsuario()" style="width:100%;" id="btn-cadastrar-usuario">Cadastrar Usuário</button>
@@ -1132,6 +1133,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
           <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="edit-area-check" value="compras"><span style="font-size:13px;">🛒 Planejamento de Compras</span></label>
           <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="edit-area-check" value="validade"><span style="font-size:13px;">⏰ Controle de Validade</span></label>
           <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="edit-area-check" value="relatorios"><span style="font-size:13px;">📄 Relatórios</span></label>
+          <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="edit-area-check" value="calibracao"><span style="font-size:13px;">📡 Calibração de Dispositivos</span></label>
           <label class="checkbox-wrap"><input type="checkbox" class="edit-area-check" value="auditoria"><span style="font-size:13px;">🔍 Auditoria e Logs</span></label>
         </div>
         <div style="display:flex;gap:10px;">
@@ -1556,6 +1558,90 @@ tr:hover td{background:rgba(255,255,255,.02);}
     </div>
   `;
   main.appendChild(ncPage);
+
+  // ── PAGE: CALIBRAÇÃO ───────────────────────────────────────────────────────
+  const calibPage = document.createElement('div');
+  calibPage.id = 'page-calibracao';
+  calibPage.className = 'page';
+  calibPage.innerHTML = `
+    <div class="section-title">📡 Calibração de Dispositivos</div>
+    <div class="section-sub">Gerencie os dispositivos sujeitos à calibração periódica</div>
+
+    <!-- Stats -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:20px;" id="calib-stats-area">
+      <div class="stat-card"><div style="color:var(--muted);font-size:10px;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:.5px;text-transform:uppercase;">Total</div><div id="calib-stat-total" style="font-size:28px;font-family:'Syne',sans-serif;font-weight:800;margin-top:4px;">0</div></div>
+      <div class="stat-card" style="border-color:rgba(0,229,160,.3);"><div style="color:var(--muted);font-size:10px;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:.5px;text-transform:uppercase;">Válidos</div><div id="calib-stat-ok" style="font-size:28px;font-family:'Syne',sans-serif;font-weight:800;margin-top:4px;color:var(--accent);">0</div></div>
+      <div class="stat-card warn" style="border-color:rgba(255,149,0,.4);"><div style="color:var(--muted);font-size:10px;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:.5px;text-transform:uppercase;">A Vencer (30d)</div><div id="calib-stat-prox" style="font-size:28px;font-family:'Syne',sans-serif;font-weight:800;margin-top:4px;color:var(--warn);">0</div></div>
+      <div class="stat-card" style="border-color:rgba(255,59,92,.4);"><div style="color:var(--muted);font-size:10px;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:.5px;text-transform:uppercase;">Vencidos</div><div id="calib-stat-venc" style="font-size:28px;font-family:'Syne',sans-serif;font-weight:800;margin-top:4px;color:var(--danger);">0</div></div>
+    </div>
+
+    <div class="form-table-layout" style="display:grid;grid-template-columns:400px 1fr;gap:24px;align-items:start;">
+      <!-- Formulário -->
+      <div class="card">
+        <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:16px;">Cadastrar Dispositivo</div>
+        <input type="hidden" id="calib-edit-id">
+        <div class="form-group">
+          <label>TAG do Dispositivo *</label>
+          <input id="calib-tag" type="text" placeholder="Ex: MED-001, PAQUIM-03">
+        </div>
+        <div class="form-group">
+          <label>Descrição / Nome *</label>
+          <input id="calib-desc" type="text" placeholder="Ex: Paquímetro digital 150mm">
+        </div>
+        <div class="form-group">
+          <label>Setor / Localização *</label>
+          <input id="calib-setor" type="text" placeholder="Ex: Laboratório, Produção linha 2">
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Data da Calibração *</label>
+            <input id="calib-data-calib" type="date">
+          </div>
+          <div class="form-group">
+            <label>Validade da Calibração *</label>
+            <input id="calib-data-validade" type="date">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Responsável pela Calibração</label>
+          <input id="calib-responsavel" type="text" placeholder="Nome do responsável ou empresa">
+        </div>
+        <div class="form-group">
+          <label>Certificado / Relatório de Calibração</label>
+          <div id="calib-upload-area" style="border:2px dashed var(--border);border-radius:8px;padding:16px;text-align:center;cursor:pointer;transition:border-color .2s;" onclick="document.getElementById('calib-file-input').click()" ondragover="event.preventDefault();this.style.borderColor='var(--accent)'" ondragleave="this.style.borderColor='var(--border)'" ondrop="_calibDropFile(event)">
+            <div style="font-size:24px;margin-bottom:6px;">📎</div>
+            <div style="font-size:12px;color:var(--muted);">Clique ou arraste o PDF/imagem do certificado</div>
+            <div id="calib-file-nome" style="font-size:12px;color:var(--accent);margin-top:6px;display:none;"></div>
+          </div>
+          <input type="file" id="calib-file-input" accept=".pdf,.jpg,.jpeg,.png" style="display:none;" onchange="_calibSelecionarArquivo(this)">
+          <div id="calib-file-existente" style="display:none;margin-top:6px;font-size:12px;color:var(--muted);"></div>
+        </div>
+        <div class="form-group">
+          <label>Observações</label>
+          <textarea id="calib-obs" rows="2" placeholder="Observações adicionais..." style="resize:vertical;font-size:13px;"></textarea>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-secondary" id="calib-btn-cancelar" onclick="_calibCancelarEdicao()" style="display:none;flex:1;">Cancelar</button>
+          <button class="btn btn-primary" onclick="salvarDispositivo()" style="flex:2;" id="calib-btn-salvar">Cadastrar Dispositivo</button>
+        </div>
+      </div>
+
+      <!-- Lista -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:15px;">Dispositivos Cadastrados</div>
+          <input id="calib-busca" type="text" placeholder="Buscar tag, nome ou setor..." oninput="renderCalibracao()" style="padding:8px 12px;font-size:13px;width:220px;">
+        </div>
+        <div id="calib-lista"></div>
+        <div id="calib-empty" style="text-align:center;color:var(--muted);padding:60px;display:none;">
+          <div style="font-size:40px;margin-bottom:10px;">📡</div>
+          <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:18px;margin-bottom:6px;">Nenhum dispositivo cadastrado</div>
+          <div style="font-size:13px;">Cadastre dispositivos para controlar o vencimento das calibrações.</div>
+        </div>
+      </div>
+    </div>
+  `;
+  main.appendChild(calibPage);
 });</script>
 
 <!-- APRESENTAÇÃO VALIDADE — FULLSCREEN OVERLAY -->
@@ -1856,7 +1942,7 @@ function fsDoc(...args) { return window._firebase.doc(window._firebase.firestore
 function fsColl(...args) { return window._firebase.collection(window._firebase.firestore, ...args); }
 
 // Estrutura em memória — espelhada do Firestore
-let db = { estoques:[], materiais:[], itens:[], entradas:[], saidas:[], transferencias:[], requisicoes:[], notificacoes:[], recebimentos:[], inspecoes:[], naoconformidades:[] };
+let db = { estoques:[], materiais:[], itens:[], entradas:[], saidas:[], transferencias:[], requisicoes:[], notificacoes:[], recebimentos:[], inspecoes:[], naoconformidades:[], calibracao:[] };
 
 // ─────────────────────────────────────────────────────────────────
 //  LISTENERS EM TEMPO REAL — onSnapshot para todas as coleções
@@ -1870,7 +1956,7 @@ const _dbListeners = {};
  * Cada vez que o Firebase detecta uma mudança, o db[] é atualizado
  * automaticamente e a página atual é re-renderizada.
  */
-const DB_COLECOES = ['estoques','materiais','itens','entradas','saidas','transferencias','requisicoes','recebimentos','inspecoes','naoconformidades'];
+const DB_COLECOES = ['estoques','materiais','itens','entradas','saidas','transferencias','requisicoes','recebimentos','inspecoes','naoconformidades','calibracao'];
 
 // Mapa de qual função renderizar para cada coleção alterada
 function _getRenderFnPorColecao(colecao) {
@@ -1910,6 +1996,7 @@ function _getRenderFnPorColecao(colecao) {
       if(pageId==='historico-recebimentos') renderHistoricoRecebimentos();
     },
     naoconformidades:() => { if(pageId==='nao-conformidades') renderNaoConformidades(); },
+    calibracao:      () => { if(pageId==='calibracao') renderCalibracao(); },
   };
   return renders[colecao] || (() => {});
 }
@@ -2074,7 +2161,7 @@ async function saveCollection(collName) {
 }
 async function saveDB() {
   const fields = ['estoques','materiais','itens','entradas','saidas','transferencias',
-                  'requisicoes','recebimentos','inspecoes','naoconformidades'];
+                  'requisicoes','recebimentos','inspecoes','naoconformidades','calibracao'];
   for (const f of fields) await saveCollection(f);
   updateStorageInfo();
 }
@@ -2361,6 +2448,7 @@ const NAV_ADM = [
   { id:'qualidade', icon:'quality', label:'Qualidade — Inspeção' },
   { id:'historico-recebimentos', icon:'history', label:'Histórico de Recebimentos' },
   { id:'nao-conformidades', icon:'nc', label:'Não Conformidades' },
+  { id:'calibracao', icon:'calib', label:'Calibração de Dispositivos' },
   { type:'sep' },
   { label:'REQUISIÇÕES', type:'label' },
   { id:'atendimento', icon:'check-circle', label:'Atendimento' },
@@ -2379,6 +2467,7 @@ const NAV_QUALITY = [
   { id:'recebimento', icon:'recv', label:'Recebimento de Materiais' },
   { id:'historico-recebimentos', icon:'history', label:'Histórico de Recebimentos' },
   { id:'nao-conformidades', icon:'nc', label:'Não Conformidades' },
+  { id:'calibracao', icon:'calib', label:'Calibração de Dispositivos' },
 ];
 const NAV_RECV = [
   { label:'RECEBIMENTO', type:'label' },
@@ -2408,6 +2497,7 @@ const ICONS = {
   quality:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>',
   history:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.05 11A9 9 0 0112 3"/>',
   nc:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>',
+  calib:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>',
 };
 
 function buildNav() {
@@ -2475,7 +2565,18 @@ function _podeAcessarPagina(page) {
     'validade':                'validade',
     'relatorios':              'relatorios',
     'auditoria':               'auditoria',
+    'calibracao':              'calibracao',
   };
+  // quality tem acesso fixo a calibracao (e às páginas de qualidade)
+  if (role === 'quality') {
+    const qualPages = ['qualidade','recebimento','historico-recebimentos',
+                       'nao-conformidades','calibracao','dash'];
+    if (qualPages.includes(page)) return true;
+  }
+  // recv tem acesso fixo ao recebimento
+  if (role === 'recv') {
+    if (['recebimento','dash'].includes(page)) return true;
+  }
   const areaNeeded = AREA_MAP[page];
   if (!areaNeeded) return false;
   return areas.includes(areaNeeded);
@@ -2519,6 +2620,7 @@ function navigateTo(page) {
   if (page === 'qualidade') renderQualidade();
   if (page === 'historico-recebimentos') renderHistoricoRecebimentos();
   if (page === 'nao-conformidades') renderNaoConformidades();
+  if (page === 'calibracao') renderCalibracao();
 }
 
 // ===========================
@@ -6982,18 +7084,58 @@ ${a+1}`, rowSpan: numGrupos * 2, styles:{
   }
 
   // ── Campo de assinaturas ─────────────────────────────────────────────────
+  // Se a inspeção teve tolerância excedida e foi aprovada mesmo assim,
+  // adiciona campo de assinatura do RT
+  const excedeuTolPDF = insp && insp.status === 'aprovado'
+    && typeof insp.falhas === 'number'
+    && insp.falhas > insp.tolerancia;
+
+  // Calcular altura necessária para as assinaturas
+  const numSigLinhas = excedeuTolPDF ? 3 : 2; // 2 ou 3 colunas de assinatura
+  const sigBlockH   = 38; // altura do bloco de assinaturas
   const pageH = doc.internal.pageSize.getHeight();
-  const sigY = Math.max(y+10, pageH-45);
-  if (sigY+40 > pageH) { doc.addPage(); }
-  const sY = Math.min(sigY, doc.internal.pageSize.getHeight()-38);
-  doc.setDrawColor(160,160,160);
-  doc.line(14, sY+18, 90, sY+18);
-  doc.line(100, sY+18, 196, sY+18);
-  doc.setFontSize(8); doc.setTextColor(100,100,100);
-  doc.text('Responsável pelo Recebimento', 14, sY+23);
-  doc.text('Responsável pela Qualidade', 100, sY+23);
-  doc.text('Assinatura / Data', 14, sY+29);
-  doc.text('Assinatura / Data', 100, sY+29);
+
+  // Garantir espaço suficiente — nova página se necessário
+  if (y + sigBlockH + 10 > pageH) { doc.addPage(); y = 18; }
+
+  const sY = Math.max(y + 10, pageH - sigBlockH - 10);
+  // Se ainda não couber, forçar nova página
+  if (sY + sigBlockH > pageH) { doc.addPage(); y = 18; }
+  const finalSY = Math.max(y + 10, Math.min(sY, pageH - sigBlockH - 8));
+
+  // Bloco de aviso se tolerância foi excedida
+  if (excedeuTolPDF) {
+    doc.setFillColor(255,235,200); doc.setDrawColor(200,100,0);
+    doc.roundedRect(12, finalSY - 14, 186, 12, 2, 2, 'FD');
+    doc.setFont('helvetica','bold'); doc.setFontSize(8);
+    doc.setTextColor(140,60,0);
+    const justTxt = insp.justificativaExcesso
+      ? `Justificativa: ${insp.justificativaExcesso.slice(0,90)}`
+      : 'Lote aprovado com falhas acima da tolerância — requer assinatura do RT.';
+    doc.text(`⚠ TOLERÂNCIA EXCEDIDA (${insp.falhas} falhas / tol. ${insp.tolerancia})   ${justTxt}`, 16, finalSY - 7);
+  }
+
+  doc.setDrawColor(140,140,140);
+  doc.setFontSize(8); doc.setTextColor(80,80,80);
+
+  if (excedeuTolPDF) {
+    // 3 colunas: Recebimento | Qualidade | RT
+    const c1 = 14, c2 = 80, c3 = 147;
+    const wLine = 56;
+    [c1, c2, c3].forEach(x => doc.line(x, finalSY+16, x+wLine, finalSY+16));
+    doc.text('Resp. pelo Recebimento', c1, finalSY+21);
+    doc.text('Resp. pela Qualidade',   c2, finalSY+21);
+    doc.text('Responsável Técnico (RT)', c3, finalSY+21);
+    [c1, c2, c3].forEach(x => doc.text('Assinatura / Data', x, finalSY+27));
+  } else {
+    // 2 colunas padrão: Recebimento | Qualidade
+    doc.line(14,  finalSY+16, 90,  finalSY+16);
+    doc.line(110, finalSY+16, 196, finalSY+16);
+    doc.text('Responsável pelo Recebimento', 14,  finalSY+21);
+    doc.text('Responsável pela Qualidade',   110, finalSY+21);
+    doc.text('Assinatura / Data', 14,  finalSY+27);
+    doc.text('Assinatura / Data', 110, finalSY+27);
+  }
 
   doc.save(`recebimento_${r.nf}_${(r.lote||'').replace(/[^a-zA-Z0-9]/g,'_')}.pdf`);
   toast('PDF gerado!');
@@ -7394,6 +7536,315 @@ async function excluirInspeccaoTeste(inspId) {
 }
 
 
+
+
+// ═════════════════════════════════════════════════════════════════════════════
+// CALIBRAÇÃO DE DISPOSITIVOS
+// ═════════════════════════════════════════════════════════════════════════════
+
+// Arquivo selecionado aguardando save (base64)
+let _calibArquivoPendente = null; // { nome, tipo, base64 }
+
+function _calibSelecionarArquivo(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    _calibArquivoPendente = { nome: file.name, tipo: file.type, base64: e.target.result };
+    const nomEl = document.getElementById('calib-file-nome');
+    if (nomEl) { nomEl.textContent = '📎 ' + file.name; nomEl.style.display = 'block'; }
+    const area = document.getElementById('calib-upload-area');
+    if (area) area.style.borderColor = 'var(--accent)';
+  };
+  reader.readAsDataURL(file);
+}
+
+function _calibDropFile(e) {
+  e.preventDefault();
+  const area = document.getElementById('calib-upload-area');
+  if (area) area.style.borderColor = 'var(--border)';
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  const input = document.getElementById('calib-file-input');
+  const dt = new DataTransfer();
+  dt.items.add(file);
+  input.files = dt.files;
+  _calibSelecionarArquivo(input);
+}
+
+function _calibLimparForm() {
+  ['calib-edit-id','calib-tag','calib-desc','calib-setor',
+   'calib-data-calib','calib-data-validade','calib-responsavel','calib-obs']
+    .forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  _calibArquivoPendente = null;
+  const nomEl = document.getElementById('calib-file-nome');
+  if (nomEl) { nomEl.textContent = ''; nomEl.style.display = 'none'; }
+  const exEl = document.getElementById('calib-file-existente');
+  if (exEl) { exEl.textContent = ''; exEl.style.display = 'none'; }
+  const area = document.getElementById('calib-upload-area');
+  if (area) area.style.borderColor = 'var(--border)';
+  const input = document.getElementById('calib-file-input');
+  if (input) input.value = '';
+  document.getElementById('calib-btn-cancelar').style.display = 'none';
+  document.getElementById('calib-btn-salvar').textContent = 'Cadastrar Dispositivo';
+}
+
+function _calibCancelarEdicao() {
+  _calibLimparForm();
+}
+
+function _calibStatusInfo(d) {
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const val  = new Date(d.dataValidade + 'T00:00:00');
+  const diff = Math.ceil((val - hoje) / 86400000); // dias restantes
+  if (diff < 0)  return { label:'Vencido',        color:'var(--danger)',  bg:'rgba(255,59,92,.1)',  icon:'🔴', dias: diff };
+  if (diff <= 30) return { label:`Vence em ${diff}d`, color:'var(--warn)', bg:'rgba(255,149,0,.1)', icon:'🟡', dias: diff };
+  return           { label:`Válido (${diff}d)`,   color:'var(--accent)',  bg:'rgba(0,229,160,.1)', icon:'🟢', dias: diff };
+}
+
+async function salvarDispositivo() {
+  const editId   = document.getElementById('calib-edit-id').value.trim();
+  const tag      = document.getElementById('calib-tag').value.trim();
+  const desc     = document.getElementById('calib-desc').value.trim();
+  const setor    = document.getElementById('calib-setor').value.trim();
+  const dataCalib= document.getElementById('calib-data-calib').value;
+  const dataVal  = document.getElementById('calib-data-validade').value;
+  const resp     = document.getElementById('calib-responsavel').value.trim();
+  const obs      = document.getElementById('calib-obs').value.trim();
+
+  if (!tag)      return toast('Informe a TAG do dispositivo.','error');
+  if (!desc)     return toast('Informe a descrição/nome.','error');
+  if (!setor)    return toast('Informe o setor/localização.','error');
+  if (!dataCalib)return toast('Informe a data da calibração.','error');
+  if (!dataVal)  return toast('Informe a data de validade.','error');
+  if (new Date(dataVal) <= new Date(dataCalib))
+    return toast('A validade deve ser posterior à data da calibração.','error');
+
+  const btn = document.getElementById('calib-btn-salvar');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+
+  try {
+    let dispositivo;
+    if (editId) {
+      // Edição — preservar arquivo existente se não houver novo
+      dispositivo = { ...db.calibracao.find(d => d.id === editId) };
+      dispositivo.tag = tag; dispositivo.desc = desc; dispositivo.setor = setor;
+      dispositivo.dataCalib = dataCalib; dispositivo.dataValidade = dataVal;
+      dispositivo.responsavel = resp; dispositivo.obs = obs;
+      dispositivo.atualizadoEm = new Date().toISOString();
+      dispositivo.atualizadoPor = currentUser.nome;
+      if (_calibArquivoPendente) dispositivo.arquivo = _calibArquivoPendente;
+      db.calibracao = db.calibracao.map(d => d.id === editId ? dispositivo : d);
+    } else {
+      dispositivo = {
+        id: uid(), tag, desc, setor, dataCalib, dataValidade: dataVal,
+        responsavel: resp, obs,
+        arquivo: _calibArquivoPendente || null,
+        criadoEm: new Date().toISOString(), criadoPor: currentUser.nome
+      };
+      db.calibracao.push(dispositivo);
+    }
+
+    await saveItem('calibracao', dispositivo);
+    await logAudit('calibracao', `${editId?'Atualizado':'Cadastrado'}: ${tag}`, `Desc: ${desc} | Setor: ${setor} | Validade: ${dataVal}`);
+    toast(editId ? 'Dispositivo atualizado!' : 'Dispositivo cadastrado!');
+    _calibLimparForm();
+    renderCalibracao();
+
+    // Verificar alertas de vencimento após salvar
+    _calibVerificarAlertas();
+
+  } catch(e) {
+    toast('Erro ao salvar dispositivo.','error');
+    console.error(e);
+  } finally {
+    btn.disabled = false; btn.textContent = editId ? 'Salvar Alterações' : 'Cadastrar Dispositivo';
+  }
+}
+
+function _calibEditarDispositivo(id) {
+  const d = db.calibracao.find(x => x.id === id); if(!d) return;
+  document.getElementById('calib-edit-id').value   = d.id;
+  document.getElementById('calib-tag').value        = d.tag || '';
+  document.getElementById('calib-desc').value       = d.desc || '';
+  document.getElementById('calib-setor').value      = d.setor || '';
+  document.getElementById('calib-data-calib').value = d.dataCalib || '';
+  document.getElementById('calib-data-validade').value = d.dataValidade || '';
+  document.getElementById('calib-responsavel').value= d.responsavel || '';
+  document.getElementById('calib-obs').value        = d.obs || '';
+  _calibArquivoPendente = null;
+
+  if (d.arquivo) {
+    const exEl = document.getElementById('calib-file-existente');
+    if (exEl) {
+      exEl.style.display = 'block';
+      exEl.innerHTML = `<span style="color:var(--accent);">📎 Arquivo atual: ${escHtml(d.arquivo.nome)}</span>
+        <button onclick="_calibRemoverArquivo()" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:11px;margin-left:8px;">✕ Remover</button>`;
+    }
+  }
+
+  document.getElementById('calib-btn-cancelar').style.display = 'inline-flex';
+  document.getElementById('calib-btn-salvar').textContent = 'Salvar Alterações';
+
+  // Scroll até o formulário
+  const form = document.getElementById('calib-tag');
+  if (form) form.scrollIntoView({ behavior:'smooth', block:'start' });
+  form.focus();
+}
+
+async function _calibRemoverArquivo() {
+  const editId = document.getElementById('calib-edit-id').value;
+  if (!editId) return;
+  const d = db.calibracao.find(x => x.id === editId); if(!d) return;
+  d.arquivo = null;
+  _calibArquivoPendente = null;
+  const exEl = document.getElementById('calib-file-existente');
+  if (exEl) { exEl.style.display = 'none'; exEl.innerHTML = ''; }
+  try { await saveItem('calibracao', d); toast('Arquivo removido.'); } catch(e){}
+}
+
+async function _calibExcluirDispositivo(id) {
+  const d = db.calibracao.find(x => x.id === id); if(!d) return;
+  const ok = await sfConfirm({
+    title:'Excluir Dispositivo',
+    body:`Excluir "${d.tag} — ${d.desc}"? Esta ação não pode ser desfeita.`,
+    type:'danger', okText:'Excluir'
+  });
+  if (!ok) return;
+  db.calibracao = db.calibracao.filter(x => x.id !== id);
+  renderCalibracao();
+  try {
+    await deleteItem('calibracao', id);
+    await logAudit('calibracao', `Excluído: ${d.tag}`, `Desc: ${d.desc}`);
+    toast('Dispositivo excluído.');
+  } catch(e) { toast('Erro ao excluir.','error'); }
+}
+
+function _calibVisualizarArquivo(id) {
+  const d = db.calibracao.find(x => x.id === id);
+  if (!d || !d.arquivo) return toast('Nenhum arquivo anexado.','error');
+  const win = window.open();
+  if (!win) return toast('Permita popups para visualizar o arquivo.','error');
+  if (d.arquivo.tipo && d.arquivo.tipo.startsWith('image/')) {
+    win.document.write(`<html><body style="margin:0;background:#111;">
+      <img src="${d.arquivo.base64}" style="max-width:100%;display:block;margin:auto;">
+    </body></html>`);
+  } else {
+    win.document.write(`<html><body style="margin:0;">
+      <embed src="${d.arquivo.base64}" type="application/pdf" width="100%" height="100%" style="height:100vh;">
+    </body></html>`);
+  }
+}
+
+/**
+ * Verifica dispositivos a vencer em 30 dias e emite notificações
+ * para usuários com role quality. Chamado ao carregar a página e ao salvar.
+ */
+function _calibVerificarAlertas() {
+  if (!currentUser) return;
+  if (currentUser.role !== 'adm' && currentUser.role !== 'quality') return;
+
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const limite = new Date(hoje); limite.setDate(limite.getDate() + 30);
+
+  (db.calibracao || []).forEach(d => {
+    const val = new Date(d.dataValidade + 'T00:00:00');
+    if (val > limite) return; // não precisa alertar
+    const jaNotificado = (db.notificacoes || []).some(n =>
+      n.tipo === 'calib_vencimento' &&
+      n.refId === d.id &&
+      n.userId === currentUser.id &&
+      // Não re-notificar se já houve notificação nos últimos 7 dias
+      (new Date() - new Date(n.data)) < 7 * 86400000
+    );
+    if (jaNotificado) return;
+
+    const diff = Math.ceil((val - hoje) / 86400000);
+    const msg = diff < 0
+      ? `⚠️ Calibração VENCIDA: ${d.tag} — ${d.desc} (venceu há ${Math.abs(diff)} dia(s))`
+      : `⏰ Calibração a vencer em ${diff} dia(s): ${d.tag} — ${d.desc} | Setor: ${d.setor}`;
+
+    adicionarNotif(currentUser.id, msg, 'calib_vencimento', d.id);
+  });
+}
+
+function renderCalibracao() {
+  const lista = document.getElementById('calib-lista'); if(!lista) return;
+  const empty = document.getElementById('calib-empty');
+  const busca = (document.getElementById('calib-busca')?.value || '').toLowerCase();
+
+  const dados = (db.calibracao || [])
+    .filter(d => !busca ||
+      (d.tag||'').toLowerCase().includes(busca) ||
+      (d.desc||'').toLowerCase().includes(busca) ||
+      (d.setor||'').toLowerCase().includes(busca))
+    .sort((a,b) => {
+      // Ordenar: vencidos primeiro, depois a vencer, depois válidos
+      const sa = _calibStatusInfo(a).dias;
+      const sb = _calibStatusInfo(b).dias;
+      return sa - sb;
+    });
+
+  // Atualizar stats
+  const todos = db.calibracao || [];
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const lim30 = new Date(hoje); lim30.setDate(lim30.getDate()+30);
+  const vencidos = todos.filter(d => new Date(d.dataValidade+'T00:00:00') < hoje).length;
+  const prox30   = todos.filter(d => { const v=new Date(d.dataValidade+'T00:00:00'); return v>=hoje&&v<=lim30; }).length;
+  const validos  = todos.length - vencidos - prox30;
+  const stTotal  = document.getElementById('calib-stat-total');
+  const stOk     = document.getElementById('calib-stat-ok');
+  const stProx   = document.getElementById('calib-stat-prox');
+  const stVenc   = document.getElementById('calib-stat-venc');
+  if(stTotal) stTotal.textContent = todos.length;
+  if(stOk)    stOk.textContent    = validos;
+  if(stProx)  stProx.textContent  = prox30;
+  if(stVenc)  stVenc.textContent  = vencidos;
+
+  if (!dados.length) { empty.style.display='block'; lista.innerHTML=''; return; }
+  empty.style.display='none';
+
+  lista.innerHTML = dados.map(d => {
+    const st = _calibStatusInfo(d);
+    const temArq = !!(d.arquivo && d.arquivo.base64);
+    return `<div class="card" style="margin-bottom:12px;border-left:3px solid ${st.color};padding:14px 18px;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
+            <span style="font-family:'Syne',sans-serif;font-weight:800;font-size:16px;">${escHtml(d.tag)}</span>
+            <span style="font-size:13px;color:var(--muted);">${escHtml(d.desc)}</span>
+            <span style="padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;background:${st.bg};color:${st.color};white-space:nowrap;">${st.icon} ${st.label}</span>
+          </div>
+          <div style="display:flex;gap:18px;font-size:12px;color:var(--muted);flex-wrap:wrap;">
+            <span>📍 ${escHtml(d.setor)}</span>
+            <span>📅 Calibrado: <strong style="color:var(--text);">${fmt(d.dataCalib)}</strong></span>
+            <span>⏰ Validade: <strong style="color:${st.color};">${fmt(d.dataValidade)}</strong></span>
+            ${d.responsavel?`<span>👤 ${escHtml(d.responsavel)}</span>`:''}
+          </div>
+          ${d.obs?`<div style="font-size:12px;color:var(--muted);margin-top:6px;">Obs: ${escHtml(d.obs)}</div>`:''}
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;align-items:center;">
+          ${temArq ? `<button onclick="_calibVisualizarArquivo('${d.id}')"
+            style="background:rgba(0,229,160,.1);border:1px solid rgba(0,229,160,.3);color:var(--accent);border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:5px;">
+            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+            Certificado
+          </button>` : `<span style="font-size:11px;color:var(--muted);font-style:italic;">Sem certificado</span>`}
+          <button onclick="_calibEditarDispositivo('${d.id}')"
+            style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;">
+            ✏️ Editar
+          </button>
+          <button onclick="_calibExcluirDispositivo('${d.id}')"
+            style="background:rgba(255,59,92,.08);border:1px solid rgba(255,59,92,.3);color:var(--danger);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;">
+            ✕
+          </button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Verificar alertas sempre que renderizar
+  _calibVerificarAlertas();
+}
 
 
 </script>
