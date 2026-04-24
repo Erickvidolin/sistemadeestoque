@@ -391,12 +391,16 @@ tr:hover td{background:rgba(255,255,255,.02);}
   #main{padding-top:0;overflow-x:hidden;}
   .page{padding:12px;overflow-x:hidden;}
   .grid-2,.grid-3,.grid-4{grid-template-columns:1fr;}
-  /* Tabelas: scroll horizontal em vez de display:none */
-  .table-scroll-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%;}
+  /* Dashboard stat cards: 2 colunas no mobile */
+  #dash-stats{grid-template-columns:repeat(2,1fr)!important;}
+  /* Tabelas: esconde no mobile, mostra data-cards */
+  .table-scroll-wrap{display:none!important;}
+  .data-cards{display:block!important;}
   table{display:table;min-width:500px;font-size:12px;}
   th,td{padding:8px 10px;white-space:nowrap;}
   .mobile-cards{display:block;}
   .desktop-only{display:none;}
+  .dash-charts-grid{grid-template-columns:1fr!important;}
   .section-title{font-size:18px;}
   .req-layout{grid-template-columns:1fr !important;}
   .card{padding:14px;overflow-x:hidden;}
@@ -407,11 +411,9 @@ tr:hover td{background:rgba(255,255,255,.02);}
   #notif-panel{width:calc(100vw - 24px);right:12px;top:56px;}
   .section-sub{margin-bottom:14px;}
   #toast{bottom:16px;right:12px;left:12px;max-width:none;}
-  /* Filtros do dashboard: empilhar em coluna */
   #page-dash .card > div:first-child{flex-wrap:wrap;gap:8px;}
   #page-dash .card > div:first-child input,
   #page-dash .card > div:first-child select{width:100%!important;}
-  /* Grids fixos em px viram 1fr */
   .form-table-layout,
   [style*="grid-template-columns:380px"],
   [style*="grid-template-columns:420px"],
@@ -423,10 +425,11 @@ tr:hover td{background:rgba(255,255,255,.02);}
 @media(min-width:769px){
   .mobile-cards{display:none;}
   .table-scroll-wrap{overflow-x:auto;}
+  .data-cards{display:none;}
 }
 
 /* ── MOBILE DATA CARDS ── */
-.data-cards { display: none; }
+.data-cards { display: none; } /* esconde no desktop; media query mostra no mobile */
 .data-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -442,60 +445,114 @@ tr:hover td{background:rgba(255,255,255,.02);}
   gap: 8px;
 }
 .data-card-title { font-weight: 700; font-size: 14px; line-height: 1.3; }
-.data-card-body { font-size: 12px; color: var(--muted); line-height: 1.9; }
+.data-card-body { font-size: 13px; color: var(--muted); line-height: 1.9; }
 .data-card-body strong { color: var(--text); }
 .data-card-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
 .data-card-actions .btn { flex: 1; min-width: 60px; text-align: center; }
 
-/* ── SEARCHABLE SELECT ── */
+/* ── SEARCHABLE SELECT (SmartSelect v2) ── */
 .sf-wrap { position: relative; width: 100%; }
 .sf-input {
-  width: 100%;
-  padding: 10px 36px 10px 14px !important;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  color: var(--text);
-  border-radius: 8px;
-  font-size: 14px;
-  font-family: 'DM Sans', sans-serif;
-  outline: none;
-  cursor: text;
-  transition: border-color .2s;
-  box-sizing: border-box;
+  width: 100%; padding: 10px 36px 10px 14px !important;
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); border-radius: 8px; font-size: 14px;
+  font-family: 'DM Sans', sans-serif; outline: none; cursor: pointer;
+  transition: border-color .2s; box-sizing: border-box; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
 }
-.sf-input:focus { border-color: var(--accent); }
+.sf-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,229,160,.12); }
+.sf-input.sf-selected { border-color: rgba(0,229,160,.5); }
+.sf-input::placeholder { color: var(--muted); }
 .sf-arrow {
   position: absolute; right: 10px; top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none; color: var(--muted); font-size: 10px;
+  transform: translateY(-50%); pointer-events: none;
+  color: var(--muted); font-size: 10px; transition: transform .2s;
 }
+.sf-wrap.sf-open .sf-arrow { transform: translateY(-50%) rotate(180deg); }
+/* Desktop dropdown */
 .sf-dropdown {
   display: none; position: absolute;
   top: calc(100% + 4px); left: 0; right: 0;
-  background: var(--surface2); border: 1px solid var(--accent);
-  border-radius: 10px; max-height: 220px;
-  overflow-y: auto; z-index: 500;
-  box-shadow: 0 8px 24px rgba(0,0,0,.6);
+  background: var(--surface); border: 1px solid rgba(0,229,160,.35);
+  border-radius: 10px; overflow: hidden; z-index: 600;
+  box-shadow: 0 8px 32px rgba(0,0,0,.4);
+  flex-direction: column;
 }
-.sf-dropdown.open { display: block; }
+.sf-dropdown.sf-open { display: flex; }
+.sf-dropdown-search-box {
+  padding: 8px 10px; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: var(--surface); z-index: 1; flex-shrink: 0;
+}
+.sf-dropdown-search-box input {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 7px 10px; color: var(--text); font-size: 13px;
+  outline: none; font-family: 'DM Sans',sans-serif; box-sizing: border-box;
+}
+.sf-dropdown-search-box input:focus { border-color: var(--accent); }
+.sf-opts-list { overflow-y: auto; max-height: 220px; overscroll-behavior: contain; }
 .sf-opt {
-  padding: 10px 14px; cursor: pointer; font-size: 13px;
-  border-bottom: 1px solid var(--border); transition: background .12s;
-  color: var(--text);
+  padding: 10px 14px; font-size: 13px; color: var(--text);
+  cursor: pointer; transition: background .1s; line-height: 1.4;
+  border-bottom: 1px solid var(--border);
 }
 .sf-opt:last-child { border-bottom: none; }
-.sf-opt:hover { background: rgba(0,229,160,.1); color: var(--accent); }
-.sf-opt.sf-empty { color: var(--muted); cursor: default; font-style: italic; }
-.sf-opt.sf-empty:hover { background: none; color: var(--muted); }
-
-@media(max-width:768px){
-  .sf-input { font-size: 16px !important; }
+.sf-opt:hover, .sf-opt.sf-focused { background: rgba(0,229,160,.1); color: var(--accent); }
+.sf-opt.sf-active { background: rgba(0,229,160,.15); font-weight: 600; color: var(--accent); }
+.sf-opt.sf-empty { color: var(--muted); cursor: default; font-style: italic; padding: 12px 14px; }
+.sf-opt.sf-empty:hover { background: transparent; color: var(--muted); }
+/* Mobile fullscreen bottom sheet */
+.sf-mobile-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55);
+  z-index: 2000; align-items: flex-end; justify-content: center;
+  overscroll-behavior: contain;
 }
-
-@media(min-width:769px){
-  .table-scroll-wrap { display: block; }
-  .data-cards { display: none; }
+.sf-mobile-overlay.sf-open { display: flex; }
+.sf-mobile-panel {
+  background: var(--surface); border-radius: 18px 18px 0 0;
+  width: 100%; max-height: 88vh; display: flex; flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom, 8px);
 }
+.sf-mobile-panel::before {
+  content: ''; display: block; width: 40px; height: 4px;
+  background: var(--border); border-radius: 2px;
+  margin: 10px auto 6px; flex-shrink: 0;
+}
+.sf-mobile-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 16px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.sf-mobile-header .sf-mobile-label {
+  font-family: 'Syne',sans-serif; font-weight: 700; font-size: 16px; color: var(--text);
+}
+.sf-mobile-header .sf-mobile-close {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 50%; width: 32px; height: 32px; display: flex;
+  align-items: center; justify-content: center; cursor: pointer;
+  color: var(--muted); font-size: 16px; flex-shrink: 0;
+}
+.sf-mobile-search {
+  padding: 10px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.sf-mobile-search input {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 11px 14px; color: var(--text);
+  font-size: 16px; outline: none; font-family: 'DM Sans',sans-serif;
+  box-sizing: border-box;
+}
+.sf-mobile-search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,229,160,.12); }
+.sf-mobile-opts { overflow-y: auto; flex: 1; overscroll-behavior: contain; }
+.sf-mobile-opt {
+  padding: 15px 18px; font-size: 15px; color: var(--text);
+  cursor: pointer; border-bottom: 1px solid var(--border);
+  line-height: 1.4; display: flex; align-items: center; justify-content: space-between;
+  -webkit-tap-highlight-color: transparent;
+}
+.sf-mobile-opt:active { background: rgba(0,229,160,.1); }
+.sf-mobile-opt.sf-active { color: var(--accent); font-weight: 600; background: rgba(0,229,160,.06); }
+.sf-mobile-opt.sf-active::after { content: '✓'; color: var(--accent); font-size: 18px; margin-left: 8px; }
+.sf-mobile-opt.sf-empty { color: var(--muted); font-style: italic; cursor: default; }
+/* Highlight match text */
+.sf-match { background: rgba(0,229,160,.25); border-radius: 2px; padding: 0 1px; }
 
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; transform: scale(1); }
@@ -717,7 +774,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
       <div class="section-title">Dashboard</div>
       <div class="section-sub">Visão geral consolidada do estoque</div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;" id="dash-stats"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-bottom:24px;" class="desktop-only">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-bottom:24px;" class="dash-charts-grid">
         <div class="card">
           <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:16px;font-size:14px;">Materiais por Status</div>
           <canvas id="chartStatus" height="200"></canvas>
@@ -757,6 +814,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
           <thead><tr><th>Material</th><th>Qtd Total</th><th>Estoques</th><th>Mín</th><th>Máx</th><th>Dias Chegada</th><th>Status</th></tr></thead>
           <tbody id="dash-tbody"></tbody>
         </table></div>
+        <div class="data-cards" id="dash-cards"></div>
         <div id="dash-sem-resultado" style="display:none;text-align:center;color:var(--muted);padding:24px;">Nenhum material encontrado.</div>
       </div>
       <!-- Atividade Recente -->
@@ -1074,6 +1132,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
             </div>
           </div>
           <div class="table-scroll-wrap"><table><thead><tr><th>Material / Lote</th><th>Origem</th><th>Destino</th><th>Qtd</th><th>Resp.</th><th>Data</th><th></th></tr></thead><tbody id="transf-tbody"></tbody></table></div>
+          <div class="data-cards" id="transf-cards"></div>
           <div class="data-cards" id="transf-cards"></div>
           <div id="transf-empty" style="text-align:center;color:var(--muted);padding:32px;display:none;">Nenhuma transferência.</div>
         </div>
@@ -2119,6 +2178,19 @@ tr:hover td{background:rgba(255,255,255,.02);}
 </div>
 
 <div id="toast"></div>
+<!-- SmartSelect mobile fullscreen panel -->
+<div id="sf-overlay" class="sf-mobile-overlay" onclick="sfMobileClose(event)">
+  <div class="sf-mobile-panel" onclick="event.stopPropagation()">
+    <div class="sf-mobile-header">
+      <span class="sf-mobile-label" id="sf-overlay-label">Selecionar</span>
+      <span class="sf-mobile-close" onclick="sfMobileClose()">✕</span>
+    </div>
+    <div class="sf-mobile-search">
+      <input type="text" id="sf-overlay-search" placeholder="Buscar..." autocomplete="off" spellcheck="false">
+    </div>
+    <div class="sf-mobile-opts" id="sf-overlay-opts"></div>
+  </div>
+</div>
 <button id="scroll-top-btn" onclick="document.getElementById('main').scrollTo({top:0,behavior:'smooth'})" style="display:none;position:fixed;bottom:80px;right:20px;z-index:999;width:40px;height:40px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-size:18px;cursor:pointer;line-height:1;transition:all .2s;" onmouseover="this.style.background='var(--surface)';this.style.color='var(--text)'" onmouseout="this.style.background='var(--surface2)';this.style.color='var(--muted)'">↑</button>
 
 <!-- MODAL: Dar entrada no estoque pelo recebimento aprovado -->
@@ -2908,6 +2980,8 @@ function navigateTo(page) {
   if (page === 'historico-recebimentos') renderHistoricoRecebimentos();
   if (page === 'nao-conformidades') renderNaoConformidades();
   if (page === 'calibracao') renderCalibracao();
+  // Inicializa SmartSelect em selects criados dinamicamente por esta página
+  if (window._sfInitNew) setTimeout(window._sfInitNew, 150);
 }
 
 // ===========================
@@ -3000,8 +3074,9 @@ async function salvarEstoque() {
 }
 function renderEstoques() {
   const tb = document.getElementById('estoques-tbody');
+  const cards = document.getElementById('estoques-cards');
   const em = document.getElementById('estoques-empty');
-  if (!tb) return; tb.innerHTML = '';
+  if (!tb) return; tb.innerHTML = ''; if (cards) cards.innerHTML = '';
   if (!db.estoques.length) { em.style.display='block'; return; } em.style.display='none';
   db.estoques.forEach(e => {
     const itens = db.itens.filter(i=>i.estoqueId===e.id);
@@ -3011,16 +3086,29 @@ function renderEstoques() {
       <td><strong>${e.nome}</strong><br><span style="color:var(--muted);font-size:11px;">${e.desc||''}</span></td>
       <td style="color:var(--muted);font-size:12px;">${e.local||'—'}</td>
       <td>${e.principal ? '<span class="badge badge-ok">Principal</span>' : ''}</td>
-      <td style="font-size:12px;">
-        <strong style="color:var(--accent);">${totalQtd.toLocaleString('pt-BR')}</strong>
-        <span style="color:var(--muted);"> un.</span>
-        <br><span style="color:var(--muted);font-size:11px;">${totalLotes} lote(s)</span>
-      </td>
+      <td style="font-size:12px;"><strong style="color:var(--accent);">${totalQtd.toLocaleString('pt-BR')}</strong><span style="color:var(--muted);"> un.</span><br><span style="color:var(--muted);font-size:11px;">${totalLotes} lote(s)</span></td>
       <td style="display:flex;gap:6px;">
         <button class="btn btn-secondary" style="padding:3px 9px;font-size:11px;" onclick="togglePrincipal('${e.id}')" title="Definir como principal">⭐</button>
         <button class="btn btn-danger" style="padding:3px 9px;font-size:11px;" onclick="delEstoque('${e.id}')">✕</button>
       </td>
     </tr>`;
+    if (cards) cards.innerHTML += `<div class="data-card">
+      <div class="data-card-header">
+        <div>
+          <div class="data-card-title">${e.nome}</div>
+          <div style="font-size:11px;color:var(--muted);">${e.local||''}</div>
+        </div>
+        ${e.principal ? '<span class="badge badge-ok">Principal</span>' : ''}
+      </div>
+      <div class="data-card-body">
+        <strong style="color:var(--accent);font-size:18px;">${totalQtd.toLocaleString('pt-BR')}</strong> un. &nbsp;·&nbsp; ${totalLotes} lote(s)
+        ${e.desc ? `<br>${e.desc}` : ''}
+      </div>
+      <div class="data-card-actions">
+        <button class="btn btn-secondary" onclick="togglePrincipal('${e.id}')">⭐ Principal</button>
+        <button class="btn btn-danger" onclick="delEstoque('${e.id}')">Excluir</button>
+      </div>
+    </div>`;
   });
 }
 async function delEstoque(id) {
@@ -3151,16 +3239,13 @@ async function salvarMaterial() {
 }
 function renderMateriais() {
   const tb = document.getElementById('materiais-tbody');
+  const cards = document.getElementById('materiais-cards');
   const em = document.getElementById('materiais-empty');
-  if (!tb) return; tb.innerHTML = '';
+  if (!tb) return; tb.innerHTML = ''; if (cards) cards.innerHTML = '';
   const busca  = (document.getElementById('mat-busca')?.value || '').trim().toLowerCase();
   const filtro = document.getElementById('mat-filtro-critico')?.value || '';
   const lista = db.materiais.filter(m => {
-    if (busca && !(
-      (m.nome||'').toLowerCase().includes(busca) ||
-      (m.cat||'').toLowerCase().includes(busca) ||
-      (m.unidade||'').toLowerCase().includes(busca)
-    )) return false;
+    if (busca && ![(m.nome||''),(m.cat||''),(m.unidade||'')].some(v=>v.toLowerCase().includes(busca))) return false;
     if (filtro === 'critico' && !m.critico) return false;
     if (filtro === 'normal'  &&  m.critico) return false;
     return true;
@@ -3174,8 +3259,7 @@ function renderMateriais() {
       <td style="color:var(--muted)">${m.cat||'—'}</td>
       <td style="color:var(--muted)">${m.unidade||'—'}</td>
       <td><strong style="font-size:15px;">${qtdTotal}</strong>&nbsp;<span class="badge ${st.cls}" style="font-size:9px;padding:2px 6px;">${st.label}</span></td>
-      <td>${m.min!==null?m.min:'—'}</td>
-      <td>${m.max!==null?m.max:'—'}</td>
+      <td>${m.min!==null?m.min:'—'}</td><td>${m.max!==null?m.max:'—'}</td>
       <td>${m.diasChegada!==null&&m.diasChegada!==undefined?m.diasChegada+'d':'—'}</td>
       <td>${m.critico?'<span class="badge badge-quality">Crítico</span>':'<span style="color:var(--muted);font-size:11px;">—</span>'}</td>
       <td style="display:flex;gap:5px;flex-wrap:wrap;">
@@ -3184,6 +3268,26 @@ function renderMateriais() {
         <button class="btn btn-danger" style="padding:3px 8px;font-size:11px;" onclick="delMaterial('${m.id}')">✕</button>
       </td>
     </tr>`;
+    if (cards) cards.innerHTML += `<div class="data-card">
+      <div class="data-card-header">
+        <div>
+          <div class="data-card-title">${m.nome}</div>
+          <div style="font-size:11px;color:var(--muted);">${m.cat||'—'} · ${m.unidade||'—'}${m.critico?' · <span style="color:#a855f7;font-weight:600;">Crítico</span>':''}</div>
+        </div>
+        <span class="badge ${st.cls}">${st.label}</span>
+      </div>
+      <div class="data-card-body">
+        Qtd: <strong style="font-size:16px;">${qtdTotal}</strong>
+        ${m.min!==null?` &nbsp;·&nbsp; Mín: <strong>${m.min}</strong>`:''}
+        ${m.max!==null?` &nbsp;·&nbsp; Máx: <strong>${m.max}</strong>`:''}
+        ${m.diasChegada!=null?`<br>Lead time: <strong>${m.diasChegada}d</strong>`:''}
+      </div>
+      <div class="data-card-actions">
+        <button class="btn btn-secondary" onclick="abrirEditarMaterial('${m.id}')">Editar</button>
+        <button class="btn btn-secondary" onclick="copiarMaterial('${m.id}')">Duplicar</button>
+        <button class="btn btn-danger" onclick="delMaterial('${m.id}')">Excluir</button>
+      </div>
+    </div>`;
   });
 }
 async function delMaterial(id) {
@@ -3331,6 +3435,26 @@ function renderEntradas() {
     </tr>`;
   });
   if(lista.length>50){const tr=document.createElement('tr');tr.innerHTML=`<td colspan="7" style="text-align:center;color:var(--muted);font-size:12px;padding:10px;">Mostrando 50 de ${lista.length} entradas. Use a busca para filtrar.</td>`;tb.appendChild(tr);}
+  // Mobile cards
+  const cards = document.getElementById('entradas-cards');
+  if (cards) {
+    cards.innerHTML = '';
+    lista.slice(0,50).forEach(e=>{
+      cards.innerHTML += `<div class="data-card"${e.teste?' style="opacity:.8;border-style:dashed;"':''}>
+        <div class="data-card-header">
+          <div><div class="data-card-title">${e.materialNome}${e.teste?'<span style="margin-left:6px;font-size:10px;background:rgba(255,149,0,.15);color:var(--warn);padding:1px 5px;border-radius:3px;">TESTE</span>':''}</div>
+          <div style="font-size:11px;color:var(--muted);">${e.estoqueNome} · ${fmt(e.data)}</div></div>
+          <strong style="color:var(--accent);font-size:18px;">+${e.qtd}</strong>
+        </div>
+        <div class="data-card-body">
+          Lote: <strong>${e.lote}</strong>
+          ${e.validade ? ` &nbsp;·&nbsp; Val: <strong>${fmt(e.validade)}</strong>` : ''}
+          ${e.obs ? `<br>${e.obs}` : ''}
+        </div>
+        ${currentUser&&currentUser.role==='adm'?`<div class="data-card-actions"><button class="btn btn-secondary" onclick="abrirEditarEntrada('${e.id}')">Editar</button><button class="btn btn-danger" onclick="excluirRegistroTeste('entradas','${e.id}')">Excluir</button></div>`:''}
+      </div>`;
+    });
+  }
 }
 
 function exportarEntradasExcel(){
@@ -3402,6 +3526,26 @@ function renderSaidas() {
     </tr>`;
   });
   if(lista.length>50){const tr=document.createElement('tr');tr.innerHTML=`<td colspan="7" style="text-align:center;color:var(--muted);font-size:12px;padding:10px;">Mostrando 50 de ${lista.length} saídas. Use a busca para filtrar.</td>`;tb.appendChild(tr);}
+  // Mobile cards
+  const cards = document.getElementById('saidas-cards');
+  if (cards) {
+    cards.innerHTML = '';
+    lista.slice(0,50).forEach(s=>{
+      cards.innerHTML += `<div class="data-card"${s.teste?' style="opacity:.8;border-style:dashed;"':''}>
+        <div class="data-card-header">
+          <div><div class="data-card-title">${s.materialNome}${s.teste?'<span style="margin-left:6px;font-size:10px;background:rgba(255,149,0,.15);color:var(--warn);padding:1px 5px;border-radius:3px;">TESTE</span>':''}</div>
+          <div style="font-size:11px;color:var(--muted);">${s.estoqueNome} · ${fmt(s.data)}</div></div>
+          <strong style="color:var(--danger);font-size:18px;">-${s.qtd}</strong>
+        </div>
+        <div class="data-card-body">
+          Lote: <strong>${s.lote}</strong>
+          ${s.motivo ? `<br>Motivo: <strong>${s.motivo}</strong>` : ''}
+          ${s.resp ? `<br>Resp: <strong>${s.resp}</strong>` : ''}
+        </div>
+        ${currentUser&&currentUser.role==='adm'?`<div class="data-card-actions"><button class="btn btn-danger" onclick="excluirRegistroTeste('saidas','${s.id}')">Excluir</button></div>`:''}
+      </div>`;
+    });
+  }
 }
 
 function exportarSaidasExcel(){
@@ -3474,6 +3618,8 @@ function aplicarFiltros() {
   ctr.style.display='block';
   ctr.innerHTML=filtrado<total?`Mostrando <strong style="color:var(--text)">${filtrado}</strong> de <strong style="color:var(--text)">${total}</strong> itens`:`<strong style="color:var(--text)">${total}</strong> itens`;
   if(!res.length){nf.style.display='block';return;} nf.style.display='none';
+  const acards = document.getElementById('analise-cards');
+  if (acards) acards.innerHTML = '';
   res.forEach(({item,mat,nome,min,max,st,vencido,dias})=>{
     let vs=fmt(item.validade),vstyle='color:var(--muted)',vex='';
     if(!item.validade)vs='—';
@@ -3489,6 +3635,24 @@ function aplicarFiltros() {
       <td><span class="badge ${st.cls}">${st.label}</span></td>
       <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px;" onclick="abrirEditarItem('${item.id}')">Editar</button></td>
     </tr>`;
+    if (acards) acards.innerHTML += `<div class="data-card">
+      <div class="data-card-header">
+        <div>
+          <div class="data-card-title">${nome}</div>
+          <div style="font-size:11px;color:var(--muted);">${mat?.cat||'—'} · Lote: ${item.lote}</div>
+        </div>
+        <span class="badge ${st.cls}">${st.label}</span>
+      </div>
+      <div class="data-card-body">
+        Qtd: <strong style="font-size:16px;">${item.qtd}</strong>${mat?.unidade?' '+mat.unidade:''}
+        ${min!==null?` &nbsp;·&nbsp; Mín: <strong>${min}</strong>`:''}
+        ${max!==null?` &nbsp;·&nbsp; Máx: <strong>${max}</strong>`:''}
+        <br>Val: <span style="${vstyle}">${vs}${vex}</span>
+      </div>
+      <div class="data-card-actions">
+        <button class="btn btn-secondary" onclick="abrirEditarItem('${item.id}')">Editar</button>
+      </div>
+    </div>`;
   });
 }
 
@@ -3675,6 +3839,8 @@ function filtrarDashTabela() {
   const sem=document.getElementById('dash-sem-resultado');
   const ctr=document.getElementById('dash-filtro-contador');
   tb.innerHTML='';
+  const dcards = document.getElementById('dash-cards');
+  if (dcards) dcards.innerHTML = '';
   const total=dashMatCache.length,filtrado=res.length;
   if(busca||status||cat){ctr.style.display='block';ctr.innerHTML=filtrado<total?`Mostrando <strong style="color:var(--text)">${filtrado}</strong> de <strong>${total}</strong>`:`<strong>${total}</strong> materiais`;}else{ctr.style.display='none';}
   if(!res.length){sem.style.display='block';return;} sem.style.display='none';
@@ -3688,6 +3854,20 @@ function filtrarDashTabela() {
       <td style="color:var(--muted)">${m.diasChegada!==null&&m.diasChegada!==undefined?m.diasChegada+'d':'—'}</td>
       <td><span class="badge ${st.cls}">${st.label}</span></td>
     </tr>`;
+    if (dcards) dcards.innerHTML += `<div class="data-card">
+      <div class="data-card-header">
+        <div>
+          <div class="data-card-title">${m.nome}</div>
+          ${m.cat?`<div style="font-size:11px;color:var(--muted);">${m.cat}</div>`:''}
+        </div>
+        <span class="badge ${st.cls}">${st.label}</span>
+      </div>
+      <div class="data-card-body">
+        Qtd: <strong style="font-size:16px;font-family:'Syne',sans-serif;">${qtdTotal}</strong>${m.unidade?' <span style="color:var(--muted);font-size:11px;">'+m.unidade+'</span>':''}
+        <br>Estoques: <strong>${estoqueNomes.join(', ')||'—'}</strong>
+        <br>Mín: <strong>${m.min!==null?m.min:'—'}</strong> &nbsp;·&nbsp; Máx: <strong>${m.max!==null?m.max:'—'}</strong> &nbsp;·&nbsp; Lead: <strong>${m.diasChegada!==null&&m.diasChegada!==undefined?m.diasChegada+'d':'—'}</strong>
+      </div>
+    </div>`;
   });
 }
 function limparFiltrosDash(){['dash-filtro-nome','dash-filtro-status','dash-filtro-cat'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});filtrarDashTabela();}
@@ -3961,6 +4141,29 @@ function renderTransferencias(){
     </tr>`;
   });
   if(lista.length>50){const tr=document.createElement('tr');tr.innerHTML=`<td colspan="7" style="text-align:center;color:var(--muted);font-size:12px;padding:10px;">Mostrando 50 de ${lista.length}. Use a busca para filtrar.</td>`;tb.appendChild(tr);}
+  // Mobile cards
+  const tcards = document.getElementById('transf-cards');
+  if (tcards) {
+    tcards.innerHTML = '';
+    lista.slice(0,50).forEach(t=>{
+      tcards.innerHTML += `<div class="data-card"${t.teste?' style="opacity:.8;border-style:dashed;"':''}>
+        <div class="data-card-header">
+          <div>
+            <div class="data-card-title">${t.materialNome}${t.teste?'<span style="margin-left:5px;font-size:10px;background:rgba(255,149,0,.15);color:var(--warn);padding:1px 5px;border-radius:3px;">TESTE</span>':''}</div>
+            <div style="font-size:11px;color:var(--muted);">${t.estOrigNome} → <strong style="color:var(--accent)">${t.estDestNome}</strong></div>
+          </div>
+          <strong style="color:var(--accent);font-size:18px;">⇄ ${t.qtd}</strong>
+        </div>
+        <div class="data-card-body">
+          Lote: <strong>${t.loteOrigem||'—'}</strong>
+          ${t.resp ? `<br>Resp: <strong>${t.resp}</strong>` : ''}
+          ${t.motivo ? `<br>${t.motivo}` : ''}
+          <br style="display:block;margin-top:2px;"><span style="color:var(--muted);font-size:11px;">${fmt(t.data)}</span>
+        </div>
+        ${currentUser&&currentUser.role==='adm'?`<div class="data-card-actions"><button class="btn btn-danger" onclick="excluirRegistroTeste('transferencias','${t.id}')">Excluir</button></div>`:''}
+      </div>`;
+    });
+  }
 }
 
 function exportarTransferenciasExcel(){
@@ -5039,167 +5242,141 @@ async function marcarTodasLidas() {
 }
 // ═══════════════════════════════════════════════════════════════
 // MOTOR DE ALERTAS AUTOMÁTICOS — StockFlow
-// Verifica estoque crítico, zerado, acima do máximo e validade
-// Roda após login e a cada 30 min, sem duplicar alertas do mesmo dia
+//
+// ARQUITETURA DE DEDUPLICAÇÃO:
+// Cada alerta automático recebe um ID determinístico no Firestore:
+//   "auto__{tipo}__{refId}__{YYYY-MM-DD}"
+//
+// Se o alerta já existe no banco, setDoc com merge:true apenas
+// atualiza o campo 'mensagem' (caso o valor mude) mas NÃO cria
+// um novo documento e NÃO reseta o campo 'lida'.
+//
+// Resultado: abrir o sistema 10 vezes no mesmo dia → o alerta
+// aparece APENAS UMA VEZ no painel. Sem cache, sem sessionStorage,
+// sem memória volátil. 100% baseado no estado do Firebase.
 // ═══════════════════════════════════════════════════════════════
 
-// Cache local das notificações já enviadas hoje (carregado do Firebase após login)
-let _alertasEnviadosHoje = new Set();
+/**
+ * Gera o ID determinístico de um alerta automático.
+ * Mesmo tipo + mesmo refId + mesmo dia = mesmo ID = mesmo documento.
+ */
+function _alertaDocId(tipo, refId) {
+  const hoje = new Date().toISOString().slice(0, 10);
+  return `auto__${tipo}__${String(refId).replace(/[^a-zA-Z0-9_-]/g,'_')}__${hoje}`;
+}
 
 /**
- * Carrega do Firebase as notificações de alerta automático criadas hoje
- * para popular o cache local de deduplicação.
- * Chamado uma vez após login, antes de verificarAlertasAutomaticos.
- *
- * Chave do cache: "{tipo}_{refId}" — exatamente como salvo no Firebase.
- * Ex: "estoque_zerado_matId123", "validade_vencido_itemId456"
+ * Grava um alerta automático com ID determinístico.
+ * - Se o documento já existe: merge:true preserva o campo 'lida'
+ *   e apenas atualiza 'mensagem' (caso tenha mudado).
+ * - Se não existe: cria normalmente.
+ * Em ambos os casos, apenas UM documento por tipo+refId+dia existe.
  */
-async function _carregarAlertasHoje() {
-  _alertasEnviadosHoje = new Set();
+async function _gravarAlertaDedup(tipo, refId, userId, mensagem) {
+  const docId = _alertaDocId(tipo, refId);
+  const hoje  = new Date().toISOString().slice(0, 10);
   try {
-    const hoje = new Date().toISOString().slice(0, 10);
-    // Lista completa dos tipos automáticos — deve bater exatamente com os
-    // tipos usados em verificarAlertasAutomaticos() abaixo
-    const tiposAuto = [
-      'estoque_zerado', 'estoque_critico', 'estoque_excesso',
-      'validade_vencido', 'validade_aviso',
-      'calibracao_vencida', 'calibracao_aviso'
-    ];
-    const minhasNotifs = (db.notificacoes || []).filter(n =>
-      tiposAuto.includes(n.tipo) && n.data && n.data.slice(0,10) === hoje
+    const { setDoc } = window._firebase;
+    // Usa merge:true — preserva 'lida:true' se o usuário já leu hoje
+    await setDoc(
+      fsDoc('stockflow', 'notificacoes', 'items', docId),
+      { id: docId, userId, mensagem, tipo, refId: refId || '', data: hoje + 'T00:00:00.000Z', auto: true },
+      { merge: true }
     );
-    // A chave é "tipo_refId" — igual ao que _alertaJaFoiEnviado vai checar
-    minhasNotifs.forEach(n => {
-      if (n.tipo && n.refId) _alertasEnviadosHoje.add(`${n.tipo}_${n.refId}`);
-    });
-    console.log(`[Alertas] ${_alertasEnviadosHoje.size} alertas já enviados hoje carregados do banco.`);
+    // Atualiza memória local se pertencer ao usuário atual e ainda não estiver lá
+    if (_ehMinhaNotif({ userId })) {
+      if (!db.notificacoes) db.notificacoes = [];
+      if (!db.notificacoes.some(n => n.id === docId)) {
+        db.notificacoes.unshift({ id: docId, userId, mensagem, tipo, refId: refId || '', data: hoje + 'T00:00:00.000Z', auto: true, lida: false });
+        if (db.notificacoes.length > 200) db.notificacoes = db.notificacoes.slice(0, 200);
+        updateNotifBadge();
+      }
+    }
   } catch(e) {
-    console.warn('[Alertas] Erro ao carregar alertas de hoje:', e);
+    console.error('[Alertas] erro ao gravar alerta:', tipo, refId, e.message);
   }
 }
 
-/**
- * Checa se um alerta já foi enviado hoje.
- * @param {string} tipo  — tipo completo do Firebase (ex: 'estoque_zerado')
- * @param {string} refId — refId simples (ex: mat.id, item.id, disp.id)
- */
-function _alertaJaFoiEnviado(tipo, refId) {
-  return _alertasEnviadosHoje.has(`${tipo}_${refId}`);
-}
-
-/**
- * Marca um alerta como enviado no cache local.
- * Usa o mesmo formato de chave que _carregarAlertasHoje.
- */
-function _marcarAlertaEnviado(tipo, refId) {
-  _alertasEnviadosHoje.add(`${tipo}_${refId}`);
-}
+// Controle para evitar execuções simultâneas
+let _verificandoAlertas = false;
 
 async function verificarAlertasAutomaticos() {
   if (!currentUser || currentUser.role !== 'adm') return;
+  if (_verificandoAlertas) return;
+  _verificandoAlertas = true;
 
-  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-  const alertas = []; // { userId, mensagem, tipo, refId }
+  try {
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
 
-  // ── 1. ALERTAS DE ESTOQUE (itens x materiais) ──────────────────
-  const matMap = {};
-  (db.materiais || []).forEach(m => { matMap[m.id] = m; });
+    // ── 1. ALERTAS DE ESTOQUE ──────────────────────────────────────
+    const matMap = {};
+    (db.materiais || []).forEach(m => { matMap[m.id] = m; });
+    const totaisPorMat = {};
+    (db.itens || []).forEach(item => {
+      if (!item.materialId) return;
+      totaisPorMat[item.materialId] = (totaisPorMat[item.materialId] || 0) + (item.qtd || 0);
+    });
 
-  // Agrupa quantidade total por materialId
-  const totaisPorMat = {};
-  (db.itens || []).forEach(item => {
-    if (!item.materialId) return;
-    totaisPorMat[item.materialId] = (totaisPorMat[item.materialId] || 0) + (item.qtd || 0);
-  });
+    for (const mat of (db.materiais || [])) {
+      const qtd  = totaisPorMat[mat.id] || 0;
+      const min  = mat.min ?? null;
+      const max  = mat.max ?? null;
+      const nome = mat.nome || mat.id;
 
-  (db.materiais || []).forEach(mat => {
-    const qtd = totaisPorMat[mat.id] || 0;
-    const min = mat.min ?? null;
-    const max = mat.max ?? null;
-    const nome = mat.nome || mat.id;
-
-    // Estoque zerado
-    if (qtd === 0) {
-      if (!_alertaJaFoiEnviado('estoque_zerado', mat.id)) {
-        alertas.push({ userId: 'adm', mensagem: `⚫ Estoque ZERADO: "${nome}" — quantidade atual: 0.`, tipo: 'estoque_zerado', refId: mat.id });
-        _marcarAlertaEnviado('estoque_zerado', mat.id);
+      if (qtd === 0) {
+        await _gravarAlertaDedup('estoque_zerado', mat.id, 'adm',
+          `⚫ Estoque ZERADO: "${nome}" — quantidade atual: 0.`);
+      } else if (min !== null && qtd <= min) {
+        await _gravarAlertaDedup('estoque_critico', mat.id, 'adm',
+          `🔴 Estoque CRÍTICO: "${nome}" — quantidade ${qtd} abaixo do mínimo (${min}).`);
+      }
+      if (max !== null && qtd > max) {
+        await _gravarAlertaDedup('estoque_excesso', mat.id, 'adm',
+          `🔵 Estoque ACIMA DO MÁXIMO: "${nome}" — quantidade ${qtd} supera o máximo (${max}).`);
       }
     }
-    // Estoque crítico (abaixo do mínimo, mas não zerado)
-    else if (min !== null && qtd <= min) {
-      if (!_alertaJaFoiEnviado('estoque_critico', mat.id)) {
-        alertas.push({ userId: 'adm', mensagem: `🔴 Estoque CRÍTICO: "${nome}" — quantidade ${qtd} está abaixo do mínimo (${min}).`, tipo: 'estoque_critico', refId: mat.id });
-        _marcarAlertaEnviado('estoque_critico', mat.id);
+
+    // ── 2. ALERTAS DE VALIDADE ─────────────────────────────────────
+    const lim30 = new Date(hoje); lim30.setDate(lim30.getDate() + 30);
+
+    for (const item of (db.itens || [])) {
+      if (!item.validade) continue;
+      const dv   = new Date(item.validade + 'T00:00:00');
+      const mat  = matMap[item.materialId];
+      const nome = mat ? mat.nome : (item.materialNome || item.id);
+      const lote = item.lote ? ` (Lote: ${item.lote})` : '';
+
+      if (dv < hoje) {
+        await _gravarAlertaDedup('validade_vencido', item.id, 'adm',
+          `⚫ Material VENCIDO: "${nome}"${lote} — validade: ${fmt(item.validade)}.`);
+      } else if (dv <= lim30) {
+        const dias = Math.ceil((dv - hoje) / 86400000);
+        await _gravarAlertaDedup('validade_aviso', item.id, 'adm',
+          `🟡 Validade PRÓXIMA: "${nome}"${lote} — vence em ${dias} dia${dias !== 1 ? 's' : ''} (${fmt(item.validade)}).`);
       }
     }
-    // Acima do máximo
-    if (max !== null && qtd > max) {
-      if (!_alertaJaFoiEnviado('estoque_excesso', mat.id)) {
-        alertas.push({ userId: 'adm', mensagem: `🔵 Estoque ACIMA DO MÁXIMO: "${nome}" — quantidade ${qtd} supera o máximo (${max}).`, tipo: 'estoque_excesso', refId: mat.id });
-        _marcarAlertaEnviado('estoque_excesso', mat.id);
+
+    // ── 3. ALERTAS DE CALIBRAÇÃO ───────────────────────────────────
+    const limCalib = new Date(hoje); limCalib.setDate(limCalib.getDate() + 30);
+
+    for (const disp of (db.calibracao || [])) {
+      if (!disp.dataValidade || disp.emCalibracao) continue;
+      const dv  = new Date(disp.dataValidade + 'T00:00:00');
+      const tag = disp.tag || disp.desc || disp.id;
+
+      if (dv < hoje) {
+        await _gravarAlertaDedup('calibracao_vencida', disp.id, 'adm',
+          `🔴 Calibração VENCIDA: dispositivo "${tag}" — venceu em ${fmt(disp.dataValidade)}.`);
+      } else if (dv <= limCalib) {
+        const dias = Math.ceil((dv - hoje) / 86400000);
+        await _gravarAlertaDedup('calibracao_aviso', disp.id, 'adm',
+          `🟠 Calibração A VENCER: "${tag}" — expira em ${dias} dia${dias !== 1 ? 's' : ''} (${fmt(disp.dataValidade)}).`);
       }
     }
-  });
 
-  // ── 2. ALERTAS DE VALIDADE (itens com campo validade) ──────────
-  const diasAlerta = 30; // alertar para vencimentos nos próximos 30 dias
-  const limiteAviso = new Date(hoje); limiteAviso.setDate(limiteAviso.getDate() + diasAlerta);
-
-  (db.itens || []).forEach(item => {
-    if (!item.validade) return;
-    const dv = new Date(item.validade + 'T00:00:00');
-    const mat = matMap[item.materialId];
-    const nome = mat ? mat.nome : (item.materialNome || item.id);
-    const lote = item.lote ? ` (Lote: ${item.lote})` : '';
-
-    if (dv < hoje) {
-      // Vencido
-      if (!_alertaJaFoiEnviado('validade_vencido', item.id)) {
-        alertas.push({ userId: 'adm', mensagem: `⚫ Material VENCIDO: "${nome}"${lote} — validade: ${fmt(item.validade)}.`, tipo: 'validade_vencido', refId: item.id });
-        _marcarAlertaEnviado('validade_vencido', item.id);
-      }
-    } else if (dv <= limiteAviso) {
-      // Vence em breve
-      const diasRestantes = Math.ceil((dv - hoje) / (1000 * 60 * 60 * 24));
-      if (!_alertaJaFoiEnviado('validade_aviso', item.id)) {
-        alertas.push({ userId: 'adm', mensagem: `🟡 Validade PRÓXIMA: "${nome}"${lote} — vence em ${diasRestantes} dia${diasRestantes !== 1 ? 's' : ''} (${fmt(item.validade)}).`, tipo: 'validade_aviso', refId: item.id });
-        _marcarAlertaEnviado('validade_aviso', item.id);
-      }
-    }
-  });
-
-  // ── 3. ALERTAS DE CALIBRAÇÃO (dispositivos) ───────────────────
-  const diasAlertaCalib = 30;
-  const limiteCalib = new Date(hoje); limiteCalib.setDate(limiteCalib.getDate() + diasAlertaCalib);
-
-  (db.calibracao || []).forEach(disp => {
-    if (!disp.dataValidade || disp.emCalibracao) return;
-    const dv = new Date(disp.dataValidade + 'T00:00:00');
-    const tag = disp.tag || disp.desc || disp.id;
-
-    if (dv < hoje) {
-      if (!_alertaJaFoiEnviado('calibracao_vencida', disp.id)) {
-        alertas.push({ userId: 'adm', mensagem: `🔴 Calibração VENCIDA: dispositivo "${tag}" — venceu em ${fmt(disp.dataValidade)}.`, tipo: 'calibracao_vencida', refId: disp.id });
-        _marcarAlertaEnviado('calibracao_vencida', disp.id);
-      }
-    } else if (dv <= limiteCalib) {
-      const dias = Math.ceil((dv - hoje) / (1000 * 60 * 60 * 24));
-      if (!_alertaJaFoiEnviado('calibracao_aviso', disp.id)) {
-        alertas.push({ userId: 'adm', mensagem: `🟠 Calibração A VENCER: "${tag}" — expira em ${dias} dia${dias !== 1 ? 's' : ''} (${fmt(disp.dataValidade)}).`, tipo: 'calibracao_aviso', refId: disp.id });
-        _marcarAlertaEnviado('calibracao_aviso', disp.id);
-      }
-    }
-  });
-
-  // ── 4. ENVIA ALERTAS ──────────────────────────────────────────
-  for (const a of alertas) {
-    await adicionarNotif(a.userId, a.mensagem, a.tipo, a.refId);
-    // Pequeno delay para não sobrecarregar o Firestore
-    await new Promise(r => setTimeout(r, 120));
-  }
-
-  if (alertas.length > 0) {
-    console.log(`[StockFlow Alertas] ${alertas.length} novo(s) alerta(s) gerado(s).`);
+    console.log('[Alertas] Verificação concluída — alertas gravados com IDs determinísticos.');
+  } finally {
+    _verificandoAlertas = false;
   }
 }
 
@@ -5216,8 +5393,6 @@ function filtrarNotifTab(el, tipo) {
 async function verificarAlertasManual() {
   const btn = document.getElementById('btn-verificar-alertas');
   if (btn) { btn.textContent = '⟳ Verificando...'; btn.disabled = true; }
-  // Limpa cache local para forçar re-análise completa
-  _alertasEnviadosHoje = new Set();
   await verificarAlertasAutomaticos();
   if (btn) { btn.textContent = '⟳ Verificar'; btn.disabled = false; }
   renderNotifs();
@@ -5227,12 +5402,9 @@ async function verificarAlertasManual() {
 // Agenda verificação automática a cada 30 minutos
 function agendarVerificacaoAlertas() {
   if (!currentUser || currentUser.role !== 'adm') return;
-  // Carrega alertas já enviados hoje do Firebase antes da primeira verificação
-  setTimeout(async () => {
-    await _carregarAlertasHoje();
-    await verificarAlertasAutomaticos();
-  }, 4000);
-  // Repete a cada 30 minutos (cache já estará populado)
+  // Roda após 5s para garantir que o banco já carregou
+  setTimeout(verificarAlertasAutomaticos, 5000);
+  // Repete a cada 30 minutos
   if (window._alertasInterval) clearInterval(window._alertasInterval);
   window._alertasInterval = setInterval(verificarAlertasAutomaticos, 30 * 60 * 1000);
 }
@@ -5726,112 +5898,255 @@ async function gerarRelatorioPDF() {
 document.getElementById('app').classList.remove('logged');
 document.getElementById('auth-screen').style.display = 'flex';
 
-// ══════════════════════════════════════════════════════
-//  SEARCHABLE SELECT  — StockFlow
-//  Renderiza um input+dropdown em cima de um <select> hidden.
-//  O <select> original continua sendo a fonte de verdade
-//  para todo o código existente (.value, onchange, etc.)
-// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+//  SMARTSELECT v2 — Universal Searchable Select
+//  Funciona em TODOS os <select> do sistema.
+//  - Desktop: dropdown com busca inline + highlight do match
+//  - Mobile: painel fullscreen com busca no topo
+//  - Auto-inicializado: detecta todos os selects sem sf-wrap
+//  - Compatível com selects que já têm sf-wrap (não duplica)
+//  - API pública: window.SF.attach(id), window.SF.refresh(id)
+// ══════════════════════════════════════════════════════════════
 (function () {
 
-  // Cada campo: { selectId, wrapperId, placeholder }
-  const SF_FIELDS = [
-    { sel: 'ent-material',  wrap: 'sf-ent-material-wrap',  ph: 'Digite para buscar material...' },
-    { sel: 'sai-item',      wrap: 'sf-sai-item-wrap',      ph: 'Digite para buscar item...'     },
-    { sel: 'req-material',  wrap: 'sf-req-material-wrap',  ph: 'Digite para buscar material...' },
-    { sel: 'req-lote',      wrap: 'sf-req-lote-wrap',      ph: 'Digite para buscar lote...'     },
-    { sel: 'trf-item',      wrap: 'sf-trf-item-wrap',      ph: 'Digite para buscar item...'     },
-  ];
+  const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
 
-  // Cria o widget de busca para um campo
-  function buildWidget(cfg) {
-    const wrapEl = document.getElementById(cfg.wrap);
-    if (!wrapEl) return;
+  // ── Estado do painel mobile ───────────────────────────────────
+  let _mobileActiveSel  = null;
+  let _mobileActiveInp  = null;
 
-    wrapEl.innerHTML = `
-      <div class="sf-wrap" id="sfw-${cfg.sel}">
-        <input type="text" class="sf-input" id="sfi-${cfg.sel}"
-          placeholder="${cfg.ph}" autocomplete="off"
-          spellcheck="false">
-        <span class="sf-arrow">▼</span>
-        <div class="sf-dropdown" id="sfd-${cfg.sel}"></div>
-      </div>`;
+  window.sfMobileClose = function(e) {
+    if (e && e.target !== document.getElementById('sf-overlay')) return;
+    _closeMobile();
+  };
 
-    const input = document.getElementById('sfi-' + cfg.sel);
-    const drop  = document.getElementById('sfd-' + cfg.sel);
-    const sel   = document.getElementById(cfg.sel);
-
-    // Atualiza dropdown com base no texto digitado
-    function renderDrop() {
-      const q = input.value.trim().toLowerCase();
-      const opts = Array.from(sel.options);
-      const filtered = q
-        ? opts.filter(o => o.text.toLowerCase().includes(q) && o.value !== '')
-        : opts.filter(o => o.value !== '');
-
-      if (!filtered.length) {
-        drop.innerHTML = '<div class="sf-opt sf-empty">Nenhum resultado encontrado</div>';
-      } else {
-        drop.innerHTML = filtered.map(o =>
-          `<div class="sf-opt" data-val="${o.value}">${o.text}</div>`
-        ).join('');
-        drop.querySelectorAll('.sf-opt').forEach(el => {
-          el.addEventListener('mousedown', e => {
-            e.preventDefault();
-            selectOption(o => o.value === el.dataset.val);
-          });
-        });
-      }
-    }
-
-    // Seleciona uma opção no select hidden e atualiza o input
-    function selectOption(predicate) {
-      const opt = Array.from(sel.options).find(predicate);
-      if (!opt) return;
-      sel.value = opt.value;
-      input.value = opt.value ? opt.text : '';
-      drop.classList.remove('open');
-      // Dispara onchange no select para que o código existente reaja
-      sel.dispatchEvent(new Event('change'));
-    }
-
-    // Sincroniza o input com o valor atual do select
-    function syncFromSelect() {
-      const cur = sel.options[sel.selectedIndex];
-      input.value = (cur && cur.value) ? cur.text : '';
-    }
-
-    // Eventos do input
-    input.addEventListener('input', () => {
-      renderDrop();
-      drop.classList.add('open');
-    });
-    input.addEventListener('focus', () => {
-      renderDrop();
-      drop.classList.add('open');
-    });
-    input.addEventListener('blur', () => {
-      setTimeout(() => {
-        drop.classList.remove('open');
-        syncFromSelect(); // restaura label se nada foi selecionado
-      }, 180);
-    });
-
-    // Quando o select muda por código externo, sincroniza o input
-    sel.addEventListener('change', syncFromSelect);
-
-    // Observa quando options mudam (MutationObserver)
-    const mo = new MutationObserver(() => {
-      syncFromSelect();
-    });
-    mo.observe(sel, { childList: true, subtree: true });
-
-    return { input, drop, sel, syncFromSelect, renderDrop };
+  function _closeMobile() {
+    const ov = document.getElementById('sf-overlay');
+    if (ov) ov.classList.remove('sf-open');
+    document.body.style.overflow = '';
+    _mobileActiveSel = null;
+    _mobileActiveInp = null;
   }
 
-  // Inicia todos os widgets assim que o DOM estiver pronto
+  function _openMobile(sel, inp, label) {
+    _mobileActiveSel = sel;
+    _mobileActiveInp = inp;
+
+    const ov   = document.getElementById('sf-overlay');
+    const lbl  = document.getElementById('sf-overlay-label');
+    const srch = document.getElementById('sf-overlay-search');
+
+    lbl.textContent = label || 'Selecionar';
+    srch.value = '';
+    _renderMobileOpts('');
+    ov.classList.add('sf-open');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => srch.focus(), 150);
+
+    srch.oninput = () => _renderMobileOpts(srch.value.trim().toLowerCase());
+    srch.onkeydown = e => { if (e.key === 'Escape') _closeMobile(); };
+  }
+
+  function _hilite(text, q) {
+    if (!q) return _esc(text);
+    const i = text.toLowerCase().indexOf(q);
+    if (i < 0) return _esc(text);
+    return _esc(text.slice(0,i)) + '<span class="sf-match">' + _esc(text.slice(i,i+q.length)) + '</span>' + _esc(text.slice(i+q.length));
+  }
+  function _esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function _renderMobileOpts(q) {
+    const opts = document.getElementById('sf-overlay-opts');
+    if (!opts || !_mobileActiveSel) return;
+    const sel = _mobileActiveSel;
+    const items = Array.from(sel.options).filter(o => o.value !== '');
+    const filtered = q ? items.filter(o => o.text.toLowerCase().includes(q)) : items;
+
+    if (!filtered.length) {
+      opts.innerHTML = '<div class="sf-mobile-opt sf-empty">Nenhum resultado encontrado</div>';
+      return;
+    }
+    opts.innerHTML = filtered.map(o =>
+      `<div class="sf-mobile-opt${sel.value===o.value?' sf-active':''}" data-val="${_esc(o.value)}">${_hilite(o.text,q)}</div>`
+    ).join('');
+
+    opts.querySelectorAll('.sf-mobile-opt:not(.sf-empty)').forEach(el => {
+      const handler = () => {
+        const v = el.dataset.val;
+        sel.value = v;
+        sel.dispatchEvent(new Event('change', {bubbles:true}));
+        if (_mobileActiveInp) {
+          const opt = Array.from(sel.options).find(o => o.value === v);
+          _mobileActiveInp.value = opt && v ? opt.text : '';
+          _mobileActiveInp.classList.toggle('sf-selected', !!v);
+        }
+        _closeMobile();
+      };
+      el.addEventListener('click', handler);
+      el.addEventListener('touchend', e => { e.preventDefault(); handler(); }, {passive:false});
+    });
+  }
+
+  function escAttr(s) { return String(s).replace(/"/g, '&quot;'); }
+
+  // ── Construção do widget para um <select> ─────────────────────
+  function buildWidget(sel, opts = {}) {
+    if (!sel || sel._sfDone) return;
+    sel._sfDone = true;
+
+    let wrap = sel.closest('.sf-wrap');
+    if (!wrap) {
+      wrap = document.createElement('div');
+      wrap.className = 'sf-wrap';
+      sel.parentNode.insertBefore(wrap, sel);
+      wrap.appendChild(sel);
+    }
+
+    const fieldLabel = opts.label ||
+      (sel.closest('.form-group')?.querySelector('label')?.textContent?.trim()) ||
+      sel.getAttribute('aria-label') || 'Selecionar';
+
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.className = 'sf-input';
+    inp.placeholder = opts.placeholder || sel.options[0]?.text || 'Selecione...';
+    inp.autocomplete = 'off';
+    inp.spellcheck = false;
+    inp.readOnly = true;
+    inp.setAttribute('inputmode', 'none');
+    inp.setAttribute('autocorrect', 'off');
+    inp.setAttribute('autocapitalize', 'none');
+    wrap.insertBefore(inp, sel);
+
+    const arrow = document.createElement('span');
+    arrow.className = 'sf-arrow';
+    arrow.textContent = '▾';
+    wrap.appendChild(arrow);
+
+    sel.style.display = 'none';
+
+    // Desktop dropdown
+    const drop = document.createElement('div');
+    drop.className = 'sf-dropdown';
+    drop.innerHTML = `<div class="sf-dropdown-search-box"><input type="search" placeholder="Buscar..." autocomplete="off" spellcheck="false"></div><div class="sf-opts-list"></div>`;
+    wrap.appendChild(drop);
+    const dropSearch = drop.querySelector('.sf-dropdown-search-box input');
+    const optsList   = drop.querySelector('.sf-opts-list');
+
+    let _q = '';
+
+    function renderDropOpts(q) {
+      _q = q || '';
+      const qLow = _q.toLowerCase();
+      const items = Array.from(sel.options);
+      const filtered = qLow
+        ? items.filter(o => o.value !== '' && o.text.toLowerCase().includes(qLow))
+        : items.filter(o => o.value !== '');
+      if (!filtered.length) {
+        optsList.innerHTML = '<div class="sf-opt sf-empty">Nenhum resultado</div>';
+        return;
+      }
+      optsList.innerHTML = filtered.map(o =>
+        `<div class="sf-opt${sel.value===o.value?' sf-active':''}" data-val="${escAttr(o.value)}">${_hilite(o.text,qLow)}</div>`
+      ).join('');
+      optsList.querySelectorAll('.sf-opt:not(.sf-empty)').forEach(el => {
+        el.addEventListener('mousedown', e => { e.preventDefault(); pickValue(el.dataset.val); closeDrop(); });
+        el.addEventListener('touchend',  e => { e.preventDefault(); pickValue(el.dataset.val); closeDrop(); }, {passive:false});
+      });
+      // Scroll para o item selecionado
+      const active = optsList.querySelector('.sf-active');
+      if (active) setTimeout(() => active.scrollIntoView({block:'nearest'}), 0);
+    }
+
+    function openDrop() {
+      // Fecha outros dropdowns abertos
+      document.querySelectorAll('.sf-dropdown.sf-open').forEach(d => { if(d!==drop){d.classList.remove('sf-open');d.closest('.sf-wrap')?.classList.remove('sf-open');}});
+      renderDropOpts('');
+      dropSearch.value = '';
+      drop.classList.add('sf-open');
+      wrap.classList.add('sf-open');
+      setTimeout(() => dropSearch.focus(), 40);
+    }
+
+    function closeDrop() {
+      drop.classList.remove('sf-open');
+      wrap.classList.remove('sf-open');
+      dropSearch.value = '';
+    }
+
+    function pickValue(val) {
+      sel.value = val;
+      const opt = Array.from(sel.options).find(o => o.value === val);
+      inp.value = opt && val ? opt.text : '';
+      inp.classList.toggle('sf-selected', !!val);
+      sel.dispatchEvent(new Event('change', {bubbles:true}));
+    }
+
+    dropSearch.addEventListener('input', () => renderDropOpts(dropSearch.value.trim().toLowerCase()));
+    dropSearch.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeDrop();
+      if (e.key === 'Enter') {
+        const f = optsList.querySelector('.sf-opt:not(.sf-empty)');
+        if (f) { pickValue(f.dataset.val); closeDrop(); }
+      }
+    });
+
+    // Clique/touch no input: abre desktop ou mobile
+    const openHandler = e => {
+      e.stopPropagation();
+      if (isMobile()) {
+        _openMobile(sel, inp, fieldLabel);
+      } else {
+        if (drop.classList.contains('sf-open')) closeDrop();
+        else openDrop();
+      }
+    };
+    inp.addEventListener('click', openHandler);
+    inp.addEventListener('touchend', e => { e.preventDefault(); openHandler(e); }, {passive:false});
+
+    // Fecha ao clicar fora
+    document.addEventListener('click', e => {
+      if (!wrap.contains(e.target)) closeDrop();
+    }, true);
+
+    // Sincronização: select muda por código externo
+    function syncFromSelect() {
+      const cur = Array.from(sel.options).find(o => o.value === sel.value);
+      inp.value = (cur && sel.value) ? cur.text : '';
+      inp.classList.toggle('sf-selected', !!sel.value);
+    }
+    sel.addEventListener('change', syncFromSelect);
+
+    // MutationObserver: options mudam dinamicamente
+    new MutationObserver(() => {
+      syncFromSelect();
+      if (drop.classList.contains('sf-open')) renderDropOpts(_q);
+      if (_mobileActiveSel === sel) {
+        _renderMobileOpts(document.getElementById('sf-overlay-search')?.value?.trim().toLowerCase() || '');
+      }
+    }).observe(sel, {childList:true, subtree:true});
+
+    syncFromSelect();
+  }
+
+  // IDs excluídos: selects de filtro inline com poucas opções estáticas
+  const EXCLUDE_IDS = new Set([
+    'dash-filtro-status','dash-filtro-cat','mat-filtro-critico','compras-filtro',
+    'atend-filtro-status','atend-filtro-tipo','atend-filtro-setor',
+    'nc-filtro-status','nc-filtro-class','hist-filtro-status','hist-filtro-tipo',
+    'calib-filtro-status','rel-status','rel-ordem','aud-tipo',
+    'nu-role','edit-area-role','filtro-validade','filtro-ordem',
+    'req-setor','req-trf-setor',
+  ]);
+
   function initAll() {
-    SF_FIELDS.forEach(cfg => buildWidget(cfg));
+    document.querySelectorAll('.sf-wrap select').forEach(sel => {
+      buildWidget(sel, {placeholder: sel.options[0]?.text || 'Selecione...'});
+    });
+    document.querySelectorAll('select').forEach(sel => {
+      if (sel._sfDone || EXCLUDE_IDS.has(sel.id) || !sel.id) return;
+      buildWidget(sel, {placeholder: sel.options[0]?.text || 'Selecione...'});
+    });
   }
 
   if (document.readyState === 'loading') {
@@ -5840,13 +6155,23 @@ document.getElementById('auth-screen').style.display = 'flex';
     initAll();
   }
 
-  // Fecha dropdowns ao clicar fora
-  document.addEventListener('click', e => {
-    if (!e.target.closest('.sf-wrap')) {
-      document.querySelectorAll('.sf-dropdown.open')
-        .forEach(d => d.classList.remove('open'));
-    }
-  });
+  // API pública
+  window.SF = {
+    attach: id => { const s=document.getElementById(id); if(s){s._sfDone=false; buildWidget(s,{placeholder:s.options[0]?.text||'Selecione...'});} },
+    refresh: id => { const s=document.getElementById(id); if(s) s.dispatchEvent(new Event('change')); },
+    closeAll: () => { document.querySelectorAll('.sf-dropdown.sf-open').forEach(d=>{d.classList.remove('sf-open');d.closest('.sf-wrap')?.classList.remove('sf-open');}); _closeMobile(); },
+    initNew: () => {
+      document.querySelectorAll('select').forEach(sel => {
+        if (sel._sfDone || EXCLUDE_IDS.has(sel.id) || !sel.id) return;
+        buildWidget(sel, {placeholder: sel.options[0]?.text || 'Selecione...'});
+      });
+    },
+  };
+
+  // Retrocompatibilidade
+  window._sfInitNew = window.SF.initNew;
+
+  document.addEventListener('keydown', e => { if(e.key==='Escape') window.SF.closeAll(); });
 
 })();
 
@@ -5877,186 +6202,29 @@ function _cards(id) {
   return document.getElementById(id);
 }
 
-// ── ESTOQUES ──
-function _estoqueCards() {
-  const el = _cards('estoques-cards'); if (!el) return;
-  el.innerHTML = db.estoques.map(e => `
-    <div class="data-card">
-      <div class="data-card-header">
-        <div class="data-card-title">${e.nome}${e.principal ? ' <span class="badge badge-ok" style="font-size:10px;">Principal</span>' : ''}</div>
-      </div>
-      <div class="data-card-body">
-        ${e.desc ? e.desc + '<br>' : ''}
-        ${e.local ? '📍 ' + e.local : '<span style="opacity:.5">Sem localização</span>'}
-      </div>
-      <div class="data-card-actions">
-        <button class="btn btn-secondary" onclick="togglePrincipal('${e.id}')">⭐ Principal</button>
-        <button class="btn btn-danger" onclick="delEstoque('${e.id}')">✕ Remover</button>
-      </div>
-    </div>`).join('');
-}
-_after('renderEstoques', _estoqueCards);
-
-// ── MATERIAIS ──
-function _materialCards() {
-  const el = _cards('materiais-cards'); if (!el) return;
-  el.innerHTML = db.materiais.map(m => `
-    <div class="data-card">
-      <div class="data-card-header">
-        <div class="data-card-title">${m.nome}</div>
-        ${m.cat ? `<span class="badge badge-noref" style="font-size:10px;">${m.cat}</span>` : ''}
-      </div>
-      <div class="data-card-body">
-        Unidade: <strong>${m.unidade || '—'}</strong> &nbsp;·&nbsp;
-        Mín: <strong>${m.min !== null ? m.min : '—'}</strong> &nbsp;·&nbsp;
-        Máx: <strong>${m.max !== null ? m.max : '—'}</strong>
-        ${m.diasChegada != null ? `<br>Lead time: <strong>${m.diasChegada}d</strong>` : ''}
-      </div>
-      <div class="data-card-actions">
-        <button class="btn btn-secondary" style="flex:2" onclick="abrirEditarMaterial('${m.id}')">✏️ Editar</button>
-        <button class="btn btn-secondary" onclick="copiarMaterial('${m.id}')">⎘</button>
-        <button class="btn btn-danger" onclick="delMaterial('${m.id}')">✕</button>
-      </div>
-    </div>`).join('');
-}
-_after('renderMateriais', _materialCards);
-
-// ── ENTRADAS ──
-function _entradaCards() {
-  const el = _cards('entradas-cards'); if (!el) return;
-  el.innerHTML = db.entradas.slice(0, 20).map(e => `
-    <div class="data-card">
-      <div class="data-card-header">
-        <div class="data-card-title">${e.materialNome}</div>
-        <strong style="color:var(--accent);font-size:16px;">+${e.qtd}</strong>
-      </div>
-      <div class="data-card-body">
-        📦 ${e.estoqueNome}<br>
-        Lote: <span style="color:var(--accent);font-weight:600;">${e.lote}</span>
-        ${e.validade ? ` &nbsp;·&nbsp; Val: <strong>${fmt(e.validade)}</strong>` : ''}
-        <br><span style="font-size:11px;color:var(--muted)">${fmt(e.data)}</span>
-      </div>
-      <div class="data-card-actions">
-        <button class="btn btn-secondary" style="flex:1" onclick="abrirEditarEntrada('${e.id}')">✏️ Editar</button>
-      </div>
-    </div>`).join('');
-}
-_after('renderEntradas', _entradaCards);
-
-// ── SAÍDAS ──
-function _saidaCards() {
-  const el = _cards('saidas-cards'); if (!el) return;
-  el.innerHTML = db.saidas.slice(0, 20).map(s => `
-    <div class="data-card">
-      <div class="data-card-header">
-        <div class="data-card-title">${s.materialNome}</div>
-        <strong style="color:var(--danger);font-size:16px;">-${s.qtd}</strong>
-      </div>
-      <div class="data-card-body">
-        📦 ${s.estoqueNome}<br>
-        Lote: <span style="color:var(--danger);font-weight:600;">${s.lote}</span>
-        ${s.motivo ? ` &nbsp;·&nbsp; ${s.motivo}` : ''}
-        <br><span style="font-size:11px;color:var(--muted)">${fmt(s.data)}</span>
-      </div>
-    </div>`).join('');
-}
-_after('renderSaidas', _saidaCards);
-
-// ── ANÁLISE (filtrada) ──
-function _analiseCards() {
-  const el = _cards('analise-cards'); if (!el) return;
-  if (!window.analiseItensCache) { el.innerHTML = ''; return; }
-  const busca = (document.getElementById('filtro-nome')?.value || '').toLowerCase();
-  const cat   = document.getElementById('filtro-cat')?.value || '';
-  const status= document.getElementById('filtro-status')?.value || '';
-  const hoje  = new Date(); hoje.setHours(0,0,0,0);
-  const res   = analiseItensCache.filter(r => {
-    if (busca && !r.nome.toLowerCase().includes(busca) && !r.item.lote.toLowerCase().includes(busca)) return false;
-    if (cat && r.cat !== cat) return false;
-    if (status && r.st.cls !== status) return false;
-    return true;
-  });
-  el.innerHTML = res.map(({ item, mat, nome, min, max, st, vencido, dias }) => {
-    let vStr = item.validade ? fmt(item.validade) : '—', vStyle = '';
-    if (vencido) { vStyle = 'color:var(--danger);font-weight:600'; vStr += ' ⚠️ VENCIDO'; }
-    else if (dias != null && dias <= 30) { vStyle = 'color:var(--warn);font-weight:600'; vStr += ` (${dias}d)`; }
-    return `<div class="data-card">
-      <div class="data-card-header">
-        <div>
-          <div class="data-card-title">${nome}</div>
-          ${mat?.cat ? `<span style="font-size:11px;color:var(--muted)">${mat.cat}</span>` : ''}
-        </div>
-        <span class="badge ${st.cls}">${st.label}</span>
-      </div>
-      <div class="data-card-body">
-        Lote: <strong>${item.lote}</strong><br>
-        Qtd: <strong style="font-size:15px">${item.qtd}</strong>${mat?.unidade ? ' ' + mat.unidade : ''}<br>
-        ${min != null || max != null ? `Mín: <strong>${min ?? '—'}</strong> · Máx: <strong>${max ?? '—'}</strong><br>` : ''}
-        <span style="${vStyle}">Validade: ${vStr}</span>
-      </div>
-      <div class="data-card-actions">
-        <button class="btn btn-secondary" style="flex:1" onclick="abrirEditarItem('${item.id}')">✏️ Editar</button>
-      </div>
-    </div>`;
-  }).join('');
-}
-_after('aplicarFiltros', _analiseCards);
-
 // ── COMPRAS ──
 function _comprasCards() {
   const el = _cards('compras-cards'); if (!el) return;
-  // Lê as linhas já renderizadas na tabela e cria cards equivalentes
   const rows = document.querySelectorAll('#compras-tbody tr');
   el.innerHTML = '';
   rows.forEach(row => {
     const tds = row.querySelectorAll('td');
     if (!tds.length) return;
-    const nome    = tds[0].innerHTML;
-    const qtd     = tds[1].innerHTML;
-    const min     = tds[2].textContent;
-    const lead    = tds[3].textContent;
-    const consumo = tds[4].innerHTML;
-    const dias    = tds[5].innerHTML;
-    const pedir   = tds[6].innerHTML;
-    const badge   = tds[7].innerHTML;
     el.innerHTML += `<div class="data-card">
       <div class="data-card-header">
-        <div class="data-card-title">${nome}</div>
-        ${badge}
+        <div class="data-card-title">${tds[0].innerHTML}</div>
+        ${tds[7].innerHTML}
       </div>
       <div class="data-card-body">
-        Qtd: <strong>${qtd}</strong> &nbsp;·&nbsp; Mín: <strong>${min}</strong><br>
-        Lead time: <strong>${lead}</strong> &nbsp;·&nbsp; Consumo: ${consumo}<br>
-        Dias restantes: <strong>${dias}</strong><br>
-        Pedir até: <strong>${pedir}</strong>
+        Qtd: <strong>${tds[1].innerHTML}</strong> &nbsp;·&nbsp; Mín: <strong>${tds[2].textContent}</strong><br>
+        Lead time: <strong>${tds[3].textContent}</strong> &nbsp;·&nbsp; Consumo: ${tds[4].innerHTML}<br>
+        Dias restantes: <strong>${tds[5].innerHTML}</strong><br>
+        Pedir até: <strong>${tds[6].innerHTML}</strong>
       </div>
     </div>`;
   });
 }
 _after('renderCompras', _comprasCards);
-
-// ── TRANSFERÊNCIAS ──
-function _transfCards() {
-  const el = _cards('transf-cards'); if (!el) return;
-  if (!db.transferencias?.length) { el.innerHTML = ''; return; }
-  el.innerHTML = db.transferencias.slice(0, 30).map(t => {
-    const mesmoLote = t.loteOrigem === t.loteDestino;
-    return `<div class="data-card">
-      <div class="data-card-header">
-        <div>
-          <div class="data-card-title">${t.materialNome}</div>
-          <span style="font-size:11px;color:var(--muted)">${mesmoLote ? t.loteOrigem : t.loteOrigem + ' → ' + t.loteDestino}</span>
-        </div>
-        <strong style="color:var(--accent);font-size:15px">⇄ ${t.qtd}</strong>
-      </div>
-      <div class="data-card-body">
-        De: <strong>${t.estOrigNome}</strong> → <strong style="color:var(--accent)">${t.estDestNome}</strong><br>
-        ${t.resp ? `Resp: ${t.resp} &nbsp;·&nbsp; ` : ''}<span style="font-size:11px">${fmt(t.data)}</span>
-      </div>
-    </div>`;
-  }).join('');
-}
-_after('renderTransferencias', _transfCards);
 
 // ── SNAPSHOTS ──
 function _snapshotCards() {
