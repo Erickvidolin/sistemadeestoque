@@ -9965,6 +9965,27 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     </div>
 
+    <!-- Buscador -->
+    <div style="margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div style="position:relative;flex:1;min-width:200px;">
+        <svg style="position:absolute;left:11px;top:50%;transform:translateY(-50%);pointer-events:none;" width="15" height="15" fill="none" stroke="var(--muted)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/></svg>
+        <input id="inv-busca" type="text" placeholder="Buscar por nome, lote ou categoria..."
+          oninput="_filtrarContagemTabela()"
+          style="padding-left:36px;font-size:14px;">
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+        <button onclick="_filtrarContagemTabela('pendentes')" id="inv-filtro-btn-pendentes"
+          style="background:rgba(255,149,0,.1);border:1px solid rgba(255,149,0,.3);color:var(--warn);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:'Syne',sans-serif;">
+          ⏳ Não preenchidos
+        </button>
+        <button onclick="_filtrarContagemTabela('todos')" id="inv-filtro-btn-todos"
+          style="background:rgba(0,229,160,.1);border:1px solid rgba(0,229,160,.3);color:var(--accent);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:'Syne',sans-serif;">
+          Todos
+        </button>
+      </div>
+      <span id="inv-busca-contador" style="font-size:12px;color:var(--muted);white-space:nowrap;"></span>
+    </div>
+
     <!-- Tabela de itens (desktop) -->
     <div class="card" style="padding:0;overflow:hidden;">
       <div class="table-scroll-wrap">
@@ -9983,6 +10004,7 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
       <!-- Cards mobile -->
       <div class="data-cards" id="inv-contar-cards"></div>
+      <div id="inv-busca-vazio" style="display:none;text-align:center;color:var(--muted);padding:32px;font-size:13px;">Nenhum item encontrado para essa busca.</div>
     </div>
 
     <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:12px;flex-wrap:wrap;">
@@ -10272,6 +10294,11 @@ async function _iniciarContagemInv(invId) {
   if (!inv) return toast('Inventário não encontrado.', 'error');
   _invAtivo = inv;
 
+  // Resetar buscador ao iniciar contagem
+  _invFiltroAtivo = 'todos';
+  const invBusca = document.getElementById('inv-busca');
+  if (invBusca) invBusca.value = '';
+
   // Marcar como em_andamento se ainda pendente
   if (inv.status === 'pendente') {
     inv.status = 'em_andamento';
@@ -10382,6 +10409,8 @@ function _marcarLinhaPreenchida(itemId) {
     : '<span style="font-size:11px;color:var(--muted);">—</span>';
   if (statusEl) statusEl.innerHTML = html;
   if (statusCard) statusCard.innerHTML = html;
+  // Re-aplicar filtro: se estiver no modo "pendentes", o item recém preenchido some
+  if (typeof _filtrarContagemTabela === 'function') _filtrarContagemTabela();
 }
 
 function _atualizarProgressoContagem() {
@@ -10399,6 +10428,52 @@ function _atualizarProgressoContagem() {
   const label = document.getElementById('inv-progresso-label');
   if (bar) bar.style.width = pct + '%';
   if (label) label.textContent = `${preenchidos} / ${total} itens`;
+}
+
+let _invFiltroAtivo = 'todos'; // 'todos' | 'pendentes'
+
+function _filtrarContagemTabela(modo) {
+  if (modo === 'pendentes' || modo === 'todos') _invFiltroAtivo = modo;
+
+  const busca = (document.getElementById('inv-busca')?.value || '').trim().toLowerCase();
+  const isPendentes = _invFiltroAtivo === 'pendentes';
+
+  // Visual dos botões de filtro rápido
+  const btnPend  = document.getElementById('inv-filtro-btn-pendentes');
+  const btnTodos = document.getElementById('inv-filtro-btn-todos');
+  if (btnPend)  btnPend.style.opacity  = isPendentes ? '1' : '0.45';
+  if (btnTodos) btnTodos.style.opacity = !isPendentes ? '1' : '0.45';
+
+  const todasLinhas = document.querySelectorAll('#inv-contar-tbody tr[id^="inv-row-"]');
+  let visiveis = 0;
+  const total  = todasLinhas.length;
+
+  todasLinhas.forEach(row => {
+    const itemId = row.id.replace('inv-row-', '');
+    const texto  = (row.textContent || '').toLowerCase();
+    const qtdInput   = row.querySelector('.inv-qtd-input');
+    const preenchido = qtdInput && qtdInput.value !== '';
+
+    const passaBusca  = !busca || texto.includes(busca);
+    const passaFiltro = !isPendentes || !preenchido;
+    const visivel     = passaBusca && passaFiltro;
+
+    row.style.display = visivel ? '' : 'none';
+    visiveis += visivel ? 1 : 0;
+
+    // Sincronizar card mobile correspondente
+    const card = document.getElementById(`inv-card-${itemId}`);
+    if (card) card.style.display = visivel ? '' : 'none';
+  });
+
+  // Atualizar contador
+  const ctr = document.getElementById('inv-busca-contador');
+  if (ctr) ctr.textContent = (busca || isPendentes) && visiveis < total
+    ? `${visiveis} de ${total} exibidos` : '';
+
+  // Mensagem vazia
+  const vazio = document.getElementById('inv-busca-vazio');
+  if (vazio) vazio.style.display = visiveis === 0 ? 'block' : 'none';
 }
 
 function cancelarContagem() {
