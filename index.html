@@ -10007,11 +10007,61 @@ document.addEventListener('DOMContentLoaded', () => {
       <div id="inv-busca-vazio" style="display:none;text-align:center;color:var(--muted);padding:32px;font-size:13px;">Nenhum item encontrado para essa busca.</div>
     </div>
 
-    <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:12px;flex-wrap:wrap;">
+    <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:12px;flex-wrap:wrap;">
       <button class="btn btn-secondary" onclick="cancelarContagem()">Cancelar</button>
+      <button class="btn btn-secondary" onclick="_toggleFormNovoItemInv()"
+        style="border-color:rgba(0,229,160,.3);color:var(--accent);display:flex;align-items:center;gap:6px;"
+        id="btn-novo-item-inv">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        Item não listado
+      </button>
       <button class="btn btn-primary" id="btn-finalizar-inventario" onclick="finalizarContagem()" style="padding:12px 28px;font-size:15px;">
         ✅ Finalizar Inventário
       </button>
+    </div>
+
+    <!-- Formulário: adicionar item não listado -->
+    <div id="inv-form-novo-item" style="display:none;margin-top:14px;">
+      <div class="card" style="border:1px solid rgba(0,229,160,.25);background:rgba(0,229,160,.03);">
+        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:13px;color:var(--accent);margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+          <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Adicionar Item Não Listado
+        </div>
+        <div class="grid-2" style="margin-bottom:12px;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label>Material *</label>
+            <div id="inv-novo-mat-wrap" class="sf-wrap"></div>
+            <select id="inv-novo-material" style="display:none;"></select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>Lote *</label>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <input id="inv-novo-lote" type="text" placeholder="Ex: L2024-001" style="flex:1;" id="inv-novo-lote">
+              <label class="checkbox-wrap" style="white-space:nowrap;font-size:12px;">
+                <input type="checkbox" id="inv-novo-semlote" onchange="_toggleLoteInv()">
+                <span>Sem lote</span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="grid-2" style="margin-bottom:14px;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label>Qtd Contada *</label>
+            <input id="inv-novo-qtd" type="number" min="0" step="any" placeholder="0" style="font-size:16px;font-weight:700;">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>Validade</label>
+            <input id="inv-novo-val" type="date">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button class="btn btn-secondary" onclick="_toggleFormNovoItemInv()">Cancelar</button>
+          <button class="btn btn-primary" onclick="_adicionarNovoItemInventario()" style="display:flex;align-items:center;gap:6px;">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            Adicionar à Contagem
+          </button>
+        </div>
+      </div>
     </div>
   `;
   mainEl.appendChild(contPage);
@@ -10474,6 +10524,186 @@ function _filtrarContagemTabela(modo) {
   // Mensagem vazia
   const vazio = document.getElementById('inv-busca-vazio');
   if (vazio) vazio.style.display = visiveis === 0 ? 'block' : 'none';
+}
+
+function _toggleFormNovoItemInv() {
+  const form = document.getElementById('inv-form-novo-item');
+  if (!form) return;
+  const abrindo = form.style.display === 'none';
+  form.style.display = abrindo ? 'block' : 'none';
+  const btn = document.getElementById('btn-novo-item-inv');
+  if (btn) btn.style.background = abrindo ? 'rgba(0,229,160,.12)' : '';
+  if (abrindo) {
+    // Inicializar smart-select de materiais
+    _inicializarSelectMaterialInv();
+    // Scroll até o form
+    setTimeout(() => form.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }
+}
+
+function _toggleLoteInv() {
+  const semLote = document.getElementById('inv-novo-semlote')?.checked;
+  const loteInput = document.getElementById('inv-novo-lote');
+  if (!loteInput) return;
+  loteInput.disabled = semLote;
+  loteInput.value = semLote ? '' : loteInput.value;
+  loteInput.placeholder = semLote ? 'Sem lote' : 'Ex: L2024-001';
+}
+
+function _inicializarSelectMaterialInv() {
+  const wrap = document.getElementById('inv-novo-mat-wrap');
+  const sel  = document.getElementById('inv-novo-material');
+  if (!wrap || !sel) return;
+  // Preencher select com materiais disponíveis
+  sel.innerHTML = '<option value="">Selecione o material...</option>';
+  (db.materiais || []).sort((a,b) => a.nome.localeCompare(b.nome)).forEach(m => {
+    sel.innerHTML += `<option value="${m.id}">${m.nome}${m.cat ? ' — '+m.cat : ''}</option>`;
+  });
+  // Inicializar sfSelect se disponível, ou usar select nativo
+  if (typeof sfSelect === 'function') {
+    wrap.innerHTML = '';
+    sfSelect(wrap, sel, { placeholder: 'Buscar material...' });
+  } else {
+    wrap.style.display = 'none';
+    sel.style.display  = 'block';
+  }
+}
+
+async function _adicionarNovoItemInventario() {
+  if (!_invAtivo) return toast('Inventário não encontrado.', 'error');
+
+  const matId   = document.getElementById('inv-novo-material')?.value;
+  const semLote = document.getElementById('inv-novo-semlote')?.checked;
+  const loteRaw = document.getElementById('inv-novo-lote')?.value.trim();
+  const lote    = semLote ? 'SEM LOTE' : loteRaw;
+  const qtd     = parseFloat(document.getElementById('inv-novo-qtd')?.value);
+  const val     = document.getElementById('inv-novo-val')?.value || '';
+
+  if (!matId)           return toast('Selecione o material.', 'error');
+  if (!lote)            return toast('Informe o lote ou marque "Sem lote".', 'error');
+  if (isNaN(qtd) || qtd < 0) return toast('Informe uma quantidade válida.', 'error');
+
+  const mat = (db.materiais || []).find(m => m.id === matId);
+  if (!mat) return toast('Material não encontrado.', 'error');
+
+  // Verificar se o item (material + lote) já existe no estoque
+  let item = (db.itens || []).find(i =>
+    i.materialId === matId &&
+    i.estoqueId  === _invAtivo.estoqueId &&
+    i.lote       === lote
+  );
+
+  const isNovo = !item;
+  if (isNovo) {
+    // Criar novo item no estoque com qtd 0 (a contagem vai substituir)
+    item = { id: uid(), materialId: matId, estoqueId: _invAtivo.estoqueId, lote, qtd: 0, validade: val || '', obs: 'Criado via inventário' };
+    db.itens = db.itens || [];
+    db.itens.push(item);
+    try { await saveItem('itens', item); } catch(e) { console.warn(e); }
+    await logAudit('inventario', `Novo item criado via inventário: ${mat.nome}`, `Lote: ${lote} | Estoque: ${_invAtivo.estoqueNome} | Por: ${currentUser.nome}`);
+  } else {
+    // Verificar se já está na lista de contagem
+    const jaListado = document.getElementById(`inv-row-${item.id}`);
+    if (jaListado) {
+      // Só rolar até ele e destacar
+      jaListado.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      jaListado.style.transition = 'background .2s';
+      jaListado.style.background = 'rgba(0,229,160,.15)';
+      setTimeout(() => jaListado.style.background = '', 1500);
+      // Focar no input de quantidade
+      const qtdInput = jaListado.querySelector('.inv-qtd-input');
+      if (qtdInput) { qtdInput.focus(); qtdInput.select(); }
+      toast(`"${mat.nome}" já está na lista! Rolar até o item.`, 'warn');
+      _toggleFormNovoItemInv();
+      return;
+    }
+  }
+
+  // Adicionar linha/card na tabela de contagem
+  _adicionarLinhaContagem(item, mat, qtd, val);
+
+  // Limpar form
+  if (document.getElementById('inv-novo-material')) document.getElementById('inv-novo-material').value = '';
+  const wrap = document.getElementById('inv-novo-mat-wrap');
+  if (wrap) { const input = wrap.querySelector('input'); if (input) { input.value = ''; input.dispatchEvent(new Event('input')); } }
+  if (document.getElementById('inv-novo-lote'))    document.getElementById('inv-novo-lote').value = '';
+  if (document.getElementById('inv-novo-qtd'))     document.getElementById('inv-novo-qtd').value  = '';
+  if (document.getElementById('inv-novo-val'))     document.getElementById('inv-novo-val').value  = '';
+  if (document.getElementById('inv-novo-semlote')) document.getElementById('inv-novo-semlote').checked = false;
+  _toggleLoteInv();
+
+  toast(`"${mat.nome}" ${isNovo ? 'criado e ' : ''}adicionado à contagem!`);
+  _toggleFormNovoItemInv();
+}
+
+function _adicionarLinhaContagem(item, mat, qtdPreenchida, valPreenchida) {
+  const tb    = document.getElementById('inv-contar-tbody');
+  const cards = document.getElementById('inv-contar-cards');
+  const nome  = mat ? mat.nome : '?';
+  const qtdV  = qtdPreenchida !== undefined && qtdPreenchida !== '' ? qtdPreenchida : '';
+  const valV  = valPreenchida || '';
+
+  // Linha desktop
+  if (tb) {
+    const tr = document.createElement('tr');
+    tr.id = `inv-row-${item.id}`;
+    tr.style.background = 'rgba(0,229,160,.08)'; // destaque inicial
+    tr.innerHTML = `
+      <td><strong>${nome}</strong>${mat&&mat.cat?`<br><span style="font-size:11px;color:var(--muted)">${mat.cat}</span>`:''}<br><span style="font-size:10px;color:var(--accent);font-weight:600;">✦ Adicionado</span></td>
+      <td><span style="font-size:11px;background:rgba(255,255,255,.06);padding:2px 7px;border-radius:4px;">${item.lote}</span></td>
+      <td>
+        <input type="number" min="0" step="any" class="inv-qtd-input" data-item-id="${item.id}"
+          value="${qtdV}" placeholder="0"
+          oninput="_atualizarProgressoContagem()"
+          onchange="_marcarLinhaPreenchida('${item.id}')"
+          style="width:100px;padding:7px 10px;font-size:14px;font-weight:700;">
+      </td>
+      <td>
+        <input type="date" class="inv-val-input" data-item-id="${item.id}"
+          value="${valV}" style="width:150px;padding:7px 10px;font-size:13px;">
+      </td>
+      <td id="inv-row-status-${item.id}">
+        <span style="font-size:11px;color:var(--muted);">—</span>
+      </td>`;
+    tb.appendChild(tr);
+    setTimeout(() => { tr.style.transition = 'background .6s'; tr.style.background = ''; }, 800);
+    tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  // Card mobile
+  if (cards) {
+    const div = document.createElement('div');
+    div.className = 'data-card';
+    div.id = `inv-card-${item.id}`;
+    div.style.borderColor = 'var(--accent)';
+    div.innerHTML = `
+      <div class="data-card-header">
+        <div>
+          <div class="data-card-title">${nome} <span style="font-size:10px;color:var(--accent);">✦ Adicionado</span></div>
+          <div style="font-size:11px;color:var(--muted);">Lote: ${item.lote}${mat&&mat.cat?' · '+mat.cat:''}</div>
+        </div>
+        <span id="inv-card-status-${item.id}" style="font-size:11px;color:var(--muted);">—</span>
+      </div>
+      <div class="data-card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;">
+        <div>
+          <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px;">Qtd Contada *</label>
+          <input type="number" min="0" step="any" class="inv-qtd-input" data-item-id="${item.id}"
+            value="${qtdV}" placeholder="0"
+            oninput="_atualizarProgressoContagem()"
+            onchange="_marcarLinhaPreenchida('${item.id}')"
+            style="font-size:16px;font-weight:700;text-align:center;">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px;">Validade</label>
+          <input type="date" class="inv-val-input" data-item-id="${item.id}" value="${valV}">
+        </div>
+      </div>`;
+    cards.appendChild(div);
+    setTimeout(() => { div.style.transition = 'border-color .6s'; div.style.borderColor = ''; }, 800);
+  }
+
+  if (qtdV !== '') _marcarLinhaPreenchida(item.id);
+  _atualizarProgressoContagem();
 }
 
 function cancelarContagem() {
