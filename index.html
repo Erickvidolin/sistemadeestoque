@@ -1168,7 +1168,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
               <label>Setor Solicitante *</label>
               <select id="req-setor">
                 <option value="">Selecione o setor...</option>
-                <option>Usinagem</option><option>Acabamento</option><option>Área Limpa</option><option>Quarentena</option><option>Qualidade</option><option>Produto Acabado</option><option>PDI</option><option>Administrativo</option><option>Manutenção</option>
+                <option>Usinagem</option><option>Acabamento</option><option>Área Limpa</option><option>Quarentena</option><option>Qualidade</option><option>Produto Acabado</option><option>PDI</option><option>Administrativo</option><option>Manutenção</option><option>SESMT</option>
               </select>
             </div>
             <div class="form-group"><label>Justificativa geral</label><input id="req-justif" type="text" placeholder="Para qual finalidade?"></div>
@@ -1215,7 +1215,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
                 <label>Setor Solicitante *</label>
                 <select id="req-trf-setor">
                   <option value="">Selecione o setor...</option>
-                  <option>Usinagem</option><option>Acabamento</option><option>Área Limpa</option><option>Quarentena</option><option>Qualidade</option><option>Produto Acabado</option><option>PDI</option><option>Administrativo</option><option>Manutenção</option>
+                  <option>Usinagem</option><option>Acabamento</option><option>Área Limpa</option><option>Quarentena</option><option>Qualidade</option><option>Produto Acabado</option><option>PDI</option><option>Administrativo</option><option>Manutenção</option><option>SESMT</option>
                 </select>
               </div>
             </div>
@@ -1312,6 +1312,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
             <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="nu-area-check" value="relatorios"><span style="font-size:13px;">📄 Relatórios</span></label>
             <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="nu-area-check" value="calibracao"><span style="font-size:13px;">📡 Calibração de Dispositivos</span></label>
           <label class="checkbox-wrap"><input type="checkbox" class="nu-area-check" value="auditoria"><span style="font-size:13px;">🔍 Auditoria e Logs</span></label>
+          <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="nu-area-check" value="inventario"><span style="font-size:13px;">📋 Inventário</span></label>
           </div>
           <div id="nu-error" style="display:none;color:var(--danger);font-size:13px;margin-bottom:12px;padding:10px;background:rgba(255,59,92,.08);border-radius:8px;"></div>
           <button class="btn btn-primary" onclick="cadastrarUsuario()" style="width:100%;" id="btn-cadastrar-usuario">Cadastrar Usuário</button>
@@ -1359,6 +1360,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
           <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="edit-area-check" value="relatorios"><span style="font-size:13px;">📄 Relatórios</span></label>
           <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="edit-area-check" value="calibracao"><span style="font-size:13px;">📡 Calibração de Dispositivos</span></label>
           <label class="checkbox-wrap"><input type="checkbox" class="edit-area-check" value="auditoria"><span style="font-size:13px;">🔍 Auditoria e Logs</span></label>
+          <label class="checkbox-wrap" style="margin-bottom:8px;"><input type="checkbox" class="edit-area-check" value="inventario"><span style="font-size:13px;">📋 Inventário</span></label>
         </div>
         <div style="display:flex;gap:10px;">
           <button class="btn btn-secondary" onclick="fecharModal('modal-edit-areas')" style="flex:1;">Cancelar</button>
@@ -1649,6 +1651,68 @@ tr:hover td{background:rgba(255,255,255,.02);}
 
   </div><!-- /main -->
 </div><!-- /app -->
+
+<!-- ===== MODAL: INVENTÁRIO INICIAR (para o contador) ===== -->
+<div class="modal" id="modal-inventario-iniciar">
+  <div class="modal-box" style="max-width:560px;">
+    <div class="modal-title">
+      <span>📋 Inventário Solicitado</span>
+      <button class="modal-close" onclick="fecharModal('modal-inventario-iniciar')">✕</button>
+    </div>
+    <div id="inv-modal-info" style="margin-bottom:20px;padding:16px;background:var(--surface2);border-radius:10px;border:1px solid var(--border);">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:4px;">Estoque solicitado pelo administrador:</div>
+      <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:20px;color:var(--accent);" id="inv-modal-estoque-nome">—</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px;" id="inv-modal-solicitante">—</div>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.7;">Você foi designado para realizar o inventário deste estoque. Ao iniciar, todos os itens aparecerão para contagem. Preencha a quantidade contada e a validade de cada item.</p>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-secondary" onclick="fecharModal('modal-inventario-iniciar')" style="flex:1;">Depois</button>
+      <button class="btn btn-primary" onclick="iniciarContagem()" style="flex:2;">🚀 Iniciar Inventário</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: ANALISAR INVENTÁRIO (para o ADM) ===== -->
+<div class="modal" id="modal-analisar-inventario">
+  <div class="modal-box" style="max-width:780px;max-height:92vh;">
+    <div class="modal-title">
+      <span>🔍 Análise de Inventário</span>
+      <button class="modal-close" onclick="fecharModal('modal-analisar-inventario')">✕</button>
+    </div>
+    <div id="analisar-inv-header" style="margin-bottom:16px;padding:14px;background:var(--surface2);border-radius:10px;border:1px solid var(--border);font-size:13px;"></div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+      <svg width="14" height="14" fill="none" stroke="var(--warn)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      Marque itens para recontagem. Itens não marcados terão suas quantidades atualizadas.
+    </div>
+    <!-- Tabela desktop -->
+    <div class="table-scroll-wrap" style="margin-bottom:16px;">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:32px;"></th>
+            <th>Material</th>
+            <th>Lote</th>
+            <th>Qtd Sistema</th>
+            <th>Qtd Contada</th>
+            <th>Diferença</th>
+            <th>Validade Contada</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="analisar-inv-tbody"></tbody>
+      </table>
+    </div>
+    <!-- Cards mobile -->
+    <div class="data-cards" id="analisar-inv-cards" style="margin-bottom:16px;"></div>
+    <div id="analisar-inv-footer" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;padding-top:14px;border-top:1px solid var(--border);">
+      <div style="font-size:12px;color:var(--muted);" id="analisar-inv-contador"></div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-secondary" onclick="fecharModal('modal-analisar-inventario')">Cancelar</button>
+        <button class="btn btn-primary" id="btn-aceitar-inventario" onclick="aceitarInventario()">✅ Aceitar Inventário</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ===== PAGE: RECEBIMENTO ===== -->
 <script>document.addEventListener('DOMContentLoaded',()=>{
@@ -2276,7 +2340,7 @@ function fsDoc(...args) { return window._firebase.doc(window._firebase.firestore
 function fsColl(...args) { return window._firebase.collection(window._firebase.firestore, ...args); }
 
 // Estrutura em memória — espelhada do Firestore
-let db = { estoques:[], materiais:[], itens:[], entradas:[], saidas:[], transferencias:[], requisicoes:[], notificacoes:[], recebimentos:[], inspecoes:[], naoconformidades:[], calibracao:[] };
+let db = { estoques:[], materiais:[], itens:[], entradas:[], saidas:[], transferencias:[], requisicoes:[], notificacoes:[], recebimentos:[], inspecoes:[], naoconformidades:[], calibracao:[], inventarios:[], historico_inventario:[] };
 
 // ─────────────────────────────────────────────────────────────────
 //  LISTENERS EM TEMPO REAL — onSnapshot para todas as coleções
@@ -2290,7 +2354,7 @@ const _dbListeners = {};
  * Cada vez que o Firebase detecta uma mudança, o db[] é atualizado
  * automaticamente e a página atual é re-renderizada.
  */
-const DB_COLECOES = ['estoques','materiais','itens','entradas','saidas','transferencias','requisicoes','recebimentos','inspecoes','naoconformidades','calibracao'];
+const DB_COLECOES = ['estoques','materiais','itens','entradas','saidas','transferencias','requisicoes','recebimentos','inspecoes','naoconformidades','calibracao','inventarios','historico_inventario'];
 
 // Mapa de qual função renderizar para cada coleção alterada
 function _getRenderFnPorColecao(colecao) {
@@ -2331,6 +2395,8 @@ function _getRenderFnPorColecao(colecao) {
     },
     naoconformidades:() => { if(pageId==='nao-conformidades') renderNaoConformidades(); },
     calibracao:      () => { if(pageId==='calibracao') renderCalibracao(); },
+    inventarios:     () => { if(pageId==='inventario') renderInventarios(); if(pageId==='inventario-contar') mostrarModalInventario(); },
+    historico_inventario: () => { if(pageId==='historico-inventario') renderHistoricoInventario(); },
   };
   return renders[colecao] || (() => {});
 }
@@ -2819,6 +2885,10 @@ const NAV_ADM = [
   { id:'validade', icon:'clock', label:'Controle de Validade' },
   { type:'sep' },
   { id:'auditoria', icon:'audit', label:'Auditoria & Logs' },
+  { type:'sep' },
+  { label:'INVENTÁRIO', type:'label' },
+  { id:'inventario', icon:'inventario', label:'Inventários' },
+  { id:'historico-inventario', icon:'hist-inv', label:'Histórico de Inventários' },
 ];
 const NAV_QUALITY = [
   { label:'QUALIDADE', type:'label' },
@@ -2857,6 +2927,8 @@ const ICONS = {
   history:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.05 11A9 9 0 0112 3"/>',
   nc:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>',
   calib:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>',
+  inventario:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12l2 2 4-4"/>',
+  'hist-inv':'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>',
 };
 
 function buildNav() {
@@ -2887,6 +2959,10 @@ function buildNav() {
     if (areas.includes('validade'))               custom.push({ id:'validade', icon:'clock', label:'Controle de Validade' });
     if (areas.includes('relatorios'))             custom.push({ id:'relatorios', icon:'document', label:'Relatórios' });
     if (areas.includes('auditoria'))              custom.push({ id:'auditoria', icon:'audit', label:'Auditoria & Logs' });
+    if (areas.includes('inventario'))             custom.push(
+      { id:'inventario', icon:'inventario', label:'Inventário' },
+      { id:'historico-inventario', icon:'hist-inv', label:'Histórico de Inventários' }
+    );
     if (!custom.length) custom.push({ id:'requisicoes', icon:'clipboard', label:'Requisições' });
     items = custom;
   }
@@ -2925,6 +3001,8 @@ function _podeAcessarPagina(page) {
     'relatorios':              'relatorios',
     'auditoria':               'auditoria',
     'calibracao':              'calibracao',
+    'inventario':              'inventario',
+    'historico-inventario':    'inventario',
   };
   // quality tem acesso fixo a calibracao (e às páginas de qualidade)
   if (role === 'quality') {
@@ -2980,6 +3058,8 @@ function navigateTo(page) {
   if (page === 'historico-recebimentos') renderHistoricoRecebimentos();
   if (page === 'nao-conformidades') renderNaoConformidades();
   if (page === 'calibracao') renderCalibracao();
+  if (page === 'inventario') renderInventarios();
+  if (page === 'historico-inventario') renderHistoricoInventario();
   // Inicializa SmartSelect em selects criados dinamicamente por esta página
   if (window._sfInitNew) setTimeout(window._sfInitNew, 150);
 }
@@ -9793,6 +9873,885 @@ Esta ação é irreversível.`,
   } catch(e) { toast('Erro ao excluir.','error'); }
 }
 
+
+// ============================================================
+// MÓDULO DE INVENTÁRIO
+// ============================================================
+
+// ---- Estado local do módulo ----
+let _invAtivo = null; // inventário sendo contado pelo usuário atual
+
+// ---- Inicializa as páginas de inventário via JS (igual ao recebimento) ----
+document.addEventListener('DOMContentLoaded', () => {
+  const mainEl = document.getElementById('main');
+
+  // PAGE: INVENTÁRIO (ADM gerencia, usuário conta)
+  const invPage = document.createElement('div');
+  invPage.id = 'page-inventario';
+  invPage.className = 'page';
+  invPage.innerHTML = `
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:6px;">
+      <div>
+        <div class="section-title">📋 Inventários</div>
+        <div class="section-sub" id="inv-page-sub">Gerencie e acompanhe inventários de estoque</div>
+      </div>
+      <div id="inv-adm-btns" style="display:none;">
+        <button class="btn btn-primary" onclick="abrirSolicitarInventario()" style="display:flex;align-items:center;gap:8px;">
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Solicitar Inventário
+        </button>
+      </div>
+    </div>
+
+    <!-- Card solicitar inventário (ADM) -->
+    <div id="inv-form-card" style="display:none;" class="card" style="margin-bottom:20px;">
+      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;margin-bottom:16px;">Nova Solicitação de Inventário</div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Usuário Responsável *</label>
+          <select id="inv-sel-usuario"><option value="">Selecione...</option></select>
+        </div>
+        <div class="form-group">
+          <label>Estoque a Inventariar *</label>
+          <select id="inv-sel-estoque"><option value="">Selecione...</option></select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Observação (opcional)</label>
+        <input type="text" id="inv-obs" placeholder="Ex: Inventário mensal, auditoria interna...">
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-secondary" onclick="fecharFormInventario()">Cancelar</button>
+        <button class="btn btn-primary" onclick="solicitarInventario()">📤 Solicitar Inventário</button>
+      </div>
+    </div>
+
+    <!-- Inventários pendentes / em andamento (ADM) -->
+    <div id="inv-adm-section" style="display:none;">
+      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;margin-bottom:14px;color:var(--warn);">⏳ Aguardando / Em Andamento</div>
+      <div id="inv-pendentes-lista"><div style="color:var(--muted);font-size:13px;padding:20px 0;">Nenhum inventário pendente.</div></div>
+      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;margin:24px 0 14px;color:var(--accent);">✅ Concluídos (aguardando análise)</div>
+      <div id="inv-concluidos-lista"><div style="color:var(--muted);font-size:13px;padding:20px 0;">Nenhum inventário concluído aguardando análise.</div></div>
+    </div>
+
+    <!-- Para o usuário contador -->
+    <div id="inv-user-section" style="display:none;">
+      <div id="inv-user-pendente-card"></div>
+    </div>
+  `;
+  mainEl.appendChild(invPage);
+
+  // PAGE: CONTAGEM (usuário)
+  const contPage = document.createElement('div');
+  contPage.id = 'page-inventario-contar';
+  contPage.className = 'page';
+  contPage.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
+      <div>
+        <div class="section-title" id="inv-contar-titulo">📋 Inventário</div>
+        <div class="section-sub" id="inv-contar-sub">Preencha a quantidade e validade de cada item</div>
+      </div>
+      <button class="btn btn-secondary" onclick="cancelarContagem()" style="font-size:12px;padding:8px 14px;">← Voltar</button>
+    </div>
+
+    <!-- Progresso -->
+    <div class="card" style="margin-bottom:18px;padding:14px 20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <span style="font-size:12px;color:var(--muted);">Progresso do preenchimento</span>
+        <span style="font-size:12px;font-weight:700;color:var(--accent);" id="inv-progresso-label">0 / 0 itens</span>
+      </div>
+      <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;">
+        <div id="inv-progresso-bar" style="height:100%;background:var(--accent);border-radius:3px;transition:width .3s;width:0%;"></div>
+      </div>
+    </div>
+
+    <!-- Tabela de itens (desktop) -->
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div class="table-scroll-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Material</th>
+              <th>Lote</th>
+              <th>Qtd Contada *</th>
+              <th>Validade Contada</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="inv-contar-tbody"></tbody>
+        </table>
+      </div>
+      <!-- Cards mobile -->
+      <div class="data-cards" id="inv-contar-cards"></div>
+    </div>
+
+    <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:12px;flex-wrap:wrap;">
+      <button class="btn btn-secondary" onclick="cancelarContagem()">Cancelar</button>
+      <button class="btn btn-primary" id="btn-finalizar-inventario" onclick="finalizarContagem()" style="padding:12px 28px;font-size:15px;">
+        ✅ Finalizar Inventário
+      </button>
+    </div>
+  `;
+  mainEl.appendChild(contPage);
+
+  // PAGE: HISTÓRICO DE INVENTÁRIOS
+  const histPage = document.createElement('div');
+  histPage.id = 'page-historico-inventario';
+  histPage.className = 'page';
+  histPage.innerHTML = `
+    <div class="section-title">📚 Histórico de Inventários</div>
+    <div class="section-sub">Registro completo de todos os inventários realizados</div>
+
+    <div class="card" style="margin-bottom:18px;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <input type="text" id="hist-inv-busca" placeholder="Buscar por estoque ou usuário..." oninput="renderHistoricoInventario()" style="flex:2;min-width:160px;">
+        <select id="hist-inv-filtro-status" onchange="renderHistoricoInventario()" style="flex:1;min-width:130px;">
+          <option value="">Todos os status</option>
+          <option value="aceito">Aceito</option>
+          <option value="aceito_parcial">Aceito com Recontagem</option>
+        </select>
+        <button class="btn btn-secondary" onclick="limparFiltrosHistInv()" style="padding:10px 12px;">✕</button>
+      </div>
+    </div>
+
+    <div id="hist-inv-lista"></div>
+  `;
+  mainEl.appendChild(histPage);
+
+  // Verifica se há inventário pendente para o usuário atual (após carregar)
+  setTimeout(_verificarInventarioPendenteUsuario, 1500);
+});
+
+// ---- Verificação de inventário pendente (para usuário contador) ----
+function _verificarInventarioPendenteUsuario() {
+  if (!currentUser || currentUser.role === 'adm') return;
+  const meu = (db.inventarios||[]).find(inv =>
+    inv.usuarioId === currentUser.uid &&
+    (inv.status === 'pendente' || inv.status === 'em_andamento')
+  );
+  if (!meu) return;
+  _invAtivo = meu;
+  // Mostrar modal de aviso
+  const est = (db.estoques||[]).find(e => e.id === meu.estoqueId);
+  document.getElementById('inv-modal-estoque-nome').textContent = est ? est.nome : '?';
+  document.getElementById('inv-modal-solicitante').textContent = `Solicitado por: ${meu.admNome || 'Administrador'} · ${fmtDT(meu.criadoEm)}`;
+  abrirModal('modal-inventario-iniciar');
+}
+
+// ---- Renderiza a página de inventário (adm ou usuário) ----
+function renderInventarios() {
+  if (!currentUser) return;
+  const isAdm = currentUser.role === 'adm';
+
+  document.getElementById('inv-adm-btns').style.display = isAdm ? 'block' : 'none';
+  document.getElementById('inv-adm-section').style.display = isAdm ? 'block' : 'none';
+  document.getElementById('inv-user-section').style.display = isAdm ? 'none' : 'block';
+  document.getElementById('inv-page-sub').textContent = isAdm
+    ? 'Solicite e analise inventários de estoque'
+    : 'Inventários atribuídos a você';
+
+  if (isAdm) _renderInventariosAdm();
+  else _renderInventariosUsuario();
+}
+
+function _renderInventariosAdm() {
+  const pendentes = (db.inventarios||[]).filter(i => i.status === 'pendente' || i.status === 'em_andamento');
+  const concluidos = (db.inventarios||[]).filter(i => i.status === 'concluido');
+
+  const elPend = document.getElementById('inv-pendentes-lista');
+  const elConc = document.getElementById('inv-concluidos-lista');
+  if (!elPend || !elConc) return;
+
+  if (!pendentes.length) {
+    elPend.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:20px 0;">Nenhum inventário pendente.</div>';
+  } else {
+    elPend.innerHTML = pendentes.map(inv => {
+      const est = (db.estoques||[]).find(e => e.id === inv.estoqueId);
+      const statusLabel = inv.status === 'em_andamento' ? '🔄 Em Andamento' : '⏳ Aguardando Início';
+      const statusCls = inv.status === 'em_andamento' ? 'badge-ok' : 'badge-pending';
+      return `<div class="recv-card" style="margin-bottom:12px;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+          <div>
+            <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:15px;">${est ? est.nome : '?'}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:3px;">
+              👤 ${inv.usuarioNome} &nbsp;·&nbsp; 📅 ${fmtDT(inv.criadoEm)}
+              ${inv.obs ? `<br>📝 ${inv.obs}` : ''}
+            </div>
+          </div>
+          <span class="badge ${statusCls}">${statusLabel}</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-danger" style="padding:6px 12px;font-size:12px;" onclick="cancelarInventarioAdm('${inv.id}')">✕ Cancelar</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  if (!concluidos.length) {
+    elConc.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:20px 0;">Nenhum inventário concluído aguardando análise.</div>';
+  } else {
+    elConc.innerHTML = concluidos.map(inv => {
+      const est = (db.estoques||[]).find(e => e.id === inv.estoqueId);
+      const total = (inv.itensContados||[]).length;
+      const recontagem = (inv.itensRecontagem||[]).length;
+      return `<div class="recv-card" style="border-left:3px solid var(--accent);margin-bottom:12px;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+          <div>
+            <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:15px;">${est ? est.nome : '?'}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:3px;">
+              👤 ${inv.usuarioNome} &nbsp;·&nbsp; ✅ Concluído em ${fmtDT(inv.concluidoEm)}
+            </div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;">
+              ${total} iten(s) contado(s)
+              ${recontagem ? `&nbsp;·&nbsp; <span style="color:var(--warn);">${recontagem} em recontagem</span>` : ''}
+            </div>
+          </div>
+          <span class="badge badge-ok">✅ Concluído</span>
+        </div>
+        <button class="btn btn-primary" style="padding:8px 18px;font-size:13px;display:flex;align-items:center;gap:6px;" onclick="abrirAnalisarInventario('${inv.id}')">
+          <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+          Analisar Inventário
+        </button>
+      </div>`;
+    }).join('');
+  }
+}
+
+function _renderInventariosUsuario() {
+  const el = document.getElementById('inv-user-pendente-card');
+  if (!el) return;
+  const meus = (db.inventarios||[]).filter(inv =>
+    inv.usuarioId === currentUser.uid &&
+    (inv.status === 'pendente' || inv.status === 'em_andamento' || inv.status === 'recontagem')
+  );
+  if (!meus.length) {
+    el.innerHTML = '<div class="card" style="text-align:center;color:var(--muted);padding:48px;"><div style="font-size:36px;margin-bottom:12px;">📭</div><div style="font-family:\'Syne\',sans-serif;font-weight:700;">Nenhum inventário atribuído</div><div style="font-size:13px;margin-top:6px;">O administrador enviará uma solicitação quando necessário.</div></div>';
+    return;
+  }
+  el.innerHTML = meus.map(inv => {
+    const est = (db.estoques||[]).find(e => e.id === inv.estoqueId);
+    const isRecontagem = inv.status === 'recontagem';
+    const isEmAndamento = inv.status === 'em_andamento';
+    const label = isRecontagem ? '🔄 Recontagem Solicitada' : isEmAndamento ? '🔄 Em Andamento' : '⏳ Aguardando Início';
+    const cor = isRecontagem ? 'var(--warn)' : isEmAndamento ? 'var(--accent)' : 'var(--muted)';
+    const recontItens = isRecontagem ? (inv.itensRecontagem||[]) : [];
+    return `<div class="card" style="margin-bottom:14px;border-left:3px solid ${cor};">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+        <div>
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px;">${est ? est.nome : '?'}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px;">
+            Solicitado por ${inv.admNome||'Administrador'} · ${fmtDT(inv.criadoEm)}
+          </div>
+          ${inv.obs ? `<div style="font-size:12px;color:var(--muted);margin-top:2px;">📝 ${inv.obs}</div>` : ''}
+          ${isRecontagem && recontItens.length ? `<div style="font-size:12px;color:var(--warn);margin-top:4px;">⚠️ ${recontItens.length} iten(s) para recontagem</div>` : ''}
+        </div>
+        <span class="badge ${isRecontagem?'badge-warn':'badge-ok'}" style="background:rgba(0,0,0,.1);">${label}</span>
+      </div>
+      <button class="btn btn-primary" onclick="_iniciarContagemInv('${inv.id}')" style="display:flex;align-items:center;gap:8px;padding:10px 20px;">
+        🚀 ${isRecontagem ? 'Realizar Recontagem' : isEmAndamento ? 'Continuar Contagem' : 'Iniciar Inventário'}
+      </button>
+    </div>`;
+  }).join('');
+}
+
+// ---- Solicitar inventário (ADM) ----
+function abrirSolicitarInventario() {
+  const card = document.getElementById('inv-form-card');
+  if (!card) return;
+  card.style.display = 'block';
+  // Preencher selects
+  const selUser = document.getElementById('inv-sel-usuario');
+  const selEst = document.getElementById('inv-sel-estoque');
+  if (selUser) {
+    selUser.innerHTML = '<option value="">Selecione...</option>';
+    // Buscar usuários do Firestore (via users collection)
+    _listarUsuarios().then(users => {
+      users.filter(u => u.role !== 'adm').forEach(u => {
+        selUser.innerHTML += `<option value="${u.id}">${u.nome} (${u.email})</option>`;
+      });
+    });
+  }
+  if (selEst) {
+    selEst.innerHTML = '<option value="">Selecione...</option>';
+    (db.estoques||[]).forEach(e => {
+      selEst.innerHTML += `<option value="${e.id}">${e.nome}</option>`;
+    });
+  }
+}
+
+async function _listarUsuarios() {
+  try {
+    const { firestore, collection, getDocs } = window._firebase;
+    const snap = await getDocs(collection(firestore, 'users'));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch(e) { return []; }
+}
+
+function fecharFormInventario() {
+  const card = document.getElementById('inv-form-card');
+  if (card) card.style.display = 'none';
+}
+
+async function solicitarInventario() {
+  const usuarioId = document.getElementById('inv-sel-usuario').value;
+  const estoqueId = document.getElementById('inv-sel-estoque').value;
+  const obs = document.getElementById('inv-obs').value.trim();
+  if (!usuarioId) return toast('Selecione um usuário.', 'error');
+  if (!estoqueId) return toast('Selecione um estoque.', 'error');
+
+  const usuarios = await _listarUsuarios();
+  const usuario = usuarios.find(u => u.id === usuarioId);
+  if (!usuario) return toast('Usuário não encontrado.', 'error');
+
+  const est = (db.estoques||[]).find(e => e.id === estoqueId);
+  const novo = {
+    id: uid(),
+    usuarioId,
+    usuarioNome: usuario.nome,
+    usuarioEmail: usuario.email,
+    estoqueId,
+    estoqueNome: est ? est.nome : '?',
+    admId: currentUser.uid,
+    admNome: currentUser.nome,
+    status: 'pendente',
+    obs,
+    criadoEm: new Date().toISOString(),
+    itensContados: [],
+    itensRecontagem: []
+  };
+
+  db.inventarios = db.inventarios || [];
+  db.inventarios.push(novo);
+
+  // Garantir que o usuário tem a área 'inventario' liberada
+  try {
+    const { firestore, doc, getDoc, setDoc } = window._firebase;
+    const userRef = doc(firestore, 'users', usuarioId);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      const userData = userSnap.data();
+      const areas = Array.isArray(userData.areas) ? [...userData.areas] : [];
+      if (!areas.includes('inventario')) {
+        areas.push('inventario');
+        await setDoc(userRef, { ...userData, areas });
+      }
+    }
+  } catch(e) { console.warn('Não foi possível atualizar áreas do usuário:', e); }
+
+  try {
+    await saveItem('inventarios', novo);
+    await logAudit('inventario', `Inventário solicitado: ${est?est.nome:'?'}`, `Para: ${usuario.nome} | ADM: ${currentUser.nome}`);
+    toast('Inventário solicitado com sucesso!');
+    fecharFormInventario();
+    document.getElementById('inv-obs').value = '';
+    renderInventarios();
+  } catch(e) { toast('Erro ao salvar.', 'error'); }
+}
+
+async function cancelarInventarioAdm(invId) {
+  const ok = await sfConfirm({ title:'Cancelar Inventário', body:'Deseja cancelar esta solicitação?', type:'warn', okText:'Cancelar Inventário' });
+  if (!ok) return;
+  await deleteItem('inventarios', invId);
+  toast('Inventário cancelado.');
+  renderInventarios();
+}
+
+// ---- Iniciar contagem (usuário) ----
+function mostrarModalInventario() {
+  _verificarInventarioPendenteUsuario();
+}
+
+function iniciarContagem() {
+  fecharModal('modal-inventario-iniciar');
+  if (!_invAtivo) return;
+  _iniciarContagemInv(_invAtivo.id);
+}
+
+async function _iniciarContagemInv(invId) {
+  const inv = (db.inventarios||[]).find(i => i.id === invId);
+  if (!inv) return toast('Inventário não encontrado.', 'error');
+  _invAtivo = inv;
+
+  // Marcar como em_andamento se ainda pendente
+  if (inv.status === 'pendente') {
+    inv.status = 'em_andamento';
+    try { await saveItem('inventarios', inv); } catch(e) {}
+  }
+
+  // Navegar para a página de contagem
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const pg = document.getElementById('page-inventario-contar');
+  if (pg) pg.classList.add('active');
+
+  const est = (db.estoques||[]).find(e => e.id === inv.estoqueId);
+  document.getElementById('inv-contar-titulo').textContent = `📋 Inventário — ${est ? est.nome : '?'}`;
+
+  const isRecontagem = inv.status === 'recontagem';
+  // Para recontagem: mostrar apenas os itens enviados para recontagem
+  let itensParaContar;
+  if (isRecontagem) {
+    const idsRecontagem = (inv.itensRecontagem||[]).map(r => r.itemId);
+    itensParaContar = (db.itens||[]).filter(i => i.estoqueId === inv.estoqueId && idsRecontagem.includes(i.id));
+    document.getElementById('inv-contar-sub').textContent = `Recontagem solicitada — ${itensParaContar.length} iten(s)`;
+  } else {
+    itensParaContar = (db.itens||[]).filter(i => i.estoqueId === inv.estoqueId);
+    document.getElementById('inv-contar-sub').textContent = `Preencha a quantidade e validade de cada item (${itensParaContar.length} iten(s))`;
+  }
+
+  _renderContagemTabela(itensParaContar, inv);
+}
+
+function _renderContagemTabela(itens, inv) {
+  const tb = document.getElementById('inv-contar-tbody');
+  const cards = document.getElementById('inv-contar-cards');
+  if (!tb) return;
+
+  // Pré-preencher com contagem salva anteriormente (se em_andamento)
+  const contadosAntes = {};
+  (inv.itensContados||[]).forEach(c => { contadosAntes[c.itemId] = c; });
+  const recontAntes = {};
+  (inv.itensRecontagem||[]).forEach(r => { recontAntes[r.itemId] = r; });
+
+  tb.innerHTML = '';
+  if (cards) cards.innerHTML = '';
+
+  itens.forEach(item => {
+    const mat = (db.materiais||[]).find(m => m.id === item.materialId);
+    const nome = mat ? mat.nome : '?';
+    const prev = contadosAntes[item.id] || recontAntes[item.id] || {};
+    const prevQtd = prev.qtdContada !== undefined ? prev.qtdContada : '';
+    const prevVal = prev.validadeContada || '';
+
+    tb.innerHTML += `<tr id="inv-row-${item.id}">
+      <td><strong>${nome}</strong>${mat&&mat.cat?`<br><span style="font-size:11px;color:var(--muted)">${mat.cat}</span>`:''}</td>
+      <td><span style="font-size:11px;background:rgba(255,255,255,.06);padding:2px 7px;border-radius:4px;">${item.lote}</span></td>
+      <td>
+        <input type="number" min="0" step="any" class="inv-qtd-input" data-item-id="${item.id}"
+          value="${prevQtd}" placeholder="0"
+          oninput="_atualizarProgressoContagem()"
+          style="width:100px;padding:7px 10px;font-size:14px;font-weight:700;"
+          onchange="_marcarLinhaPreenchida('${item.id}')">
+      </td>
+      <td>
+        <input type="date" class="inv-val-input" data-item-id="${item.id}"
+          value="${prevVal}"
+          style="width:150px;padding:7px 10px;font-size:13px;">
+      </td>
+      <td id="inv-row-status-${item.id}">
+        <span style="font-size:11px;color:var(--muted);">—</span>
+      </td>
+    </tr>`;
+
+    if (cards) cards.innerHTML += `<div class="data-card" id="inv-card-${item.id}">
+      <div class="data-card-header">
+        <div>
+          <div class="data-card-title">${nome}</div>
+          <div style="font-size:11px;color:var(--muted);">Lote: ${item.lote}${mat&&mat.cat?' · '+mat.cat:''}</div>
+        </div>
+        <span id="inv-card-status-${item.id}" style="font-size:11px;color:var(--muted);">—</span>
+      </div>
+      <div class="data-card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;">
+        <div>
+          <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px;">Qtd Contada *</label>
+          <input type="number" min="0" step="any" class="inv-qtd-input" data-item-id="${item.id}"
+            value="${prevQtd}" placeholder="0"
+            oninput="_atualizarProgressoContagem()"
+            onchange="_marcarLinhaPreenchida('${item.id}')"
+            style="font-size:16px;font-weight:700;text-align:center;">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px;">Validade</label>
+          <input type="date" class="inv-val-input" data-item-id="${item.id}"
+            value="${prevVal}">
+        </div>
+      </div>
+    </div>`;
+  });
+
+  _atualizarProgressoContagem();
+}
+
+function _marcarLinhaPreenchida(itemId) {
+  const qtdInputs = document.querySelectorAll(`.inv-qtd-input[data-item-id="${itemId}"]`);
+  const qtd = qtdInputs[0] ? qtdInputs[0].value : '';
+  const preenchido = qtd !== '' && qtd !== null;
+  const statusEl = document.getElementById(`inv-row-status-${itemId}`);
+  const statusCard = document.getElementById(`inv-card-status-${itemId}`);
+  const html = preenchido
+    ? '<span class="badge badge-ok">✓</span>'
+    : '<span style="font-size:11px;color:var(--muted);">—</span>';
+  if (statusEl) statusEl.innerHTML = html;
+  if (statusCard) statusCard.innerHTML = html;
+}
+
+function _atualizarProgressoContagem() {
+  const todos = document.querySelectorAll('.inv-qtd-input');
+  const unicos = new Set([...todos].map(el => el.dataset.itemId));
+  const total = unicos.size;
+  let preenchidos = 0;
+  unicos.forEach(itemId => {
+    const inputs = document.querySelectorAll(`.inv-qtd-input[data-item-id="${itemId}"]`);
+    const val = inputs[0] ? inputs[0].value : '';
+    if (val !== '' && val !== null) preenchidos++;
+  });
+  const pct = total > 0 ? Math.round(preenchidos / total * 100) : 0;
+  const bar = document.getElementById('inv-progresso-bar');
+  const label = document.getElementById('inv-progresso-label');
+  if (bar) bar.style.width = pct + '%';
+  if (label) label.textContent = `${preenchidos} / ${total} itens`;
+}
+
+function cancelarContagem() {
+  navigateTo('inventario');
+}
+
+async function finalizarContagem() {
+  if (!_invAtivo) return toast('Erro: inventário não encontrado.', 'error');
+
+  // Coletar todos os inputs
+  const qtdInputs = document.querySelectorAll('.inv-qtd-input');
+  const valInputs = document.querySelectorAll('.inv-val-input');
+
+  // Agregar por itemId (podem ter duplicatas de desktop+mobile)
+  const mapa = {};
+  qtdInputs.forEach(el => {
+    const id = el.dataset.itemId;
+    if (!mapa[id]) mapa[id] = { itemId: id, qtdContada: '', validadeContada: '' };
+    if (el.value !== '') mapa[id].qtdContada = el.value;
+  });
+  valInputs.forEach(el => {
+    const id = el.dataset.itemId;
+    if (mapa[id] && el.value) mapa[id].validadeContada = el.value;
+  });
+
+  const itensContados = Object.values(mapa);
+  const semPreencher = itensContados.filter(c => c.qtdContada === '' || c.qtdContada === null);
+
+  if (semPreencher.length) {
+    const ok = await sfConfirm({
+      title: 'Itens não preenchidos',
+      body: `${semPreencher.length} iten(s) sem quantidade informada.\nDeseja finalizar mesmo assim? Itens não preenchidos ficarão com quantidade 0.`,
+      type: 'warn',
+      okText: 'Finalizar mesmo assim'
+    });
+    if (!ok) return;
+    semPreencher.forEach(c => c.qtdContada = 0);
+  }
+
+  // Converter para número
+  itensContados.forEach(c => { c.qtdContada = Number(c.qtdContada) || 0; });
+
+  const isRecontagem = _invAtivo.status === 'recontagem';
+  if (isRecontagem) {
+    // Mesclar com itens já contados anteriormente
+    const contadosExist = [...(_invAtivo.itensContados||[])];
+    const novosIds = new Set(itensContados.map(c => c.itemId));
+    // Substituir/adicionar os recontados
+    const contadosFiltrado = contadosExist.filter(c => !novosIds.has(c.itemId));
+    _invAtivo.itensContados = [...contadosFiltrado, ...itensContados];
+    _invAtivo.itensRecontagem = [];
+  } else {
+    _invAtivo.itensContados = itensContados;
+  }
+
+  _invAtivo.status = 'concluido';
+  _invAtivo.concluidoEm = new Date().toISOString();
+
+  try {
+    await saveItem('inventarios', _invAtivo);
+    await logAudit('inventario', `Inventário finalizado: ${_invAtivo.estoqueNome}`, `Por: ${currentUser.nome} | ${itensContados.length} itens contados`);
+    toast('Inventário finalizado! Aguardando análise do administrador.');
+    _invAtivo = null;
+    navigateTo('inventario');
+  } catch(e) { toast('Erro ao salvar inventário.', 'error'); }
+}
+
+// ---- Analisar inventário (ADM) ----
+let _invAnalisando = null;
+
+function abrirAnalisarInventario(invId) {
+  const inv = (db.inventarios||[]).find(i => i.id === invId);
+  if (!inv) return toast('Inventário não encontrado.', 'error');
+  _invAnalisando = inv;
+
+  const est = (db.estoques||[]).find(e => e.id === inv.estoqueId);
+  document.getElementById('analisar-inv-header').innerHTML = `
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <div>
+        <strong style="font-family:'Syne',sans-serif;font-size:15px;">${est ? est.nome : '?'}</strong>
+        <div style="color:var(--muted);font-size:12px;margin-top:3px;">
+          👤 ${inv.usuarioNome} &nbsp;·&nbsp; ✅ Concluído em ${fmtDT(inv.concluidoEm)}
+          ${inv.obs ? `<br>📝 ${inv.obs}` : ''}
+        </div>
+      </div>
+      <span class="badge badge-ok">✅ Concluído</span>
+    </div>`;
+
+  const tb = document.getElementById('analisar-inv-tbody');
+  const cards = document.getElementById('analisar-inv-cards');
+  tb.innerHTML = '';
+  if (cards) cards.innerHTML = '';
+
+  const itensContados = inv.itensContados || [];
+  itensContados.forEach(c => {
+    const item = (db.itens||[]).find(i => i.id === c.itemId);
+    const mat = item ? (db.materiais||[]).find(m => m.id === item.materialId) : null;
+    const nome = mat ? mat.nome : (item ? item.materialNome || '?' : '— Item removido —');
+    const lote = item ? item.lote : '?';
+    const qtdSistema = item ? (Number(item.qtd)||0) : 0;
+    const qtdContada = Number(c.qtdContada) || 0;
+    const diff = qtdContada - qtdSistema;
+    const diffCls = diff > 0 ? 'color:var(--accent)' : diff < 0 ? 'color:var(--danger)' : 'color:var(--muted)';
+    const diffStr = diff > 0 ? `+${diff}` : String(diff);
+
+    tb.innerHTML += `<tr>
+      <td style="text-align:center;">
+        <input type="checkbox" class="inv-recontagem-check" data-item-id="${c.itemId}"
+          style="width:16px;height:16px;accent-color:var(--warn);cursor:pointer;"
+          title="Marcar para recontagem">
+      </td>
+      <td><strong>${nome}</strong>${mat&&mat.cat?`<br><span style="font-size:11px;color:var(--muted)">${mat.cat}</span>`:''}</td>
+      <td><span style="font-size:11px;background:rgba(255,255,255,.06);padding:2px 7px;border-radius:4px;">${lote}</span></td>
+      <td style="font-size:15px;color:var(--muted);">${qtdSistema}${mat&&mat.unidade?` <span style="font-size:11px;">${mat.unidade}</span>`:''}</td>
+      <td style="font-size:15px;font-weight:700;">${qtdContada}${mat&&mat.unidade?` <span style="font-size:11px;color:var(--muted);">${mat.unidade}</span>`:''}</td>
+      <td style="font-size:15px;font-weight:700;${diffCls}">${diffStr}</td>
+      <td style="color:var(--muted);font-size:12px;">${c.validadeContada ? fmt(c.validadeContada) : '—'}</td>
+      <td>${diff===0 ? '<span class="badge badge-ok">OK</span>' : diff>0 ? '<span class="badge badge-over">Excesso</span>' : '<span class="badge badge-critical">Falta</span>'}</td>
+    </tr>`;
+
+    if (cards) cards.innerHTML += `<div class="data-card">
+      <div class="data-card-header">
+        <div>
+          <div class="data-card-title">${nome}</div>
+          <div style="font-size:11px;color:var(--muted);">Lote: ${lote}</div>
+        </div>
+        ${diff===0 ? '<span class="badge badge-ok">OK</span>' : diff>0 ? '<span class="badge badge-over">Excesso</span>' : '<span class="badge badge-critical">Falta</span>'}
+      </div>
+      <div class="data-card-body">
+        Sist.: <strong>${qtdSistema}</strong> &nbsp;·&nbsp; Contado: <strong>${qtdContada}</strong> &nbsp;·&nbsp; Dif.: <strong style="${diffCls}">${diffStr}</strong>
+        <br>Validade contada: <strong>${c.validadeContada ? fmt(c.validadeContada) : '—'}</strong>
+      </div>
+      <div style="margin-top:10px;display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" class="inv-recontagem-check" data-item-id="${c.itemId}"
+          style="width:18px;height:18px;accent-color:var(--warn);cursor:pointer;">
+        <label style="font-size:12px;color:var(--warn);cursor:pointer;">Marcar para recontagem</label>
+      </div>
+    </div>`;
+  });
+
+  // Sincronizar checkboxes desktop↔mobile
+  document.querySelectorAll('.inv-recontagem-check').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const id = cb.dataset.itemId;
+      document.querySelectorAll(`.inv-recontagem-check[data-item-id="${id}"]`).forEach(el => {
+        el.checked = cb.checked;
+      });
+      _atualizarBotaoAceitar();
+    });
+  });
+
+  _atualizarBotaoAceitar();
+  abrirModal('modal-analisar-inventario');
+}
+
+function _atualizarBotaoAceitar() {
+  const selecionados = [...new Set(
+    [...document.querySelectorAll('.inv-recontagem-check:checked')].map(c => c.dataset.itemId)
+  )];
+  const btn = document.getElementById('btn-aceitar-inventario');
+  const ctr = document.getElementById('analisar-inv-contador');
+  if (!btn) return;
+  if (selecionados.length) {
+    btn.textContent = `✅ Aceitar e Enviar ${selecionados.length} para Recontagem`;
+    btn.className = 'btn btn-warn';
+  } else {
+    btn.textContent = '✅ Aceitar Inventário';
+    btn.className = 'btn btn-primary';
+  }
+  if (ctr) ctr.textContent = selecionados.length ? `${selecionados.length} iten(s) selecionado(s) para recontagem` : '';
+}
+
+async function aceitarInventario() {
+  if (!_invAnalisando) return;
+  const selecionados = [...new Set(
+    [...document.querySelectorAll('.inv-recontagem-check:checked')].map(c => c.dataset.itemId)
+  )];
+
+  const totalContados = (_invAnalisando.itensContados||[]).length;
+  const temRecontagem = selecionados.length > 0;
+  const msg = temRecontagem
+    ? `Aceitar inventário e enviar ${selecionados.length} iten(s) para recontagem?\nOs demais ${totalContados-selecionados.length} itens terão suas quantidades atualizadas no estoque.`
+    : `Aceitar inventário e atualizar as quantidades de ${totalContados} iten(s) no estoque?`;
+
+  const ok = await sfConfirm({ title: 'Confirmar Aceitação', body: msg, type: 'warn', okText: 'Confirmar' });
+  if (!ok) return;
+
+  const inv = _invAnalisando;
+  const itensAceitos = (inv.itensContados||[]).filter(c => !selecionados.includes(c.itemId));
+  const itensRecontagem = (inv.itensContados||[]).filter(c => selecionados.includes(c.itemId));
+
+  // Atualizar quantidades e validades no estoque para os itens aceitos
+  let atualizados = 0;
+  for (const c of itensAceitos) {
+    const item = (db.itens||[]).find(i => i.id === c.itemId);
+    if (!item) continue;
+    item.qtd = Number(c.qtdContada) || 0;
+    if (c.validadeContada) item.validade = c.validadeContada;
+    try { await saveItem('itens', item); atualizados++; } catch(e) {}
+  }
+
+  // Remover itens zerados
+  await _limparItensZerados();
+
+  // Montar registro histórico
+  const histEntry = {
+    id: uid(),
+    inventarioId: inv.id,
+    estoqueId: inv.estoqueId,
+    estoqueNome: inv.estoqueNome,
+    usuarioId: inv.usuarioId,
+    usuarioNome: inv.usuarioNome,
+    admId: currentUser.uid,
+    admNome: currentUser.nome,
+    criadoEm: inv.criadoEm,
+    concluidoEm: inv.concluidoEm,
+    aceitoEm: new Date().toISOString(),
+    itensAceitos: itensAceitos,
+    itensRecontagem: itensRecontagem,
+    status: temRecontagem ? 'aceito_parcial' : 'aceito',
+    obs: inv.obs || ''
+  };
+
+  if (!db.historico_inventario) db.historico_inventario = [];
+  db.historico_inventario.push(histEntry);
+
+  if (temRecontagem) {
+    // Enviar itens selecionados de volta para recontagem
+    inv.status = 'recontagem';
+    inv.itensRecontagem = itensRecontagem;
+    inv.itensContados = itensAceitos;
+    try {
+      await saveItem('inventarios', inv);
+      await saveItem('historico_inventario', histEntry);
+      toast(`Inventário parcialmente aceito. ${selecionados.length} iten(s) enviados para recontagem.`);
+    } catch(e) { toast('Erro ao salvar.', 'error'); return; }
+  } else {
+    // Inventário totalmente aceito — remover da coleção ativa
+    await deleteItem('inventarios', inv.id);
+    try {
+      await saveItem('historico_inventario', histEntry);
+      toast(`Inventário aceito! ${atualizados} iten(s) atualizados no estoque.`);
+    } catch(e) { toast('Inventário aceito, mas erro ao salvar histórico.', 'error'); }
+  }
+
+  await logAudit('inventario', `Inventário aceito: ${inv.estoqueNome}`, `Por: ${currentUser.nome} | Aceitos: ${itensAceitos.length} | Recontagem: ${itensRecontagem.length}`);
+
+  fecharModal('modal-analisar-inventario');
+  _invAnalisando = null;
+  renderInventarios();
+  renderDash();
+}
+
+// ---- Histórico de Inventários ----
+function renderHistoricoInventario() {
+  const el = document.getElementById('hist-inv-lista');
+  if (!el) return;
+
+  const busca = (document.getElementById('hist-inv-busca')?.value||'').toLowerCase();
+  const filtroStatus = document.getElementById('hist-inv-filtro-status')?.value || '';
+
+  let lista = [...(db.historico_inventario||[])].sort((a,b) => new Date(b.aceitoEm)-new Date(a.aceitoEm));
+  if (busca) lista = lista.filter(h => h.estoqueNome.toLowerCase().includes(busca) || h.usuarioNome.toLowerCase().includes(busca));
+  if (filtroStatus) lista = lista.filter(h => h.status === filtroStatus);
+
+  if (!lista.length) {
+    el.innerHTML = '<div class="card" style="text-align:center;color:var(--muted);padding:48px;"><div style="font-size:36px;margin-bottom:12px;">📭</div><div style="font-family:\'Syne\',sans-serif;font-weight:700;">Nenhum inventário no histórico</div></div>';
+    return;
+  }
+
+  el.innerHTML = lista.map(h => {
+    const isAceito = h.status === 'aceito';
+    const label = isAceito ? '✅ Aceito' : '🔄 Aceito com Recontagem';
+    const cor = isAceito ? 'var(--accent)' : 'var(--warn)';
+    const totalAceitos = (h.itensAceitos||[]).length;
+    const totalRecontagem = (h.itensRecontagem||[]).length;
+
+    return `<div class="card" style="margin-bottom:14px;border-left:3px solid ${cor};">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+        <div>
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:15px;">${h.estoqueNome}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:3px;">
+            👤 Contado por: <strong style="color:var(--text);">${h.usuarioNome}</strong>
+            &nbsp;·&nbsp; 🔍 Analisado por: <strong style="color:var(--text);">${h.admNome}</strong>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px;">
+            📅 Solicitado: ${fmt(h.criadoEm)} &nbsp;·&nbsp; ✅ Concluído: ${fmt(h.concluidoEm)} &nbsp;·&nbsp; 📋 Aceito: ${fmtDT(h.aceitoEm)}
+          </div>
+          ${h.obs ? `<div style="font-size:12px;color:var(--muted);margin-top:2px;">📝 ${h.obs}</div>` : ''}
+        </div>
+        <span class="badge ${isAceito?'badge-ok':'badge-warn'}">${label}</span>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+        ${totalAceitos} iten(s) aceito(s)
+        ${totalRecontagem ? `&nbsp;·&nbsp; <span style="color:var(--warn);">${totalRecontagem} em recontagem</span>` : ''}
+      </div>
+      <button class="btn btn-secondary" style="padding:6px 14px;font-size:12px;" onclick="_toggleHistInvDetalhes('${h.id}')">
+        🔍 Ver Detalhes
+      </button>
+      <div id="hist-inv-det-${h.id}" style="display:none;margin-top:16px;">
+        ${_renderHistInvDetalhes(h)}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function _renderHistInvDetalhes(h) {
+  const itens = [...(h.itensAceitos||[]), ...(h.itensRecontagem||[])];
+  if (!itens.length) return '<div style="color:var(--muted);font-size:13px;">Nenhum item registrado.</div>';
+
+  const rows = itens.map(c => {
+    const item = (db.itens||[]).find(i => i.id === c.itemId);
+    const mat = item ? (db.materiais||[]).find(m => m.id === item.materialId) : null;
+    const nome = mat ? mat.nome : '?';
+    const lote = item ? item.lote : '?';
+    const isRecont = (h.itensRecontagem||[]).some(r => r.itemId === c.itemId);
+    return `<tr>
+      <td><strong>${nome}</strong></td>
+      <td style="font-size:11px;"><span style="background:rgba(255,255,255,.06);padding:2px 6px;border-radius:4px;">${lote}</span></td>
+      <td style="font-weight:700;">${Number(c.qtdContada)||0}</td>
+      <td style="color:var(--muted);font-size:12px;">${c.validadeContada ? fmt(c.validadeContada) : '—'}</td>
+      <td>${isRecont ? '<span class="badge badge-warn">Recontagem</span>' : '<span class="badge badge-ok">Aceito</span>'}</td>
+    </tr>`;
+  }).join('');
+
+  return `<div class="table-scroll-wrap">
+    <table>
+      <thead><tr><th>Material</th><th>Lote</th><th>Qtd Contada</th><th>Validade</th><th>Resultado</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
+function _toggleHistInvDetalhes(id) {
+  const el = document.getElementById(`hist-inv-det-${id}`);
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function limparFiltrosHistInv() {
+  const b = document.getElementById('hist-inv-busca');
+  const s = document.getElementById('hist-inv-filtro-status');
+  if (b) b.value = '';
+  if (s) s.value = '';
+  renderHistoricoInventario();
+}
+
+// Verificar periodicamente se um inventário foi atribuído ao usuário
+setInterval(() => {
+  if (!currentUser || currentUser.role === 'adm') return;
+  if (_invAtivo) return; // já tem um ativo
+  _verificarInventarioPendenteUsuario();
+}, 30000);
 
 </script>
 </body>
