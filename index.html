@@ -5039,7 +5039,11 @@ function iniciarListenerNotifs() {
     );
     const unsub1 = onSnapshot(q1,
       (snap) => {
-        const minhasNotifs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const minhasNotifs = snap.docs.map(d => {
+          const data = d.data();
+          // garantir que lida tem valor booleano explícito
+          return { ...data, id: d.id, lida: data.lida === true };
+        });
         // Merge com notifs 'adm' já carregadas
         const admNotifs = db.notificacoes.filter(n => n.userId === 'adm');
         db.notificacoes = [...minhasNotifs, ...admNotifs]
@@ -5060,7 +5064,10 @@ function iniciarListenerNotifs() {
       );
       const unsub2 = onSnapshot(q2,
         (snap) => {
-          const admNotifs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          const admNotifs = snap.docs.map(d => {
+            const data = d.data();
+            return { ...data, id: d.id, lida: data.lida === true };
+          });
           const uidNotifs = db.notificacoes.filter(n => n.userId !== 'adm');
           db.notificacoes = [...uidNotifs, ...admNotifs]
             .sort((a,b) => new Date(b.data) - new Date(a.data));
@@ -5186,12 +5193,12 @@ async function recarregarNotifs() {
 
     // Busca notifs do uid atual
     const snap1 = await getDocs(query(col, where('userId', '==', currentUser.id)));
-    const uidNotifs = snap1.docs.map(d => ({ id: d.id, ...d.data() }));
+    const uidNotifs = snap1.docs.map(d => { const data = d.data(); return { ...data, id: d.id, lida: data.lida === true }; });
 
     let admNotifs = [];
     if (currentUser.role === 'adm') {
       const snap2 = await getDocs(query(col, where('userId', '==', 'adm')));
-      admNotifs = snap2.docs.map(d => ({ id: d.id, ...d.data() }));
+      admNotifs = snap2.docs.map(d => { const data = d.data(); return { ...data, id: d.id, lida: data.lida === true }; });
     }
 
     db.notificacoes = [...uidNotifs, ...admNotifs]
@@ -5215,20 +5222,34 @@ async function adicionarNotif(userId, mensagem, tipo, refId) {
     lida: false,
     data: new Date().toISOString()
   };
-  try {
-    await window._firebase.setDoc(
-      fsDoc('stockflow', 'notificacoes', 'items', notif.id),
-      notif
-    );
-    // Adiciona à memória local se pertencer ao usuário atual
-    if (_ehMinhaNotif(notif)) {
-      if (!db.notificacoes) db.notificacoes = [];
-      db.notificacoes.unshift(notif);
-      if (db.notificacoes.length > 200) db.notificacoes = db.notificacoes.slice(0, 200);
-      updateNotifBadge();
+
+  // Tenta salvar com retry (até 3 tentativas) para evitar falhas silenciosas
+  let salvo = false;
+  for (let tentativa = 1; tentativa <= 3; tentativa++) {
+    try {
+      await window._firebase.setDoc(
+        fsDoc('stockflow', 'notificacoes', 'items', notif.id),
+        notif
+      );
+      salvo = true;
+      break;
+    } catch(e) {
+      console.warn(`[Notifs] tentativa ${tentativa}/3 falhou:`, e.message);
+      if (tentativa < 3) await new Promise(r => setTimeout(r, 500 * tentativa));
     }
-  } catch(e) {
-    console.error('[Notifs] erro ao salvar:', e);
+  }
+
+  if (!salvo) {
+    console.error('[Notifs] Não foi possível salvar notificação após 3 tentativas:', mensagem);
+    return;
+  }
+
+  // Adiciona à memória local se pertencer ao usuário atual
+  if (_ehMinhaNotif(notif)) {
+    if (!db.notificacoes) db.notificacoes = [];
+    db.notificacoes.unshift(notif);
+    if (db.notificacoes.length > 200) db.notificacoes = db.notificacoes.slice(0, 200);
+    updateNotifBadge();
   }
 }
 
@@ -5356,14 +5377,29 @@ async function _gravarAlertaDedup(tipo, refId, userId, mensagem) {
   const docId = _alertaDocId(tipo, refId);
   const hoje  = new Date().toISOString().slice(0, 10);
   try {
-    const { setDoc } = window._firebase;
-    // Usa merge:true — preserva 'lida:true' se o usuário já leu hoje
-    await setDoc(
-      fsDoc('stockflow', 'notificacoes', 'items', docId),
-      { id: docId, userId, mensagem, tipo, refId: refId || '', data: hoje + 'T00:00:00.000Z', auto: true },
-      { merge: true }
-    );
-    // Atualiza memória local se pertencer ao usuário atual e ainda não estiver lá
+    const { setDoc, getDoc } = window._firebase;
+    const ref = fsDoc('stockflow', 'notificacoes', 'items', docId);
+
+    // Lê o documento existente para preservar o campo 'lida'
+    let lidaAtual = false;
+    try {
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        lidaAtual = snap.data().lida === true;
+        // Se já existe E já foi lida hoje, não fazer nada — não reabrir
+        if (lidaAtual) return;
+      }
+    } catch(e) { /* se não conseguir ler, grava normalmente */ }
+
+    await setDoc(ref, {
+      id: docId, userId, mensagem, tipo,
+      refId: refId || '',
+      data: hoje + 'T00:00:00.000Z',
+      auto: true,
+      lida: false
+    });
+
+    // Atualiza memória local apenas se ainda não estiver lá
     if (_ehMinhaNotif({ userId })) {
       if (!db.notificacoes) db.notificacoes = [];
       if (!db.notificacoes.some(n => n.id === docId)) {
@@ -5403,12 +5439,16 @@ async function verificarAlertasAutomaticos() {
       const max  = mat.max ?? null;
       const nome = mat.nome || mat.id;
 
-      if (qtd === 0) {
-        await _gravarAlertaDedup('estoque_zerado', mat.id, 'adm',
-          `⚫ Estoque ZERADO: "${nome}" — quantidade atual: 0.`);
-      } else if (min !== null && qtd <= min) {
-        await _gravarAlertaDedup('estoque_critico', mat.id, 'adm',
-          `🔴 Estoque CRÍTICO: "${nome}" — quantidade ${qtd} abaixo do mínimo (${min}).`);
+      // Alerta de crítico/zerado: só dispara se min estiver definido
+      // (material sem estoque e sem mínimo configurado não gera alerta)
+      if (min !== null) {
+        if (qtd === 0) {
+          await _gravarAlertaDedup('estoque_zerado', mat.id, 'adm',
+            `⚫ Estoque ZERADO: "${nome}" — quantidade atual: 0 (mínimo: ${min}).`);
+        } else if (qtd <= min) {
+          await _gravarAlertaDedup('estoque_critico', mat.id, 'adm',
+            `🔴 Estoque CRÍTICO: "${nome}" — quantidade ${qtd} abaixo do mínimo (${min}).`);
+        }
       }
       if (max !== null && qtd > max) {
         await _gravarAlertaDedup('estoque_excesso', mat.id, 'adm',
@@ -9958,7 +9998,10 @@ document.addEventListener('DOMContentLoaded', () => {
     <div class="card" style="margin-bottom:18px;padding:14px 20px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
         <span style="font-size:12px;color:var(--muted);">Progresso do preenchimento</span>
-        <span style="font-size:12px;font-weight:700;color:var(--accent);" id="inv-progresso-label">0 / 0 itens</span>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span id="inv-autosave-status" style="font-size:11px;color:var(--accent);opacity:0;transition:opacity .4s;">✓ Salvo</span>
+          <span style="font-size:12px;font-weight:700;color:var(--accent);" id="inv-progresso-label">0 / 0 itens</span>
+        </div>
       </div>
       <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;">
         <div id="inv-progresso-bar" style="height:100%;background:var(--accent);border-radius:3px;transition:width .3s;width:0%;"></div>
@@ -10376,6 +10419,12 @@ async function _iniciarContagemInv(invId) {
   }
 
   _renderContagemTabela(itensParaContar, inv);
+
+  // Avisar o usuário se há rascunho recuperado
+  const temRasc = (inv.rascunhoContagem || []).length > 0;
+  if (temRasc) {
+    setTimeout(() => toast(`✅ Rascunho recuperado — ${inv.rascunhoContagem.length} item(ns) já preenchido(s).`), 300);
+  }
 }
 
 function _renderContagemTabela(itens, inv) {
@@ -10383,11 +10432,16 @@ function _renderContagemTabela(itens, inv) {
   const cards = document.getElementById('inv-contar-cards');
   if (!tb) return;
 
-  // Pré-preencher com contagem salva anteriormente (se em_andamento)
+  // Pré-preencher com rascunho (autosave) — prioridade máxima
+  // Fallback: itensContados (finalizações anteriores / recontagem)
+  const rascunho = {};
+  (inv.rascunhoContagem||[]).forEach(c => { rascunho[c.itemId] = c; });
   const contadosAntes = {};
   (inv.itensContados||[]).forEach(c => { contadosAntes[c.itemId] = c; });
   const recontAntes = {};
   (inv.itensRecontagem||[]).forEach(r => { recontAntes[r.itemId] = r; });
+
+  const temRascunho = Object.keys(rascunho).length > 0;
 
   tb.innerHTML = '';
   if (cards) cards.innerHTML = '';
@@ -10395,8 +10449,8 @@ function _renderContagemTabela(itens, inv) {
   itens.forEach(item => {
     const mat = (db.materiais||[]).find(m => m.id === item.materialId);
     const nome = mat ? mat.nome : '?';
-    const prev = contadosAntes[item.id] || recontAntes[item.id] || {};
-    const prevQtd = prev.qtdContada !== undefined ? prev.qtdContada : '';
+    const prev = rascunho[item.id] || contadosAntes[item.id] || recontAntes[item.id] || {};
+    const prevQtd = prev.qtdContada !== undefined && prev.qtdContada !== '' ? prev.qtdContada : '';
     const prevVal = prev.validadeContada || '';
 
     tb.innerHTML += `<tr id="inv-row-${item.id}">
@@ -10478,6 +10532,67 @@ function _atualizarProgressoContagem() {
   const label = document.getElementById('inv-progresso-label');
   if (bar) bar.style.width = pct + '%';
   if (label) label.textContent = `${preenchidos} / ${total} itens`;
+  // Dispara autosave com debounce após qualquer alteração
+  _agendarAutosaveContagem();
+}
+
+// ── Autosave da contagem ──────────────────────────────────────────────────
+let _autosaveTimer = null;
+let _autosaveSalvando = false;
+
+function _agendarAutosaveContagem() {
+  if (_autosaveTimer) clearTimeout(_autosaveTimer);
+  _autosaveTimer = setTimeout(_executarAutosave, 1500);
+}
+
+async function _executarAutosave() {
+  if (!_invAtivo || _autosaveSalvando) return;
+  _autosaveSalvando = true;
+
+  // Coletar todos os inputs preenchidos agora
+  const mapa = {};
+  document.querySelectorAll('.inv-qtd-input').forEach(el => {
+    const id = el.dataset.itemId;
+    if (!id) return;
+    if (!mapa[id]) mapa[id] = { itemId: id, qtdContada: '', validadeContada: '' };
+    if (el.value !== '') mapa[id].qtdContada = el.value;
+  });
+  document.querySelectorAll('.inv-val-input').forEach(el => {
+    const id = el.dataset.itemId;
+    if (mapa[id] && el.value) mapa[id].validadeContada = el.value;
+  });
+
+  const rascunho = Object.values(mapa).filter(c => c.qtdContada !== '');
+
+  // Só salva se houve mudança em relação ao que já está no _invAtivo
+  const antes = JSON.stringify((_invAtivo.rascunhoContagem || []).sort((a,b) => a.itemId.localeCompare(b.itemId)));
+  const agora = JSON.stringify(rascunho.sort((a,b) => a.itemId.localeCompare(b.itemId)));
+
+  if (antes !== agora) {
+    _invAtivo.rascunhoContagem = rascunho;
+    try {
+      await window._firebase.setDoc(
+        window._firebase.doc(window._firebase.firestore, 'stockflow', 'inventarios', 'items', _invAtivo.id),
+        { rascunhoContagem: rascunho },
+        { merge: true }
+      );
+      _mostrarStatusAutosave('✓ Salvo');
+    } catch(e) {
+      _mostrarStatusAutosave('⚠ Erro ao salvar');
+      console.warn('[Inventário] autosave falhou:', e.message);
+    }
+  }
+
+  _autosaveSalvando = false;
+}
+
+function _mostrarStatusAutosave(msg) {
+  let el = document.getElementById('inv-autosave-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.opacity = '1';
+  clearTimeout(el._fadeTimer);
+  el._fadeTimer = setTimeout(() => { el.style.opacity = '0'; }, 2500);
 }
 
 let _invFiltroAtivo = 'todos'; // 'todos' | 'pendentes'
@@ -10707,6 +10822,7 @@ function _adicionarLinhaContagem(item, mat, qtdPreenchida, valPreenchida) {
 }
 
 function cancelarContagem() {
+  if (_autosaveTimer) { clearTimeout(_autosaveTimer); _autosaveTimer = null; }
   navigateTo('inventario');
 }
 
@@ -10761,6 +10877,7 @@ async function finalizarContagem() {
 
   _invAtivo.status = 'concluido';
   _invAtivo.concluidoEm = new Date().toISOString();
+  _invAtivo.rascunhoContagem = []; // limpa rascunho ao finalizar
 
   try {
     await saveItem('inventarios', _invAtivo);
