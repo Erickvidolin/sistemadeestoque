@@ -20,7 +20,7 @@ import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged,
          createUserWithEmailAndPassword }
   from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, collection, getDocs,
-         writeBatch, deleteDoc, onSnapshot, where, query }
+         writeBatch, deleteDoc, onSnapshot, where, query, orderBy, limit }
   from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -57,7 +57,7 @@ const firestore   = getFirestore(firebaseApp);
 window._firebase = { auth, firestore, signInWithEmailAndPassword, signOut,
   onAuthStateChanged, createUserWithEmailAndPassword,
   doc, getDoc, setDoc, collection, getDocs, writeBatch, deleteDoc,
-  onSnapshot, where, query };
+  onSnapshot, where, query, orderBy, limit };
 
 // Salva referência direta do onSnapshot para o sistema de notificações
 window._fsOnSnapshot = onSnapshot;
@@ -1509,22 +1509,35 @@ tr:hover td{background:rgba(255,255,255,.02);}
     <div id="page-auditoria" class="page">
       <div class="section-title">Auditoria & Logs</div>
       <div class="section-sub" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        Registro automático de todas as ações do sistema
+        Registro completo de todas as ações de todos os usuários do sistema
         <span id="aud-status-badge" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;background:rgba(0,229,160,.12);color:var(--accent);">
           <span style="width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block;animation:pulse-dot 1.5s ease-in-out infinite;"></span>
           TEMPO REAL
         </span>
       </div>
 
+
+
+      <!-- Estatísticas rápidas -->
+      <div id="aud-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px;"></div>
+
+      <!-- Filtros -->
       <div class="card" style="margin-bottom:16px;">
-        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-          <div style="flex:2;min-width:160px;">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:12px;">🔍 Filtros</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end;">
+          <div style="grid-column:span 2;min-width:0;">
             <label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:block;">Buscar</label>
-            <input id="aud-busca" type="text" placeholder="Usuário, ação, detalhe..." oninput="renderAuditoria()">
+            <input id="aud-busca" type="text" placeholder="Usuário, e-mail, ação, detalhe..." oninput="_audPage=0;renderAuditoria()">
           </div>
-          <div style="min-width:150px;">
-            <label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:block;">Tipo</label>
-            <select id="aud-tipo" onchange="renderAuditoria()">
+          <div>
+            <label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:block;">Usuário</label>
+            <select id="aud-usuario" onchange="_audPage=0;renderAuditoria()">
+              <option value="">Todos os usuários</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:block;">Tipo de Ação</label>
+            <select id="aud-tipo" onchange="_audPage=0;renderAuditoria()">
               <option value="">Todos os tipos</option>
               <option value="login">🔑 Login</option>
               <option value="logout">🚪 Logout</option>
@@ -1536,24 +1549,41 @@ tr:hover td{background:rgba(255,255,255,.02);}
               <option value="material">📦 Material</option>
               <option value="estoque">🏭 Estoque</option>
               <option value="usuario">👤 Usuário</option>
+              <option value="recebimento">📬 Recebimento</option>
+              <option value="qualidade">🔬 Qualidade</option>
               <option value="backup">💾 Backup</option>
               <option value="sistema">⚙️ Sistema</option>
             </select>
           </div>
-          <div style="min-width:140px;">
+          <div>
             <label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:block;">De</label>
-            <input id="aud-de" type="date" onchange="renderAuditoria()">
+            <input id="aud-de" type="date" onchange="_audPage=0;renderAuditoria()">
           </div>
-          <div style="min-width:140px;">
+          <div>
             <label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:block;">Até</label>
-            <input id="aud-ate" type="date" onchange="renderAuditoria()">
+            <input id="aud-ate" type="date" onchange="_audPage=0;renderAuditoria()">
           </div>
           <div style="display:flex;gap:8px;align-self:flex-end;">
-            <button class="btn btn-secondary" onclick="limparFiltrosAud()">✕ Limpar</button>
-            <button class="btn btn-danger" onclick="exportarAuditoriaPDF()" style="background:var(--danger);color:#fff;">📄 PDF</button>
+            <button class="btn btn-secondary" onclick="limparFiltrosAud()" style="white-space:nowrap;">✕ Limpar</button>
           </div>
         </div>
-        <div id="aud-contador" style="font-size:12px;color:var(--muted);margin-top:10px;display:none;"></div>
+        <div id="aud-contador" style="font-size:12px;color:var(--muted);margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:none;"></div>
+      </div>
+
+      <!-- Botões de exportação -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+        <button class="btn btn-secondary" onclick="exportarAuditoriaPDF(false)" style="font-size:12px;gap:6px;">
+          📄 Exportar PDF — Filtro Atual
+        </button>
+        <button class="btn btn-secondary" onclick="exportarAuditoriaPDF(true)" style="font-size:12px;">
+          📄 Exportar PDF — Tudo
+        </button>
+        <button class="btn btn-secondary" onclick="exportarAuditoriaExcel(false)" style="font-size:12px;color:#1DB954;">
+          📊 Exportar Excel — Filtro Atual
+        </button>
+        <button class="btn btn-secondary" onclick="exportarAuditoriaExcel(true)" style="font-size:12px;color:#1DB954;">
+          📊 Exportar Excel — Tudo
+        </button>
       </div>
 
       <div class="card" style="padding:0;overflow:hidden;">
@@ -1562,6 +1592,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
             <thead><tr>
               <th style="min-width:140px">Data / Hora</th>
               <th>Usuário</th>
+              <th style="min-width:80px;">Perfil</th>
               <th>Tipo</th>
               <th>Ação</th>
               <th style="min-width:200px">Detalhe</th>
@@ -1572,9 +1603,9 @@ tr:hover td{background:rgba(255,255,255,.02);}
         <div class="data-cards" id="aud-cards"></div>
         <div id="aud-empty" style="display:none;text-align:center;color:var(--muted);padding:40px 20px;">
           <div style="font-size:32px;margin-bottom:8px;">📋</div>
-          Nenhum log encontrado.
+          Nenhum log encontrado com os filtros aplicados.
         </div>
-        <div id="aud-paginacao" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-top:1px solid var(--border);font-size:13px;"></div>
+        <div id="aud-paginacao" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:14px 16px;border-top:1px solid var(--border);font-size:13px;"></div>
       </div>
     </div>
     <!-- PAGE: VALIDADE DE MATERIAIS -->
@@ -1674,7 +1705,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
 
 <!-- ===== MODAL: ANALISAR INVENTÁRIO (para o ADM) ===== -->
 <div class="modal" id="modal-analisar-inventario">
-  <div class="modal-box" style="max-width:780px;max-height:92vh;">
+  <div class="modal-box" style="max-width:1000px;max-height:92vh;">
     <div class="modal-title">
       <span>🔍 Análise de Inventário</span>
       <button class="modal-close" onclick="fecharModal('modal-analisar-inventario')">✕</button>
@@ -1689,7 +1720,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
       <table>
         <thead>
           <tr>
-            <th style="width:32px;"></th>
+            <th style="min-width:170px;">Ação</th>
             <th>Material</th>
             <th>Lote</th>
             <th>Qtd Sistema</th>
@@ -3050,7 +3081,10 @@ function navigateTo(page) {
   if (page === 'auditoria') {
     // Tenta migrar logs antigos do localStorage para o Firebase (executado uma vez)
     _migrarLogsLocaisParaFirebase();
+    _audPage = 0;
+    _audPopularFiltroUsuarios();
     renderAuditoria();
+
   }
   if (page === 'validade') renderValidade();
   if (page === 'recebimento') { popularSelectRecvMaterial(); renderRecebimentos(); _mostrarTesteBoxAdm(); }
@@ -6422,6 +6456,8 @@ const AUDIT_META = {
   material:     { cor:'var(--warn)',    bg:'rgba(255,149,0,.12)',   emoji:'📦', label:'Material'      },
   estoque:      { cor:'var(--text)',    bg:'rgba(232,234,240,.08)', emoji:'🏭', label:'Estoque'       },
   usuario:      { cor:'var(--accent)',  bg:'rgba(0,229,160,.12)',   emoji:'👤', label:'Usuário'       },
+  recebimento:  { cor:'#a78bfa',        bg:'rgba(167,139,250,.12)', emoji:'📬', label:'Recebimento'   },
+  qualidade:    { cor:'#38bdf8',        bg:'rgba(56,189,248,.12)',  emoji:'🔬', label:'Qualidade'     },
   backup:       { cor:'var(--muted)',   bg:'rgba(107,114,128,.12)', emoji:'💾', label:'Backup'        },
   sistema:      { cor:'var(--muted)',   bg:'rgba(107,114,128,.12)', emoji:'⚙️', label:'Sistema'      },
 };
@@ -6432,7 +6468,7 @@ let _auditUnsubscribe = null;
 
 // Fallback: localStorage para quando offline
 const AUDIT_KEY = 'sf_audit_logs';
-const AUDIT_MAX = 2000;
+const AUDIT_MAX = 5000;
 function _getAuditLogsLocal() {
   try { return JSON.parse(localStorage.getItem(AUDIT_KEY) || '[]'); }
   catch(e) { return []; }
@@ -6456,38 +6492,71 @@ function iniciarListenerAuditoria() {
     if (filaLocal.length) { _filaReenvioAudit = filaLocal; _processarFilaReenvioAudit(); }
   } catch(e) {}
 
+  // Sempre inicia o cache com o localStorage (garante histórico mesmo offline)
+  const localLogs = _getAuditLogsLocal();
+  if (localLogs.length > 0 && _auditLogsCache.length === 0) {
+    _auditLogsCache = localLogs;
+  }
+
   try {
-    const { firestore, collection, onSnapshot, query } = window._firebase;
+    const { firestore, collection, onSnapshot, query, orderBy } = window._firebase;
     if (!firestore || !onSnapshot) return;
 
-    // Importar orderBy dinamicamente (já está disponível via window._firebase se adicionado)
+    // Apenas ADM e usuários com área 'auditoria' podem LER a coleção.
+    // (Firestore Rules: allow read: if isAdm() || hasArea('auditoria'))
+    // Outros usuários só gravam — o listener não é iniciado para eles,
+    // evitando erros de permissão. O localStorage preserva os logs deles localmente.
+    const podeLeir = currentUser && (currentUser.role === 'adm' || (currentUser.areas && currentUser.areas.includes('auditoria')));
+    if (!podeLeir) {
+      console.log('[Audit] Usuário sem permissão de leitura da auditoria — usando apenas localStorage.');
+      if (_auditLogsCache.length === 0) _auditLogsCache = _getAuditLogsLocal();
+      return;
+    }
+
     const colRef = collection(firestore, 'stockflow', 'auditoria', 'items');
 
     _auditUnsubscribe = onSnapshot(colRef, (snapshot) => {
-      // Converte todos os docs para array e ordena por ts desc
-      const logs = [];
-      snapshot.forEach(d => logs.push(d.data()));
-      logs.sort((a, b) => (b.ts || '').localeCompare(a.ts || ''));
+      // Docs vindos do Firebase neste snapshot
+      const fbLogs = [];
+      snapshot.forEach(d => fbLogs.push(d.data()));
+
+      // MESCLAGEM: combina Firebase + localStorage sem duplicar
+      // O localStorage pode ter logs de outras sessões/usuários
+      const localCache = _getAuditLogsLocal();
+      const merged = new Map();
+      // Prioridade: Firebase (mais confiável) sobrescreve local
+      localCache.forEach(l => { if (l.id) merged.set(l.id, l); });
+      fbLogs.forEach(l => { if (l.id) merged.set(l.id, l); });
+
+      // Ordena por timestamp desc (mais recente primeiro)
+      const logs = Array.from(merged.values())
+        .sort((a, b) => (b.ts || '').localeCompare(a.ts || ''));
+
       _auditLogsCache = logs;
 
-      // Salva localmente como fallback
+      // Persiste no localStorage (histórico acumulativo — nunca apaga)
       _saveAuditLogsLocal(logs);
 
-      // Atualiza badge de contagem no menu (opcional)
       _atualizarBadgeAuditoria(logs.length);
+      console.log(`[Audit] Cache atualizado: ${logs.length} logs (${fbLogs.length} do Firebase, ${localCache.length} do local)`);
 
-      // Se a página de auditoria estiver aberta, re-renderiza automaticamente
+      // Se a página de auditoria estiver aberta, re-renderiza
       const pg = document.getElementById('page-auditoria');
       if (pg && pg.classList.contains('active')) {
         renderAuditoria();
       }
     }, (err) => {
       console.warn('[Audit] onSnapshot erro, usando cache local:', err.message);
-      _auditLogsCache = _getAuditLogsLocal();
+      // Mantém o que já tiver no cache (não limpa)
+      if (_auditLogsCache.length === 0) {
+        _auditLogsCache = _getAuditLogsLocal();
+      }
     });
   } catch(e) {
     console.warn('[Audit] Listener não iniciado, usando localStorage:', e.message);
-    _auditLogsCache = _getAuditLogsLocal();
+    if (_auditLogsCache.length === 0) {
+      _auditLogsCache = _getAuditLogsLocal();
+    }
   }
 }
 
@@ -6500,7 +6569,10 @@ function _atualizarBadgeAuditoria(total) {
  */
 function pararListenerAuditoria() {
   if (_auditUnsubscribe) { _auditUnsubscribe(); _auditUnsubscribe = null; }
-  _auditLogsCache = [];
+  // IMPORTANTE: NÃO limpar _auditLogsCache aqui.
+  // Os logs são registros permanentes de auditoria e devem ser preservados.
+  // O cache é salvo no localStorage e recarregado no próximo login.
+  // _auditLogsCache = [];  ← removido intencionalmente
 }
 
 /**
@@ -6514,13 +6586,17 @@ async function logAudit(tipo, acao, detalhe='') {
     tipo,
     acao,
     detalhe,
+    uid:     currentUser ? currentUser.uid   : 'sistema',
     usuario: currentUser ? currentUser.nome  : 'Sistema',
     email:   currentUser ? currentUser.email : '—',
     role:    currentUser ? currentUser.role  : '—',
   };
 
   // Atualiza o cache local imediatamente para resposta instantânea na UI
-  _auditLogsCache.unshift(log);
+  // Evita duplicatas caso o onSnapshot já tenha retornado o doc
+  if (!_auditLogsCache.find(l => l.id === id)) {
+    _auditLogsCache.unshift(log);
+  }
   _saveAuditLogsLocal(_auditLogsCache);
 
   // Se a página de auditoria estiver aberta, re-renderiza imediatamente com o novo log
@@ -6574,36 +6650,78 @@ window.addEventListener('focus', _processarFilaReenvioAudit);
 
 // Estado de paginação
 let _audPage = 0;
-const _audPerPage = 50;
+const _audPerPage = 30; // máximo 30 itens por página
 
 function _getAuditLogs() {
-  // Usa o cache do Firebase; se vazio, tenta localStorage
   if (_auditLogsCache.length > 0) return _auditLogsCache;
   return _getAuditLogsLocal();
 }
 
+function _audPopularFiltroUsuarios() {
+  const sel = document.getElementById('aud-usuario');
+  if (!sel) return;
+  const logs = _getAuditLogs();
+  const usuariosMap = {};
+  logs.forEach(l => {
+    if (l.email && l.usuario) usuariosMap[l.email] = l.usuario;
+  });
+  const atual = sel.value;
+  sel.innerHTML = '<option value="">Todos os usuários</option>';
+  Object.entries(usuariosMap)
+    .sort((a, b) => a[1].localeCompare(b[1]))
+    .forEach(([email, nome]) => {
+      const opt = document.createElement('option');
+      opt.value = email;
+      opt.textContent = `${nome} (${email})`;
+      sel.appendChild(opt);
+    });
+  if (atual) sel.value = atual;
+}
+
 function _audFilteredLogs() {
-  const busca  = (document.getElementById('aud-busca')?.value || '').toLowerCase().trim();
-  const tipo   = document.getElementById('aud-tipo')?.value   || '';
-  const de     = document.getElementById('aud-de')?.value     || '';
-  const ate    = document.getElementById('aud-ate')?.value    || '';
+  const busca   = (document.getElementById('aud-busca')?.value   || '').toLowerCase().trim();
+  const tipo    = document.getElementById('aud-tipo')?.value     || '';
+  const usuario = document.getElementById('aud-usuario')?.value  || '';
+  const de      = document.getElementById('aud-de')?.value       || '';
+  const ate     = document.getElementById('aud-ate')?.value      || '';
 
   return _getAuditLogs().filter(l => {
-    if (tipo && l.tipo !== tipo) return false;
-    if (de) {
-      const lDate = l.ts.slice(0,10);
-      if (lDate < de) return false;
-    }
-    if (ate) {
-      const lDate = l.ts.slice(0,10);
-      if (lDate > ate) return false;
-    }
+    if (tipo    && l.tipo  !== tipo)    return false;
+    if (usuario && l.email !== usuario) return false;
+    if (de) { const lDate = l.ts?.slice(0,10) || ''; if (lDate < de) return false; }
+    if (ate) { const lDate = l.ts?.slice(0,10) || ''; if (lDate > ate) return false; }
     if (busca) {
-      const haystack = `${l.usuario} ${l.email} ${l.acao} ${l.detalhe} ${l.tipo}`.toLowerCase();
+      const haystack = `${l.usuario||''} ${l.email||''} ${l.acao||''} ${l.detalhe||''} ${l.tipo||''} ${l.role||''}`.toLowerCase();
       if (!haystack.includes(busca)) return false;
     }
     return true;
   });
+}
+
+function _audRenderStats(all) {
+  const statsEl = document.getElementById('aud-stats');
+  if (!statsEl) return;
+  const total = _getAuditLogs().length;
+  const filtrado = all.length;
+  // Contagem por tipo nos filtrados
+  const porTipo = {};
+  all.forEach(l => { porTipo[l.tipo] = (porTipo[l.tipo]||0)+1; });
+  const topTipos = Object.entries(porTipo).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  // Usuários únicos
+  const usuarios = new Set(all.map(l=>l.email)).size;
+
+  statsEl.innerHTML = [
+    { label:'Total no Sistema', val: total, cor:'var(--accent)', ico:'📊' },
+    { label:'Registros Filtrados', val: filtrado, cor:'#5599ff', ico:'🔍' },
+    { label:'Usuários Ativos', val: usuarios, cor:'var(--warn)', ico:'👥' },
+    ...topTipos.map(([t,c]) => ({ label: AUDIT_META[t]?.label||t, val:c, cor: AUDIT_META[t]?.cor||'var(--muted)', ico: AUDIT_META[t]?.emoji||'•' }))
+  ].map(s => `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;min-width:0;">
+      <div style="font-size:18px;margin-bottom:4px;">${s.ico}</div>
+      <div style="font-size:20px;font-weight:800;color:${s.cor};line-height:1;">${s.val}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.4px;font-weight:700;">${s.label}</div>
+    </div>
+  `).join('');
 }
 
 /**
@@ -6614,18 +6732,51 @@ async function _migrarLogsLocaisParaFirebase() {
   if (_migracao_feita) return;
   _migracao_feita = true;
   try {
+    const { firestore, doc, setDoc, collection, getDocs } = window._firebase;
+    if (!firestore || !setDoc) return;
+
+    // 1. Busca TODOS os docs do Firebase para garantir que o cache está completo
+    //    Apenas para ADM e usuários com área 'auditoria' (conforme Firestore Rules)
+    const podeLeir = currentUser && (currentUser.role === 'adm' || (currentUser.areas && currentUser.areas.includes('auditoria')));
+    if (podeLeir) try {
+      const colRef = collection(firestore, 'stockflow', 'auditoria', 'items');
+      const snap = await getDocs(colRef);
+      const fbLogs = [];
+      snap.forEach(d => fbLogs.push(d.data()));
+
+      if (fbLogs.length > 0) {
+        // Mescla com localStorage (preserva histórico local não sincronizado)
+        const localLogs = _getAuditLogsLocal();
+        const merged = new Map();
+        localLogs.forEach(l => { if (l.id) merged.set(l.id, l); });
+        fbLogs.forEach(l => { if (l.id) merged.set(l.id, l); });
+        const allLogs = Array.from(merged.values())
+          .sort((a, b) => (b.ts || '').localeCompare(a.ts || ''));
+        _auditLogsCache = allLogs;
+        _saveAuditLogsLocal(allLogs);
+        console.log(`[Audit] Carga inicial: ${allLogs.length} logs (Firebase: ${fbLogs.length}, Local: ${localLogs.length})`);
+        // Atualiza UI se página aberta
+        const pg = document.getElementById('page-auditoria');
+        if (pg && pg.classList.contains('active')) renderAuditoria();
+      }
+    } catch(e) {
+      console.warn('[Audit] Não foi possível carregar do Firebase (rules?):', e.message);
+    }
+
+    // 2. Migra logs locais que ainda não estão no Firebase
     const local = _getAuditLogsLocal();
     if (!local.length) return;
-    const { firestore, doc, setDoc } = window._firebase;
-    if (!firestore || !setDoc) return;
-    // Salva apenas logs que não estão no cache do Firebase
     const cachedIds = new Set(_auditLogsCache.map(l => l.id));
     const toMigrate = local.filter(l => l.id && !cachedIds.has(l.id));
-    if (!toMigrate.length) return;
+    if (!toMigrate.length) { console.log('[Audit] Migração: nada a enviar.'); return; }
     console.log(`[Audit] Migrando ${toMigrate.length} logs do localStorage para Firebase...`);
     for (const log of toMigrate) {
-      const ref = doc(firestore, 'stockflow', 'auditoria', 'items', log.id);
-      await setDoc(ref, log);
+      try {
+        const ref = doc(firestore, 'stockflow', 'auditoria', 'items', log.id);
+        await setDoc(ref, log);
+      } catch(e2) {
+        console.warn('[Audit] Falha ao migrar log:', log.id, e2.message);
+      }
     }
     console.log('[Audit] Migração concluída.');
   } catch(e) {
@@ -6636,8 +6787,18 @@ async function _migrarLogsLocaisParaFirebase() {
 function renderAuditoria() {
   const all    = _audFilteredLogs();
   const total  = all.length;
+  const totalPages = Math.ceil(total / _audPerPage);
+  // Garante que _audPage é válido
+  if (_audPage >= totalPages && totalPages > 0) _audPage = totalPages - 1;
+  if (_audPage < 0) _audPage = 0;
   const start  = _audPage * _audPerPage;
   const page   = all.slice(start, start + _audPerPage);
+
+  // Popular filtro de usuários
+  _audPopularFiltroUsuarios();
+
+  // Stats
+  _audRenderStats(all);
 
   // Atualiza badge de status tempo real
   const badge = document.getElementById('aud-status-badge');
@@ -6653,32 +6814,45 @@ function renderAuditoria() {
     }
   }
 
-  // Contador
+  // Contador detalhado
   const ctr = document.getElementById('aud-contador');
-  const totalAll = _getAuditLogs().length;
-  if (total < totalAll) {
+  if (ctr) {
+    const totalAll = _getAuditLogs().length;
+    const de  = document.getElementById('aud-de')?.value  || '';
+    const ate = document.getElementById('aud-ate')?.value || '';
+    let periodoStr = '';
+    if (de && ate)  periodoStr = ` · Período: ${de} até ${ate}`;
+    else if (de)    periodoStr = ` · A partir de: ${de}`;
+    else if (ate)   periodoStr = ` · Até: ${ate}`;
     ctr.style.display = 'block';
-    ctr.innerHTML = `Mostrando <strong style="color:var(--text)">${total}</strong> de <strong>${totalAll}</strong> registros`;
-  } else {
-    ctr.style.display = 'block';
-    ctr.innerHTML = `<strong>${totalAll}</strong> registros no total`;
+    if (total < totalAll) {
+      ctr.innerHTML = `Mostrando <strong style="color:var(--text)">${total}</strong> de <strong>${totalAll}</strong> registros${periodoStr} · Página <strong style="color:var(--accent)">${_audPage+1}</strong>/${totalPages || 1} (${_audPerPage}/pág)`;
+    } else {
+      ctr.innerHTML = `<strong>${totalAll}</strong> registros no total · Página <strong style="color:var(--accent)">${_audPage+1}</strong>/${totalPages || 1} (${_audPerPage}/pág)${periodoStr}`;
+    }
   }
 
   // Empty state
   const empty = document.getElementById('aud-empty');
-  empty.style.display = page.length ? 'none' : 'block';
+  if (empty) empty.style.display = page.length ? 'none' : 'block';
+
+  const roleLabel = { adm:'Admin', quality:'Qualidade', recv:'Recebimento', user:'Usuário' };
+  const roleCor   = { adm:'var(--accent)', quality:'#5599ff', recv:'var(--warn)', user:'var(--muted)' };
 
   // Tabela
   const tb = document.getElementById('aud-tbody');
   if (tb) {
     tb.innerHTML = page.map(l => {
       const m = AUDIT_META[l.tipo] || AUDIT_META.sistema;
+      const rLabel = roleLabel[l.role] || l.role || '—';
+      const rCor   = roleCor[l.role]   || 'var(--muted)';
       return `<tr>
         <td style="font-size:12px;color:var(--muted);white-space:nowrap">${fmtDT(l.ts)}</td>
         <td>
           <strong style="font-size:13px">${escHtml(l.usuario)}</strong>
           <br><span style="font-size:11px;color:var(--muted)">${escHtml(l.email)}</span>
         </td>
+        <td><span style="font-size:11px;font-weight:700;color:${rCor}">${rLabel}</span></td>
         <td><span style="padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;background:${m.bg};color:${m.cor};white-space:nowrap">${m.emoji} ${m.label}</span></td>
         <td style="font-size:13px"><strong>${escHtml(l.acao)}</strong></td>
         <td style="font-size:12px;color:var(--muted)">${escHtml(l.detalhe)}</td>
@@ -6691,11 +6865,13 @@ function renderAuditoria() {
   if (cards) {
     cards.innerHTML = page.map(l => {
       const m = AUDIT_META[l.tipo] || AUDIT_META.sistema;
+      const rLabel = roleLabel[l.role] || l.role || '—';
+      const rCor   = roleCor[l.role]   || 'var(--muted)';
       return `<div class="data-card">
         <div class="data-card-header">
           <div>
             <div class="data-card-title">${escHtml(l.acao)}</div>
-            <span style="font-size:11px;color:var(--muted)">${escHtml(l.usuario)} · ${fmtDT(l.ts)}</span>
+            <span style="font-size:11px;color:var(--muted)">${escHtml(l.usuario)} · <span style="color:${rCor}">${rLabel}</span> · ${fmtDT(l.ts)}</span>
           </div>
           <span style="padding:3px 8px;border-radius:99px;font-size:10px;font-weight:700;background:${m.bg};color:${m.cor};white-space:nowrap">${m.emoji} ${m.label}</span>
         </div>
@@ -6704,16 +6880,31 @@ function renderAuditoria() {
     }).join('');
   }
 
-  // Paginação
-  const totalPages = Math.ceil(total / _audPerPage);
+  // Paginação aprimorada
   const pag = document.getElementById('aud-paginacao');
   if (pag) {
     if (totalPages <= 1) { pag.style.display = 'none'; }
     else {
       pag.style.display = 'flex';
+      // Gera números de página (máx 7 visíveis)
+      let pages = [];
+      if (totalPages <= 7) {
+        pages = Array.from({length:totalPages},(_,i)=>i);
+      } else {
+        pages = [0];
+        if (_audPage > 2)           pages.push('...');
+        for (let i=Math.max(1,_audPage-1); i<=Math.min(totalPages-2,_audPage+1); i++) pages.push(i);
+        if (_audPage < totalPages-3) pages.push('...');
+        pages.push(totalPages-1);
+      }
+      const numBtns = pages.map(p => {
+        if (p === '...') return `<span style="color:var(--muted);padding:0 4px;">…</span>`;
+        const ativo = p === _audPage;
+        return `<button onclick="_audChangePage(${p})" style="min-width:32px;height:32px;border-radius:6px;border:1px solid ${ativo?'var(--accent)':'var(--border)'};background:${ativo?'var(--accent)':'transparent'};color:${ativo?'var(--bg)':'var(--text)'};font-weight:${ativo?'700':'400'};font-size:13px;cursor:pointer;transition:all .15s;">${p+1}</button>`;
+      }).join('');
       pag.innerHTML = `
         <button class="btn btn-secondary" style="padding:6px 14px;font-size:12px" onclick="_audChangePage(${_audPage-1})" ${_audPage===0?'disabled':''}>← Anterior</button>
-        <span style="color:var(--muted);font-size:13px">Página <strong style="color:var(--text)">${_audPage+1}</strong> de ${totalPages}</span>
+        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">${numBtns}</div>
         <button class="btn btn-secondary" style="padding:6px 14px;font-size:12px" onclick="_audChangePage(${_audPage+1})" ${_audPage>=totalPages-1?'disabled':''}>Próxima →</button>`;
     }
   }
@@ -6728,7 +6919,7 @@ function _audChangePage(p) {
 }
 
 function limparFiltrosAud() {
-  ['aud-busca','aud-tipo','aud-de','aud-ate'].forEach(id => {
+  ['aud-busca','aud-tipo','aud-usuario','aud-de','aud-ate'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -6742,8 +6933,8 @@ function escHtml(s) {
 }
 
 // ── EXPORT PDF ────────────────────────────────────────────────
-function exportarAuditoriaPDF() {
-  const logs = _audFilteredLogs();
+function exportarAuditoriaPDF(tudo = false) {
+  const logs = tudo ? _getAuditLogs() : _audFilteredLogs();
   if (!logs.length) { toast('Nenhum log para exportar.', 'error'); return; }
 
   const { jsPDF } = window.jspdf;
@@ -6756,7 +6947,7 @@ function exportarAuditoriaPDF() {
 
   // Cabeçalho
   doc.setFillColor(...fundo);
-  doc.rect(0, 0, 297, 30, 'F');
+  doc.rect(0, 0, 297, 34, 'F');
   doc.setFont('helvetica','bold');
   doc.setFontSize(18);
   doc.setTextColor(...verde);
@@ -6766,34 +6957,45 @@ function exportarAuditoriaPDF() {
   doc.setFont('helvetica','normal');
   doc.setFontSize(10);
   doc.setTextColor(...cinza);
-  doc.text('Relatório de Auditoria', 50, 18);
-  doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 200, 18);
-  doc.text(`Total de registros: ${logs.length}`, 200, 24);
+  doc.text('Relatório de Auditoria & Logs', 52, 18);
+  doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 190, 14);
+  doc.text(`Total de registros: ${logs.length}`, 190, 20);
 
-  // Filtros ativos
-  let filtrosAtivos = [];
-  const busca = document.getElementById('aud-busca')?.value;
-  const tipo  = document.getElementById('aud-tipo')?.value;
-  const de    = document.getElementById('aud-de')?.value;
-  const ate   = document.getElementById('aud-ate')?.value;
-  if (busca) filtrosAtivos.push(`Busca: "${busca}"`);
-  if (tipo)  filtrosAtivos.push(`Tipo: ${tipo}`);
-  if (de)    filtrosAtivos.push(`De: ${de}`);
-  if (ate)   filtrosAtivos.push(`Até: ${ate}`);
-  if (filtrosAtivos.length) {
-    doc.setFontSize(8);
-    doc.setTextColor(...cinza);
-    doc.text('Filtros: ' + filtrosAtivos.join(' | '), 14, 26);
+  // Info de modo
+  doc.setFontSize(8);
+  doc.setTextColor(...verde);
+  doc.text(tudo ? '★ EXPORTAÇÃO COMPLETA — todos os registros do sistema' : '★ Exportação com filtros aplicados', 14, 26);
+
+  // Filtros ativos (só se não for "tudo")
+  if (!tudo) {
+    let filtrosAtivos = [];
+    const busca   = document.getElementById('aud-busca')?.value;
+    const tipo    = document.getElementById('aud-tipo')?.value;
+    const usuario = document.getElementById('aud-usuario')?.value;
+    const de      = document.getElementById('aud-de')?.value;
+    const ate     = document.getElementById('aud-ate')?.value;
+    if (busca)   filtrosAtivos.push(`Busca: "${busca}"`);
+    if (tipo)    filtrosAtivos.push(`Tipo: ${tipo}`);
+    if (usuario) filtrosAtivos.push(`Usuário: ${usuario}`);
+    if (de)      filtrosAtivos.push(`De: ${de}`);
+    if (ate)     filtrosAtivos.push(`Até: ${ate}`);
+    if (filtrosAtivos.length) {
+      doc.setTextColor(...cinza);
+      doc.text('Filtros: ' + filtrosAtivos.join(' | '), 14, 31);
+    }
   }
+
+  const roleLabel = { adm:'Administrador', quality:'Qualidade', recv:'Recebimento', user:'Usuário' };
 
   // Tabela
   doc.autoTable({
-    startY: 34,
-    head: [['Data/Hora', 'Usuário', 'E-mail', 'Tipo', 'Ação', 'Detalhe']],
+    startY: 38,
+    head: [['Data/Hora', 'Usuário', 'E-mail', 'Perfil', 'Tipo', 'Ação', 'Detalhe']],
     body: logs.map(l => [
       fmtDT(l.ts),
       l.usuario || '—',
       l.email   || '—',
+      roleLabel[l.role] || l.role || '—',
       (AUDIT_META[l.tipo]?.label || l.tipo),
       l.acao    || '—',
       l.detalhe || '—',
@@ -6814,25 +7016,109 @@ function exportarAuditoriaPDF() {
     },
     alternateRowStyles: { fillColor: [22, 25, 32] },
     columnStyles: {
-      0: { cellWidth: 32 },
-      1: { cellWidth: 28 },
-      2: { cellWidth: 42 },
-      3: { cellWidth: 24 },
-      4: { cellWidth: 60 },
-      5: { cellWidth: 'auto' },
+      0: { cellWidth: 30 },
+      1: { cellWidth: 26 },
+      2: { cellWidth: 40 },
+      3: { cellWidth: 20 },
+      4: { cellWidth: 22 },
+      5: { cellWidth: 55 },
+      6: { cellWidth: 'auto' },
     },
     margin: { left: 14, right: 14 },
     didDrawPage: (d) => {
       doc.setFontSize(7);
       doc.setTextColor(...cinza);
-      const pg = doc.internal.getNumberOfPages();
-      doc.text(`Página ${d.pageNumber} · StockFlow Auditoria`, 14, doc.internal.pageSize.height - 5);
+      doc.text(`Página ${d.pageNumber} · StockFlow Auditoria · ${new Date().toLocaleDateString('pt-BR')}`, 14, doc.internal.pageSize.height - 5);
     }
   });
 
-  const nome = `auditoria_${new Date().toISOString().slice(0,10)}.pdf`;
+  const sufixo = tudo ? 'completo' : 'filtrado';
+  const nome = `auditoria_${sufixo}_${new Date().toISOString().slice(0,10)}.pdf`;
   doc.save(nome);
   toast(`PDF exportado: ${nome}`);
+}
+
+// ── EXPORT EXCEL ─────────────────────────────────────────────
+function exportarAuditoriaExcel(tudo = false) {
+  const logs = tudo ? _getAuditLogs() : _audFilteredLogs();
+  if (!logs.length) { toast('Nenhum log para exportar.', 'error'); return; }
+
+  if (!window.XLSX) { toast('Biblioteca XLSX não carregada.', 'error'); return; }
+
+  const roleLabel = { adm:'Administrador', quality:'Qualidade', recv:'Recebimento', user:'Usuário' };
+
+  // Dados com cabeçalho
+  const header = ['Data/Hora', 'Usuário', 'E-mail', 'Perfil', 'Tipo', 'Ação', 'Detalhe', 'ID do Log'];
+  const rows = logs.map(l => [
+    fmtDT(l.ts),
+    l.usuario || '',
+    l.email   || '',
+    roleLabel[l.role] || l.role || '',
+    AUDIT_META[l.tipo]?.label || l.tipo || '',
+    l.acao    || '',
+    l.detalhe || '',
+    l.id      || '',
+  ]);
+
+  // Info do relatório
+  const filtros = [];
+  if (!tudo) {
+    const busca   = document.getElementById('aud-busca')?.value;
+    const tipo    = document.getElementById('aud-tipo')?.value;
+    const usuario = document.getElementById('aud-usuario')?.value;
+    const de      = document.getElementById('aud-de')?.value;
+    const ate     = document.getElementById('aud-ate')?.value;
+    if (busca)   filtros.push(['Busca', busca]);
+    if (tipo)    filtros.push(['Tipo', tipo]);
+    if (usuario) filtros.push(['Usuário', usuario]);
+    if (de)      filtros.push(['De', de]);
+    if (ate)     filtros.push(['Até', ate]);
+  }
+
+  const wb = XLSX.utils.book_new();
+
+  // Aba principal: dados
+  const sheetData = [
+    ['StockFlow — Relatório de Auditoria & Logs'],
+    [`Gerado em: ${new Date().toLocaleString('pt-BR')}`],
+    [tudo ? 'Exportação: COMPLETA (todos os registros)' : 'Exportação: Filtros aplicados'],
+    [],
+    ...(filtros.length ? [['Filtros Ativos:'], ...filtros.map(([k,v])=>[`  ${k}:`, v]), []] : []),
+    header,
+    ...rows
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(sheetData);
+
+  // Larguras das colunas
+  ws['!cols'] = [
+    {wch:20}, {wch:22}, {wch:32}, {wch:16}, {wch:16}, {wch:45}, {wch:55}, {wch:28}
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Auditoria');
+
+  // Aba de resumo por usuário
+  const porUsuario = {};
+  logs.forEach(l => {
+    const key = l.email || l.usuario || 'Desconhecido';
+    if (!porUsuario[key]) porUsuario[key] = { nome: l.usuario||'', email: l.email||'', role: l.role||'', total:0, tipos:{} };
+    porUsuario[key].total++;
+    porUsuario[key].tipos[l.tipo] = (porUsuario[key].tipos[l.tipo]||0)+1;
+  });
+  const resumoRows = [['Usuário','E-mail','Perfil','Total de Ações','Tipos de Ação']];
+  Object.values(porUsuario)
+    .sort((a,b)=>b.total-a.total)
+    .forEach(u => {
+      const tiposStr = Object.entries(u.tipos).map(([t,c])=>`${AUDIT_META[t]?.label||t}:${c}`).join(', ');
+      resumoRows.push([u.nome, u.email, roleLabel[u.role]||u.role, u.total, tiposStr]);
+    });
+  const wsResumo = XLSX.utils.aoa_to_sheet(resumoRows);
+  wsResumo['!cols'] = [{wch:22},{wch:32},{wch:16},{wch:16},{wch:60}];
+  XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo por Usuário');
+
+  const sufixo = tudo ? 'completo' : 'filtrado';
+  const nome = `auditoria_${sufixo}_${new Date().toISOString().slice(0,10)}.xlsx`;
+  XLSX.writeFile(wb, nome);
+  toast(`Excel exportado: ${nome}`);
 }
 
 // ===========================
@@ -10914,7 +11200,9 @@ function abrirAnalisarInventario(invId) {
   tb.innerHTML = '';
   if (cards) cards.innerHTML = '';
 
+  // Monta HTML uma única vez — sem innerHTML += que destrói listeners
   const itensContados = inv.itensContados || [];
+  const _rH = [], _cH = [];
   itensContados.forEach(c => {
     const item = (db.itens||[]).find(i => i.id === c.itemId);
     const mat = item ? (db.materiais||[]).find(m => m.id === item.materialId) : null;
@@ -10925,55 +11213,102 @@ function abrirAnalisarInventario(invId) {
     const diff = qtdContada - qtdSistema;
     const diffCls = diff > 0 ? 'color:var(--accent)' : diff < 0 ? 'color:var(--danger)' : 'color:var(--muted)';
     const diffStr = diff > 0 ? `+${diff}` : String(diff);
+    const bs = diff===0 ? '<span class="badge badge-ok">OK</span>' : diff>0 ? '<span class="badge badge-over">Excesso</span>' : '<span class="badge badge-critical">Falta</span>';
 
-    tb.innerHTML += `<tr>
-      <td style="text-align:center;">
-        <input type="checkbox" class="inv-recontagem-check" data-item-id="${c.itemId}"
-          style="width:16px;height:16px;accent-color:var(--warn);cursor:pointer;"
-          title="Marcar para recontagem">
-      </td>
+    const acaoCel = `<td style="min-width:170px;">
+      <div style="display:flex;flex-direction:column;gap:5px;">
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;padding:5px 8px;border-radius:6px;background:rgba(255,180,0,.07);border:1px solid rgba(255,180,0,.2);">
+          <input type="checkbox" class="inv-recontagem-check" data-item-id="${c.itemId}" style="width:15px;height:15px;accent-color:var(--warn);cursor:pointer;flex-shrink:0;">
+          <span style="font-size:11px;color:var(--warn);font-weight:600;white-space:nowrap;">↩️ Recontagem</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;padding:5px 8px;border-radius:6px;background:rgba(167,139,250,.07);border:1px solid rgba(167,139,250,.2);">
+          <input type="checkbox" class="inv-manter-check" data-item-id="${c.itemId}" style="width:15px;height:15px;accent-color:#a78bfa;cursor:pointer;flex-shrink:0;">
+          <span style="font-size:11px;color:#a78bfa;font-weight:600;white-space:nowrap;">🔒 Manter quantidade</span>
+        </label>
+      </div>
+    </td>`;
+
+    _rH.push(`<tr id="analisar-row-${c.itemId}">
+      ${acaoCel}
       <td><strong>${nome}</strong>${mat&&mat.cat?`<br><span style="font-size:11px;color:var(--muted)">${mat.cat}</span>`:''}</td>
       <td><span style="font-size:11px;background:rgba(255,255,255,.06);padding:2px 7px;border-radius:4px;">${lote}</span></td>
       <td style="font-size:15px;color:var(--muted);">${qtdSistema}${mat&&mat.unidade?` <span style="font-size:11px;">${mat.unidade}</span>`:''}</td>
       <td style="font-size:15px;font-weight:700;">${qtdContada}${mat&&mat.unidade?` <span style="font-size:11px;color:var(--muted);">${mat.unidade}</span>`:''}</td>
       <td style="font-size:15px;font-weight:700;${diffCls}">${diffStr}</td>
       <td style="color:var(--muted);font-size:12px;">${c.validadeContada ? fmt(c.validadeContada) : '—'}</td>
-      <td>${diff===0 ? '<span class="badge badge-ok">OK</span>' : diff>0 ? '<span class="badge badge-over">Excesso</span>' : '<span class="badge badge-critical">Falta</span>'}</td>
-    </tr>`;
+      <td>${bs}</td>
+    </tr>`);
 
-    if (cards) cards.innerHTML += `<div class="data-card">
+    _cH.push(`<div class="data-card" id="analisar-card-${c.itemId}">
       <div class="data-card-header">
-        <div>
-          <div class="data-card-title">${nome}</div>
-          <div style="font-size:11px;color:var(--muted);">Lote: ${lote}</div>
-        </div>
-        ${diff===0 ? '<span class="badge badge-ok">OK</span>' : diff>0 ? '<span class="badge badge-over">Excesso</span>' : '<span class="badge badge-critical">Falta</span>'}
+        <div><div class="data-card-title">${nome}</div><div style="font-size:11px;color:var(--muted);">Lote: ${lote}</div></div>
+        ${bs}
       </div>
       <div class="data-card-body">
         Sist.: <strong>${qtdSistema}</strong> &nbsp;·&nbsp; Contado: <strong>${qtdContada}</strong> &nbsp;·&nbsp; Dif.: <strong style="${diffCls}">${diffStr}</strong>
         <br>Validade contada: <strong>${c.validadeContada ? fmt(c.validadeContada) : '—'}</strong>
       </div>
-      <div style="margin-top:10px;display:flex;align-items:center;gap:8px;">
-        <input type="checkbox" class="inv-recontagem-check" data-item-id="${c.itemId}"
-          style="width:18px;height:18px;accent-color:var(--warn);cursor:pointer;">
-        <label style="font-size:12px;color:var(--warn);cursor:pointer;">Marcar para recontagem</label>
+      <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;border-radius:8px;background:rgba(255,180,0,.07);border:1px solid rgba(255,180,0,.2);">
+          <input type="checkbox" class="inv-recontagem-check" data-item-id="${c.itemId}" style="width:20px;height:20px;accent-color:var(--warn);cursor:pointer;flex-shrink:0;">
+          <div><div style="font-size:13px;font-weight:600;color:var(--warn);">↩️ Recontagem</div><div style="font-size:11px;color:var(--muted);">Devolver para recontagem física</div></div>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;border-radius:8px;background:rgba(167,139,250,.07);border:1px solid rgba(167,139,250,.2);">
+          <input type="checkbox" class="inv-manter-check" data-item-id="${c.itemId}" style="width:20px;height:20px;accent-color:#a78bfa;cursor:pointer;flex-shrink:0;">
+          <div><div style="font-size:13px;font-weight:600;color:#a78bfa;">🔒 Manter quantidade</div><div style="font-size:11px;color:var(--muted);">Aceitar sem alterar a qtd do estoque (${qtdSistema})</div></div>
+        </label>
       </div>
-    </div>`;
+    </div>`);
   });
 
-  // Sincronizar checkboxes desktop↔mobile
-  document.querySelectorAll('.inv-recontagem-check').forEach(cb => {
-    cb.addEventListener('change', () => {
-      const id = cb.dataset.itemId;
-      document.querySelectorAll(`.inv-recontagem-check[data-item-id="${id}"]`).forEach(el => {
-        el.checked = cb.checked;
-      });
+  tb.innerHTML = _rH.join('');
+  if (cards) cards.innerHTML = _cH.join('');
+
+  // Event delegation — funciona com <script type="module">
+  function _hdlAnalisar(e) {
+    const el = e.target;
+    if (!el.matches('input[type="checkbox"]')) return;
+    const id = el.dataset.itemId;
+    if (!id) return;
+    if (el.classList.contains('inv-recontagem-check')) {
+      // Sincronizar desktop↔mobile e desmarcar "manter"
+      document.querySelectorAll(`.inv-recontagem-check[data-item-id="${id}"]`).forEach(x => x.checked = el.checked);
+      if (el.checked) {
+        document.querySelectorAll(`.inv-manter-check[data-item-id="${id}"]`).forEach(x => x.checked = false);
+      }
       _atualizarBotaoAceitar();
-    });
-  });
+      _aplicarDestaqueLinha(id);
+    } else if (el.classList.contains('inv-manter-check')) {
+      document.querySelectorAll(`.inv-manter-check[data-item-id="${id}"]`).forEach(x => x.checked = el.checked);
+      if (el.checked) {
+        document.querySelectorAll(`.inv-recontagem-check[data-item-id="${id}"]`).forEach(x => x.checked = false);
+        _atualizarBotaoAceitar();
+      }
+      _aplicarDestaqueLinha(id);
+    }
+  }
+  tb.addEventListener('change', _hdlAnalisar);
+  if (cards) cards.addEventListener('change', _hdlAnalisar);
 
   _atualizarBotaoAceitar();
   abrirModal('modal-analisar-inventario');
+}
+
+function _desmarcarManter(itemId) {
+  document.querySelectorAll(`.inv-manter-check[data-item-id="${itemId}"]`).forEach(el => el.checked = false);
+  _aplicarDestaqueLinha(itemId);
+}
+
+function _onCheckExclusivo(el, tipo) {} // mantido por compatibilidade, lógica movida para _hdlAnalisar
+
+function _aplicarDestaqueLinha(itemId) {
+  const isManter = document.querySelector(`.inv-manter-check[data-item-id="${itemId}"]`)?.checked;
+  const isRecont = document.querySelector(`.inv-recontagem-check[data-item-id="${itemId}"]`)?.checked;
+  const row  = document.getElementById(`analisar-row-${itemId}`);
+  const card = document.getElementById(`analisar-card-${itemId}`);
+  const bg = isManter ? 'rgba(167,139,250,.10)' : isRecont ? 'rgba(255,180,0,.06)' : '';
+  if (row)  row.style.background = bg;
+  if (card) { card.style.background = bg; }
 }
 
 function _atualizarBotaoAceitar() {
@@ -10995,24 +11330,39 @@ function _atualizarBotaoAceitar() {
 
 async function aceitarInventario() {
   if (!_invAnalisando) return;
+
   const selecionados = [...new Set(
     [...document.querySelectorAll('.inv-recontagem-check:checked')].map(c => c.dataset.itemId)
+  )];
+  const manterQtd = [...new Set(
+    [...document.querySelectorAll('.inv-manter-check:checked')].map(c => c.dataset.itemId)
   )];
 
   const totalContados = (_invAnalisando.itensContados||[]).length;
   const temRecontagem = selecionados.length > 0;
+
+  let extras = '';
+  if (manterQtd.length)  extras += `\n🔒 ${manterQtd.length} iten(s) manterão a quantidade atual do sistema.`;
+  if (0) extras += `\n📌 ${0} iten(s) manterão a quantidade anterior do estoque.`;
+
+  const qtdAAtualizar = totalContados - selecionados.length - manterQtd.length - 0;
   const msg = temRecontagem
-    ? `Aceitar inventário e enviar ${selecionados.length} iten(s) para recontagem?\nOs demais ${totalContados-selecionados.length} itens terão suas quantidades atualizadas no estoque.`
-    : `Aceitar inventário e atualizar as quantidades de ${totalContados} iten(s) no estoque?`;
+    ? `Aceitar inventário e enviar ${selecionados.length} iten(s) para recontagem?\nOs demais ${qtdAAtualizar} itens terão suas quantidades atualizadas no estoque.${extras}`
+    : `Aceitar inventário e atualizar as quantidades de ${qtdAAtualizar} iten(s) no estoque?${extras}`;
 
   const ok = await sfConfirm({ title: 'Confirmar Aceitação', body: msg, type: 'warn', okText: 'Confirmar' });
   if (!ok) return;
 
   const inv = _invAnalisando;
-  const itensAceitos = (inv.itensContados||[]).filter(c => !selecionados.includes(c.itemId));
-  const itensRecontagem = (inv.itensContados||[]).filter(c => selecionados.includes(c.itemId));
+  const itensAceitos    = (inv.itensContados||[]).filter(c =>
+    !selecionados.includes(c.itemId) &&
+    !manterQtd.includes(c.itemId)
+  );
+  const itensRecontagem  = (inv.itensContados||[]).filter(c => selecionados.includes(c.itemId));
+  const itensMantidos = (inv.itensContados||[]).filter(c => manterQtd.includes(c.itemId));
+  const itensMantidosExtra = (inv.itensContados||[]).filter(c => manterQtd.includes(c.itemId));
 
-  // Atualizar quantidades e validades no estoque para os itens aceitos
+  // Atualizar quantidades para os itens aceitos normalmente
   let atualizados = 0;
   for (const c of itensAceitos) {
     const item = (db.itens||[]).find(i => i.id === c.itemId);
@@ -11022,10 +11372,13 @@ async function aceitarInventario() {
     try { await saveItem('itens', item); atualizados++; } catch(e) {}
   }
 
-  // Remover itens zerados
+  // itensMantidos: quantity in system is already correct, no update needed
+  // itensMantidosExtra: keep the qtd that was in the system before the count (already stored in item.qtd), no update needed
+
+  // Remover itens zerados (apenas dos aceitos, não dos mantidos)
   await _limparItensZerados();
 
-  // Montar registro histórico
+  // Registro histórico
   const histEntry = {
     id: uid(),
     inventarioId: inv.id,
@@ -11040,6 +11393,8 @@ async function aceitarInventario() {
     aceitoEm: new Date().toISOString(),
     itensAceitos: itensAceitos,
     itensRecontagem: itensRecontagem,
+    itensMantidos: itensMantidos,
+    itensMantidosExtra: itensMantidosExtra,
     status: temRecontagem ? 'aceito_parcial' : 'aceito',
     obs: inv.obs || ''
   };
@@ -11048,25 +11403,30 @@ async function aceitarInventario() {
   db.historico_inventario.push(histEntry);
 
   if (temRecontagem) {
-    // Enviar itens selecionados de volta para recontagem
     inv.status = 'recontagem';
     inv.itensRecontagem = itensRecontagem;
-    inv.itensContados = itensAceitos;
+    inv.itensContados = [...itensAceitos, ...itensMantidos, ...itensMantidosExtra];
     try {
       await saveItem('inventarios', inv);
       await saveItem('historico_inventario', histEntry);
-      toast(`Inventário parcialmente aceito. ${selecionados.length} iten(s) enviados para recontagem.`);
+      let t = `Inventário parcialmente aceito. ${selecionados.length} iten(s) para recontagem.`;
+      if (manterQtd.length)  t += ` ${manterQtd.length} com qtd do sistema mantida.`;
+      if (0) t += ` ${0} com qtd anterior mantida.`;
+      toast(t);
     } catch(e) { toast('Erro ao salvar.', 'error'); return; }
   } else {
-    // Inventário totalmente aceito — remover da coleção ativa
     await deleteItem('inventarios', inv.id);
     try {
       await saveItem('historico_inventario', histEntry);
-      toast(`Inventário aceito! ${atualizados} iten(s) atualizados no estoque.`);
+      let t = `Inventário aceito! ${atualizados} iten(s) atualizados.`;
+      if (manterQtd.length)  t += ` ${manterQtd.length} com qtd do sistema mantida.`;
+      if (0) t += ` ${0} com qtd anterior mantida.`;
+      toast(t);
     } catch(e) { toast('Inventário aceito, mas erro ao salvar histórico.', 'error'); }
   }
 
-  await logAudit('inventario', `Inventário aceito: ${inv.estoqueNome}`, `Por: ${currentUser.nome} | Aceitos: ${itensAceitos.length} | Recontagem: ${itensRecontagem.length}`);
+  await logAudit('inventario', `Inventário aceito: ${inv.estoqueNome}`,
+    `Por: ${currentUser.nome} | Aceitos: ${itensAceitos.length} | Mantidos(sis): ${itensMantidos.length} | Mantidos(ant): ${itensMantidosExtra.length} | Recontagem: ${itensRecontagem.length}`);
 
   fecharModal('modal-analisar-inventario');
   _invAnalisando = null;
@@ -11116,6 +11476,8 @@ function renderHistoricoInventario() {
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">
         ${totalAceitos} iten(s) aceito(s)
         ${totalRecontagem ? `&nbsp;·&nbsp; <span style="color:var(--warn);">${totalRecontagem} em recontagem</span>` : ''}
+        ${(h.itensMantidostema||h.itensMantidos||[]).length ? `&nbsp;·&nbsp; <span style="color:#a78bfa;">🔒 ${(h.itensMantidostema||h.itensMantidos||[]).length} qtd sistema</span>` : ''}
+        ${(h.itensMantidosExtraerior||[]).length ? `&nbsp;·&nbsp; <span style="color:#38bdf8;">📌 ${(h.itensMantidosExtraerior||[]).length} qtd anterior</span>` : ''}
       </div>
       <button class="btn btn-secondary" style="padding:6px 14px;font-size:12px;" onclick="_toggleHistInvDetalhes('${h.id}')">
         🔍 Ver Detalhes
@@ -11128,21 +11490,40 @@ function renderHistoricoInventario() {
 }
 
 function _renderHistInvDetalhes(h) {
-  const itens = [...(h.itensAceitos||[]), ...(h.itensRecontagem||[])];
+  const itens = [
+    ...(h.itensAceitos||[]).map(c => ({...c, _tipo:'aceito'})),
+    ...(h.itensRecontagem||[]).map(c => ({...c, _tipo:'recontagem'})),
+    ...(h.itensMantidostema||[]).map(c => ({...c, _tipo:'sistema'})),
+    ...(h.itensMantidosExtraerior||[]).map(c => ({...c, _tipo:'anterior'})),
+    // compatibilidade com registros antigos que usavam itensMantidos
+    ...(h.itensMantidos||[]).filter(c =>
+      !(h.itensMantidostema||[]).some(x=>x.itemId===c.itemId) &&
+      !(h.itensMantidosExtraerior||[]).some(x=>x.itemId===c.itemId)
+    ).map(c => ({...c, _tipo:'sistema'}))
+  ];
   if (!itens.length) return '<div style="color:var(--muted);font-size:13px;">Nenhum item registrado.</div>';
+
+  const badgeMap = {
+    aceito:     '<span class="badge badge-ok">Aceito</span>',
+    recontagem: '<span class="badge badge-warn">Recontagem</span>',
+    sistema:    '<span class="badge" style="background:rgba(167,139,250,.15);color:#a78bfa;border:1px solid rgba(167,139,250,.3);">🔒 Qtd sistema</span>',
+    anterior:   '<span class="badge" style="background:rgba(56,189,248,.12);color:#38bdf8;border:1px solid rgba(56,189,248,.3);">📌 Qtd anterior</span>'
+  };
 
   const rows = itens.map(c => {
     const item = (db.itens||[]).find(i => i.id === c.itemId);
-    const mat = item ? (db.materiais||[]).find(m => m.id === item.materialId) : null;
+    const mat  = item ? (db.materiais||[]).find(m => m.id === item.materialId) : null;
     const nome = mat ? mat.nome : '?';
     const lote = item ? item.lote : '?';
-    const isRecont = (h.itensRecontagem||[]).some(r => r.itemId === c.itemId);
+    const qtdStr = (c._tipo === 'sistema' || c._tipo === 'anterior')
+      ? `<span style="color:var(--muted);">—</span>`
+      : String(Number(c.qtdContada)||0);
     return `<tr>
       <td><strong>${nome}</strong></td>
       <td style="font-size:11px;"><span style="background:rgba(255,255,255,.06);padding:2px 6px;border-radius:4px;">${lote}</span></td>
-      <td style="font-weight:700;">${Number(c.qtdContada)||0}</td>
+      <td style="font-weight:700;">${qtdStr}</td>
       <td style="color:var(--muted);font-size:12px;">${c.validadeContada ? fmt(c.validadeContada) : '—'}</td>
-      <td>${isRecont ? '<span class="badge badge-warn">Recontagem</span>' : '<span class="badge badge-ok">Aceito</span>'}</td>
+      <td>${badgeMap[c._tipo]||''}</td>
     </tr>`;
   }).join('');
 
@@ -11175,6 +11556,46 @@ setInterval(() => {
   _verificarInventarioPendenteUsuario();
 }, 30000);
 
+
+// Expõe funções no window — obrigatório com <script type="module">
+(function() {
+  const fns = {
+    navigateTo, logout, renderDash,
+    renderEstoques, abrirFormEstoque, fecharFormEstoque, salvarEstoque, excluirEstoque,
+    renderMateriais, abrirFormMaterial, fecharFormMaterial, salvarMaterial, excluirMaterial,
+    renderEntradas, abrirFormEntrada, fecharFormEntrada, registrarEntrada,
+    renderSaidas, abrirFormSaida, fecharFormSaida, registrarSaida,
+    renderTransferencias, abrirFormTransferencia, fecharFormTransferencia, registrarTransferencia,
+    toggleTrfLote,
+    renderRequisicoes, abrirFormRequisicao, fecharFormRequisicao, salvarRequisicao,
+    aprovarRequisicao, reprovarRequisicao, cancelarRequisicao,
+    renderAnalise, limparFiltrosHistorico,
+    renderUsuarios, abrirFormUsuario, fecharFormUsuario, salvarUsuario, excluirUsuario,
+    renderAuditoria,
+    renderSnapshots, criarSnapshot, restaurarSnapshot, excluirSnapshot,
+    renderRecebimentos, registrarRecebimento, abrirModalEntradaRecebimento, confirmarEntradaRecebimento,
+    exportarRecebimentoPDF, popularSelectRecvMaterial, toggleRecvValidade, toggleRecvLoteDestino,
+    onRecvMaterialChange, _syncRecvLoteDest, _syncRecvValDest,
+    renderQualidade, toggleInspCard, setInspResult, finalizarInspeccao,
+    abrirModalNC, confirmarAbrirNC, renderNaoConformidades, atualizarStatusNC, abrirDetalheNC, encerrarNC,
+    exportarNCsExcel, exportarNCsPDF,
+    renderCalibracao, salvarDispositivo, _calibEditarDispositivo, _calibExcluirDispositivo,
+    _calibVisualizarArquivo, _calibNovaCalibração, _calibSelecionarArquivo, _calibDropFile,
+    _calibLimparForm, _calibCancelarEdicao, exportarCalibracaoPDFUnico, exportarCalibracaoExcel, exportarCalibracaoPDFGeral,
+    exportarHistoricoExcel, exportarHistoricoPDF, renderHistoricoRecebimentos,
+    renderInventarios, abrirSolicitarInventario, fecharFormInventario, solicitarInventario,
+    cancelarInventarioAdm, mostrarModalInventario, iniciarContagem, cancelarContagem, finalizarContagem,
+    abrirAnalisarInventario, aceitarInventario, _atualizarBotaoAceitar,
+    _desmarcarManter, _onCheckExclusivo, _aplicarDestaqueLinha,
+    _toggleFormNovoItemInv, _toggleLoteInv, _adicionarNovoItemInventario,
+    _filtrarContagemTabela, _marcarLinhaPreenchida,
+    renderHistoricoInventario, limparFiltrosHistInv, _toggleHistInvDetalhes,
+    abrirModal, fecharModal, renderNotificacoes, sfConfirm, toast,
+    excluirRegistroTeste, excluirRecebimentoTeste, excluirInspeccaoTeste,
+    _mostrarTesteBoxAdm, gerarRelatorio, exportarRelatorioExcel, exportarRelatorioPDF,
+  };
+  Object.keys(fns).forEach(k => { try { if (fns[k] !== undefined) window[k] = fns[k]; } catch(e){} });
+})();
 </script>
 </body>
 </html>
