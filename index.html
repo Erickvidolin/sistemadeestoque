@@ -2549,25 +2549,26 @@ function _iniciarListenerCurrentUser(uid) {
     const data = snap.data();
     const novasAreas = Array.isArray(data.areas) ? data.areas : [];
     const novoRole   = data.role || 'user';
-    // Só atualiza se realmente mudou algo (evita re-render desnecessário)
-    const areasIguais = JSON.stringify(novasAreas.slice().sort()) === JSON.stringify((currentUser.areas||[]).slice().sort());
-    const roleIgual   = novoRole === currentUser.role;
-    if (areasIguais && roleIgual) return;
-    console.log('[StockFlow] Perfil do usuário atualizado pelo admin — reconstruindo menu.');
+    // Compara com o estado ANTERIOR ao update (antes de sobrescrever)
+    const roleAntes  = currentUser.role;
+    const areasAntes = JSON.stringify([...(currentUser.areas || [])].sort());
+    const areasNovas = JSON.stringify([...novasAreas].sort());
+    const mudou = novoRole !== roleAntes || areasAntes !== areasNovas;
+    // Atualiza currentUser com dados frescos do Firestore
     currentUser.areas = novasAreas;
     currentUser.role  = novoRole;
-    // Reconstruir menu lateral e chip de role
+    // Reconstrói o menu sempre — garante sincronia independente de mudança
     buildNav();
     const roleLabels = {adm:'Administrador', quality:'Qualidade', recv:'Recebimento', user:'Usuário'};
     const roleChip = document.getElementById('role-chip');
     if (roleChip) roleChip.textContent = roleLabels[novoRole] || 'Usuário';
-    // Atualizar avatar class
     const av = document.getElementById('avatar-chip');
     if (av) {
       const roleAvatarClass = {adm:'avatar-adm', quality:'avatar-quality', recv:'avatar-recv', user:'avatar-user'};
       av.className = 'user-avatar ' + (roleAvatarClass[novoRole] || 'avatar-user');
     }
-    toast('⚙️ Suas permissões foram atualizadas pelo administrador.');
+    if (mudou) toast('⚙️ Suas permissões foram atualizadas pelo administrador.');
+    console.log('[StockFlow] Perfil sincronizado — role:', novoRole, '| áreas:', currentUser.areas);
   }, (err) => {
     console.warn('[StockFlow] Listener do usuário falhou:', err.message);
   });
@@ -3102,6 +3103,7 @@ function buildNav() {
     if (areas.includes('qualidade'))              custom.push({ id:'qualidade', icon:'quality', label:'Qualidade' });
     if (areas.includes('historico-recebimentos')) custom.push({ id:'historico-recebimentos', icon:'history', label:'Histórico de Recebimentos' });
     if (areas.includes('nao-conformidades'))      custom.push({ id:'nao-conformidades', icon:'nc', label:'Não Conformidades' });
+    if (areas.includes('calibracao'))             custom.push({ id:'calibracao', icon:'calib', label:'Calibração de Dispositivos' });
     if (areas.includes('validade'))               custom.push({ id:'validade', icon:'clock', label:'Controle de Validade' });
     if (areas.includes('relatorios'))             custom.push({ id:'relatorios', icon:'document', label:'Relatórios' });
     if (areas.includes('auditoria'))              custom.push({ id:'auditoria', icon:'audit', label:'Auditoria & Logs' });
@@ -6771,6 +6773,35 @@ async function _processarFilaReenvioAudit() {
 }
 // Tenta processar fila quando o usuário volta a focar na aba
 window.addEventListener('focus', _processarFilaReenvioAudit);
+// Ao retomar o foco na aba, re-sincroniza o perfil do usuário (áreas/role)
+// Cobre o caso em que o colaborador estava com a aba em segundo plano
+// quando o admin atualizou as permissões e o onSnapshot não disparou
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState !== 'visible') return;
+  if (!currentUser || !currentUser.uid) return;
+  try {
+    const snap = await window._firebase.getDoc(
+      window._firebase.doc(window._firebase.firestore, 'users', currentUser.uid)
+    );
+    if (!snap.exists()) return;
+    const data = snap.data();
+    const novasAreas = Array.isArray(data.areas) ? data.areas : [];
+    const novoRole   = data.role || 'user';
+    const areasAntes = JSON.stringify([...(currentUser.areas||[])].sort());
+    const areasNovas = JSON.stringify([...novasAreas].sort());
+    const mudou = novoRole !== currentUser.role || areasAntes !== areasNovas;
+    currentUser.areas = novasAreas;
+    currentUser.role  = novoRole;
+    if (mudou) {
+      buildNav();
+      const roleLabels = {adm:'Administrador', quality:'Qualidade', recv:'Recebimento', user:'Usuário'};
+      const roleChip = document.getElementById('role-chip');
+      if (roleChip) roleChip.textContent = roleLabels[novoRole] || 'Usuário';
+      toast('⚙️ Suas permissões foram atualizadas.');
+      console.log('[StockFlow] Perfil re-sincronizado ao retomar aba.');
+    }
+  } catch(e) { /* silencioso — sem conexão */ }
+});
 
 // Estado de paginação
 let _audPage = 0;
@@ -10590,7 +10621,7 @@ function _verificarInventarioPendenteUsuario() {
   if (!currentUser || currentUser.role === 'adm') return;
   const meu = (db.inventarios||[]).find(inv =>
     inv.usuarioId === currentUser.uid &&
-    (inv.status === 'pendente' || inv.status === 'em_andamento')
+    (inv.status === 'pendente' || inv.status === 'em_andamento' || inv.status === 'recontagem')
   );
   if (!meu) return;
   _invAtivo = meu;
@@ -10896,7 +10927,7 @@ function _renderContagemTabela(itens, inv) {
 
   itens.forEach(item => {
     const mat = (db.materiais||[]).find(m => m.id === item.materialId);
-    const nome = mat ? mat.nome : '?';
+    const nome = mat ? mat.nome : (item.materialNome || '?');
     const prev = rascunho[item.id] || contadosAntes[item.id] || recontAntes[item.id] || {};
     const prevQtd = prev.qtdContada !== undefined && prev.qtdContada !== '' ? prev.qtdContada : '';
     const prevVal = prev.validadeContada || '';
@@ -11285,7 +11316,18 @@ async function finalizarContagem() {
   const mapa = {};
   qtdInputs.forEach(el => {
     const id = el.dataset.itemId;
-    if (!mapa[id]) mapa[id] = { itemId: id, qtdContada: '', validadeContada: '' };
+    if (!mapa[id]) {
+      // Salvar materialNome e lote no momento da contagem como fallback para exibição futura
+      const itemRef = (db.itens||[]).find(i => i.id === id);
+      const matRef  = itemRef ? (db.materiais||[]).find(m => m.id === itemRef.materialId) : null;
+      mapa[id] = {
+        itemId: id,
+        qtdContada: '',
+        validadeContada: '',
+        materialNome: matRef ? matRef.nome : (itemRef ? itemRef.materialNome || '?' : '?'),
+        lote: itemRef ? itemRef.lote : '?'
+      };
+    }
     if (el.value !== '') mapa[id].qtdContada = el.value;
   });
   valInputs.forEach(el => {
@@ -11368,8 +11410,8 @@ function abrirAnalisarInventario(invId) {
   itensContados.forEach(c => {
     const item = (db.itens||[]).find(i => i.id === c.itemId);
     const mat = item ? (db.materiais||[]).find(m => m.id === item.materialId) : null;
-    const nome = mat ? mat.nome : (item ? item.materialNome || '?' : '— Item removido —');
-    const lote = item ? item.lote : '?';
+    const nome = mat ? mat.nome : (c.materialNome || (item ? item.materialNome || '?' : '— Item removido —'));
+    const lote = item ? item.lote : (c.lote || '?');
     const qtdSistema = item ? (Number(item.qtd)||0) : 0;
     const qtdContada = Number(c.qtdContada) || 0;
     const diff = qtdContada - qtdSistema;
@@ -11675,8 +11717,8 @@ function _renderHistInvDetalhes(h) {
   const rows = itens.map(c => {
     const item = (db.itens||[]).find(i => i.id === c.itemId);
     const mat  = item ? (db.materiais||[]).find(m => m.id === item.materialId) : null;
-    const nome = mat ? mat.nome : '?';
-    const lote = item ? item.lote : '?';
+    const nome = mat ? mat.nome : (c.materialNome || (item ? item.materialNome || '?' : '?'));
+    const lote = item ? item.lote : (c.lote || '?');
     const qtdStr = (c._tipo === 'sistema' || c._tipo === 'anterior')
       ? `<span style="color:var(--muted);">—</span>`
       : String(Number(c.qtdContada)||0);
